@@ -1,0 +1,151 @@
+import { Application, Container, Graphics } from 'pixi.js';
+import type { PetRuntimeSnapshot } from '../types';
+
+/**
+ * PixiJS owns Lenvu's high-frequency presentation layer.
+ *
+ * This is intentionally a vector placeholder renderer. Production sprites/atlases will replace
+ * these primitives after the canonical Lenvu anatomy and animation anchors are normalized.
+ */
+export class PetRenderer {
+  private readonly app = new Application();
+  private readonly root = new Container();
+  private readonly focusRing = new Graphics()
+    .circle(0, 54, 58)
+    .stroke({ color: 0x4edbff, width: 2, alpha: 0.55 });
+  private readonly leftEye = new Graphics().circle(-18, -26, 6).fill(0x67e9ff);
+  private readonly rightEye = new Graphics().circle(18, -26, 6).fill(0xb991ff);
+  private snapshot: PetRuntimeSnapshot | null = null;
+  private raf = 0;
+  private startedAt = performance.now();
+
+  async mount(container: HTMLElement) {
+    await this.app.init({
+      resizeTo: container,
+      backgroundAlpha: 0,
+      preference: 'webgl',
+      powerPreference: 'low-power',
+      antialias: false,
+      resolution: 1,
+      autoDensity: false,
+    });
+
+    this.app.canvas.setAttribute('aria-hidden', 'true');
+    container.appendChild(this.app.canvas);
+
+    this.focusRing.scale.y = 0.32;
+    this.focusRing.visible = false;
+
+    const body = new Graphics()
+      .roundRect(-42, -18, 84, 92, 34)
+      .fill({ color: 0x8ba7b8, alpha: 0.96 })
+      .stroke({ color: 0x6ee3ff, width: 1.5, alpha: 0.55 });
+
+    const chest = new Graphics()
+      .roundRect(-27, 10, 54, 54, 24)
+      .fill({ color: 0xd5e5ee, alpha: 0.85 });
+
+    const head = new Graphics()
+      .circle(0, -34, 47)
+      .fill({ color: 0xb8cbd7, alpha: 0.98 })
+      .stroke({ color: 0x72e8ff, width: 1.5, alpha: 0.6 });
+
+    const leftEar = new Graphics()
+      .circle(-36, -68, 21)
+      .fill({ color: 0x6f899b, alpha: 0.98 });
+    leftEar.scale.y = 1.4;
+
+    const rightEar = new Graphics()
+      .circle(36, -68, 21)
+      .fill({ color: 0x6f899b, alpha: 0.98 });
+    rightEar.scale.y = 1.4;
+
+    const leftHorn = new Graphics().circle(-19, -82, 5).fill(0xd8b86b);
+    const rightHorn = new Graphics().circle(19, -82, 5).fill(0xd8b86b);
+
+    const tail = new Graphics()
+      .circle(47, 37, 19)
+      .fill({ color: 0x77e9ff, alpha: 0.48 });
+
+    this.root.addChild(
+      this.focusRing,
+      tail,
+      body,
+      chest,
+      head,
+      leftEar,
+      rightEar,
+      leftHorn,
+      rightHorn,
+      this.leftEye,
+      this.rightEye,
+    );
+
+    this.root.position.set(container.clientWidth / 2, container.clientHeight / 2 + 8);
+    this.app.stage.addChild(this.root);
+    this.startedAt = performance.now();
+    this.animate();
+  }
+
+  update(snapshot: PetRuntimeSnapshot) {
+    this.snapshot = snapshot;
+    this.focusRing.visible = snapshot.state.mode === 'focus_guard';
+
+    const eyeScale = snapshot.state.emotion === 'happy' ? 1.18 : 1;
+    this.leftEye.scale.set(eyeScale);
+    this.rightEye.scale.set(eyeScale);
+
+    switch (snapshot.state.posture) {
+      case 'sleep':
+        this.root.rotation = -0.12;
+        this.root.scale.set(1.02, 0.72);
+        break;
+      case 'lie':
+        this.root.rotation = -0.06;
+        this.root.scale.set(1.03, 0.82);
+        break;
+      case 'sit':
+        this.root.rotation = 0;
+        this.root.scale.set(0.96, 0.94);
+        break;
+      default:
+        this.root.rotation = 0;
+        this.root.scale.set(1);
+    }
+  }
+
+  destroy() {
+    cancelAnimationFrame(this.raf);
+    this.app.destroy(true, { children: true });
+  }
+
+  private animate = () => {
+    const elapsed = (performance.now() - this.startedAt) / 1000;
+    const behavior = this.snapshot?.behavior?.kind;
+    const posture = this.snapshot?.state.posture;
+
+    let bob = Math.sin(elapsed * 2.1) * 1.5;
+    let sway = Math.sin(elapsed * 1.25) * 0.01;
+
+    if (behavior === 'play') {
+      bob = Math.abs(Math.sin(elapsed * 6)) * -8;
+      sway = Math.sin(elapsed * 5) * 0.08;
+    } else if (behavior === 'receive_pet') {
+      bob = Math.sin(elapsed * 4) * 2.5;
+    } else if (posture === 'sleep') {
+      bob = Math.sin(elapsed * 1.2) * 0.8;
+      sway = -0.12;
+    }
+
+    const view = this.app.canvas.parentElement;
+    if (view) {
+      this.root.position.set(view.clientWidth / 2, view.clientHeight / 2 + 8 + bob);
+    }
+    if (posture !== 'sleep' && posture !== 'lie') {
+      this.root.rotation = sway;
+    }
+
+    this.focusRing.alpha = 0.45 + Math.sin(elapsed * 2.4) * 0.18;
+    this.raf = requestAnimationFrame(this.animate);
+  };
+}
