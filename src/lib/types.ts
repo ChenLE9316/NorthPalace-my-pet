@@ -49,6 +49,7 @@ export interface PetRuntimeSnapshot {
 
 export type PetInteraction =
   | 'hover'
+  | 'hover_end'
   | 'touch'
   | 'pet'
   | 'play'
