@@ -1,4 +1,6 @@
 mod domain;
+#[cfg(target_os = "windows")]
+mod platform;
 mod runtime;
 
 use std::time::Duration;
@@ -22,6 +24,9 @@ fn pet_interact(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = RuntimeHandle::spawn(Duration::from_millis(250));
+
+    #[cfg(target_os = "windows")]
+    platform::windows::spawn_idle_sensor(runtime.clone());
 
     tauri::Builder::default()
         .manage(runtime)
