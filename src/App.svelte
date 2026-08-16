@@ -2,15 +2,19 @@
   import { onMount } from 'svelte';
   import type { PetInteraction } from './lib/types';
   import { fallbackSnapshot, getPetSnapshot, interact } from './lib/pet/runtime';
+  import { PetRenderer } from './lib/pet/renderer';
 
   let snapshot = fallbackSnapshot;
   let showPanel = false;
   let timer: number | undefined;
+  let petCanvas: HTMLDivElement;
+  let renderer: PetRenderer | null = null;
 
   const percent = (value: number) => `${Math.round(value * 100)}%`;
 
   async function refresh() {
     snapshot = await getPetSnapshot();
+    renderer?.update(snapshot);
   }
 
   async function send(kind: PetInteraction) {
@@ -48,9 +52,28 @@
   }
 
   onMount(() => {
+    let disposed = false;
+
+    void (async () => {
+      const instance = new PetRenderer();
+      await instance.mount(petCanvas);
+      if (disposed) {
+        instance.destroy();
+        return;
+      }
+      renderer = instance;
+      renderer.update(snapshot);
+    })();
+
     void refresh();
     timer = window.setInterval(() => void refresh(), 500);
-    return () => window.clearInterval(timer);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+      renderer?.destroy();
+      renderer = null;
+    };
   });
 </script>
 
@@ -64,10 +87,8 @@
     onmouseleave={() => void send('hover_end')}
     onpointerdown={() => void send('touch')}
   >
-    <div class:focus={snapshot.state.mode === 'focus_guard'} class="holo-ring"></div>
-    <div class="pet-core">
-      <div class="ears">◆　◆</div>
-      <div class="eyes">◉　◉</div>
+    <div class="pet-canvas" bind:this={petCanvas}></div>
+    <div class="pet-label">
       <div class="name">Lenvu</div>
       <div class="activity">{stateLabel()}</div>
       {#if snapshot.behavior}
@@ -119,7 +140,7 @@
         <img src="/lenvu-system-overview.webp" alt="NorthPalace-my-pet UI/UX and architecture concept" />
         <div>
           <strong>Pet first, AI second.</strong>
-          <p>現在由 Rust Pet Runtime 維持 Lenvu 的生命時鐘；UI 只讀 snapshot，不再驅動 Pet Brain。</p>
+          <p>Rust Pet Runtime 維持生命狀態；PixiJS 專門負責高頻角色渲染，Svelte 只處理面板與互動。</p>
         </div>
       </section>
     </aside>
