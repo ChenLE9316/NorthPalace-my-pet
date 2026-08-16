@@ -6,7 +6,7 @@ NorthPalace-my-pet is a lightweight desktop-pet and local AI companion designed 
 
 ![NorthPalace-my-pet system overview](docs/assets/lenvu-system-overview.webp)
 
-> Current development status: **V0.2 / Phase 1 living-desktop-pet foundation**. The feature branch has passed a complete Windows CI run covering the Svelte/PixiJS frontend and Rust/Tauri tests.
+> Current development status: **V0.2 — living desktop pet + first Persistent Life layer**. The feature branch passes Windows CI across Svelte/PixiJS, Rust/Tauri and bundled SQLite persistence tests.
 
 ## Product principles
 
@@ -18,7 +18,7 @@ NorthPalace-my-pet is a lightweight desktop-pet and local AI companion designed 
 - **LLM is not the reflex layer** — ordinary pet behavior is instant and fully offline.
 - **Vision is optional** — structured Windows context comes first; screen vision is future, opt-in and on-demand.
 - **Local first** — pet state, relationship, memories, logs and model execution stay on-device by default.
-- **Graceful degradation** — AI/sensor failures degrade capabilities without killing Lenvu's ordinary life loop.
+- **Graceful degradation** — AI, database or sensor failures degrade capabilities without killing Lenvu's ordinary life loop.
 
 ## Current architecture
 
@@ -42,6 +42,12 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   |   +-- selective native cursor passthrough
 |   |   `-- native pet-window motion controller
 |   |
+|   +-- Persistence
+|   |   +-- app-local-data / lenvu.sqlite3
+|   |   +-- schema migrations
+|   |   +-- separate DB-owning worker
+|   |   `-- changed-only autosave
+|   |
 |   `-- WebView windows
 |       +-- pet       -> transparent / always-on-top / PixiJS
 |       `-- companion -> independent Svelte management window
@@ -52,8 +58,8 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   +-- facing-aware semantic hit zones
 |   `-- PixiJS low-power renderer
 |
-+-- Local Data [planned]
-|   `-- SQLite + FTS5
++-- Local memory [next]
+|   `-- SQLite + FTS5 tables for episodic/semantic/preference/relationship memory
 |
 `-- Optional AI Workers [planned]
     +-- Text: llama.cpp -> MiniCPM5-1B GGUF
@@ -77,7 +83,10 @@ Lenvu already has a fully offline path for:
 - automatic left/right boundary reversal;
 - domain-level facing state synchronized with the renderer;
 - facing-aware head/body/tail interaction regions;
-- native transparent click-through outside Lenvu while retaining cursor re-entry into interactive regions.
+- native transparent click-through outside Lenvu while retaining cursor re-entry into interactive regions;
+- SQLite-backed persistence of facing, energy, curiosity, bond and sleep pressure across restarts.
+
+Transient environment-dependent state is intentionally **not** restored from SQLite. A new session starts with fresh locomotion/posture/mode/cognition/user-idle state, then applies the saved long-lived values.
 
 The current Lenvu render is deliberately a lightweight procedural placeholder. Production character art will replace it only after anatomy, scale, anchors, atlas bounds and masks are normalized from the reference sheets.
 
@@ -88,6 +97,14 @@ The current Lenvu render is deliberately a lightweight procedural placeholder. P
 3. **Context bubble** — compact status/reaction layer beside Lenvu.
 4. **Companion window** — independent status and interaction surface; hiding it does not stop Pet Runtime.
 5. **Deep management** — model/privacy/memory/performance/settings surfaces are planned separately.
+
+## Persistence policy
+
+The first Persistent Life schema deliberately stays small. `lenvu.sqlite3` lives under the application's local-data directory, and SQLite owns only long-lived values. Database writes happen on a separate persistence worker; ordinary Pet Brain ticks never wait on SQLite.
+
+If persistence cannot initialize, Lenvu continues with session-only state and diagnostics rather than failing application startup.
+
+See `docs/PERSISTENCE.md`.
 
 ## Vision policy
 
@@ -108,7 +125,7 @@ NorthPalace-my-pet/
 +-- docs/                   living architecture/product specifications
 +-- public/                 UI-served resources
 +-- src/                    Svelte + PixiJS presentation
-+-- src-tauri/              Rust Pet Runtime + Tauri/Windows integration
++-- src-tauri/              Rust Pet Runtime + persistence + Tauri/Windows integration
 +-- README.md
 +-- package.json
 `-- vite.config.ts
@@ -116,15 +133,16 @@ NorthPalace-my-pet/
 
 ## Validation status
 
-The first complete Windows CI has passed:
+The feature branch has passed clean Windows CI after the persistence integration:
 
 - frontend dependency installation;
 - Svelte + PixiJS production build;
 - stable Rust setup;
 - Rust/Tauri compilation;
-- Pet Runtime/domain/platform unit tests.
+- Pet Runtime/domain/platform unit tests;
+- bundled SQLite schema, migration and state round-trip tests.
 
-This proves the feature-branch source compiles in a clean GitHub Windows runner. It does **not** replace the required performance/build validation on the actual Ryzen 3 2200G + Vega 8 target machine.
+This proves the feature-branch source compiles in a clean GitHub Windows runner. It does **not** replace the required executable/performance validation on the actual Ryzen 3 2200G + Vega 8 target machine.
 
 ## Next milestones
 
@@ -132,8 +150,9 @@ This proves the feature-branch source compiles in a clean GitHub Windows runner.
 - replace the procedural character with a production PixiJS sprite/atlas graph;
 - add drag/pick-up and monitor/DPI change observation;
 - define a deliberate multi-monitor movement policy;
-- add SQLite persistence before MiniCPM5-1B;
-- benchmark the real target machine before committing to AI context/runtime defaults.
+- extend the same SQLite database into typed memory tables and bounded event history;
+- add graceful-shutdown final persistence before depending on autosave alone;
+- benchmark the real target machine before committing to MiniCPM5-1B runtime/context defaults.
 
 ## Living design documents
 
@@ -141,6 +160,7 @@ This proves the feature-branch source compiles in a clean GitHub Windows runner.
 - `docs/FOUNDATION_REVIEW.md`
 - `docs/UI_UX.md`
 - `docs/PET_BRAIN.md`
+- `docs/PERSISTENCE.md`
 - `docs/CHARACTER_BIBLE.md`
 - `docs/ASSET_PIPELINE.md`
 - `docs/DESKTOP_WINDOW.md`

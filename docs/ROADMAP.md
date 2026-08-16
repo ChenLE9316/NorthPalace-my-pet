@@ -17,7 +17,7 @@
 - [x] Make Svelte consume immutable Pet Runtime snapshots instead of driving simulation time.
 - [x] Add Windows idle/return and foreground-app awareness.
 - [x] Add Windows CI workflow definition.
-- [x] Pass the first complete Windows CI: Svelte/PixiJS build + Rust/Tauri tests.
+- [x] Pass complete Windows CI: Svelte/PixiJS build + Rust/Tauri tests.
 - [ ] Run first clean executable build on the target Windows 11 / R3 2200G machine.
 - [ ] Record baseline RAM / idle CPU / GPU usage on Ryzen 3 2200G + 16 GB.
 
@@ -49,11 +49,20 @@
 
 ## Phase 2 — Persistent life
 
-- [ ] SQLite schema and migrations.
-- [ ] Save pet state and relationship.
-- [ ] Episodic/semantic/preference/relationship memory types.
-- [ ] Time-of-day rhythm persistence.
-- [ ] Activity/event journal with bounded retention.
+- [x] Add bundled SQLite persistence without requiring a system SQLite install.
+- [x] Add schema versioning/migration with `PRAGMA user_version`.
+- [x] Store core long-lived pet state: facing, energy, curiosity, bond and sleep pressure.
+- [x] Load long-lived values into fresh transient Pet State defaults on startup.
+- [x] Move database writes to a separate persistence worker.
+- [x] Add changed-only 30-second autosave.
+- [x] Fall back to session-only state if local data / SQLite initialization fails.
+- [x] Pass Windows CI with SQLite migration/state round-trip tests.
+- [ ] Add graceful-shutdown final save.
+- [ ] Add relationship-event history beyond the current `bond` scalar.
+- [ ] Add episodic / semantic / preference / relationship memory tables.
+- [ ] Add FTS5 indexes and memory retrieval policy.
+- [ ] Add time-of-day rhythm persistence where it represents long-lived state.
+- [ ] Add bounded activity/event journal with retention policy.
 
 ## Phase 3 — Windows awareness and focus companion
 
