@@ -2,11 +2,22 @@
 
 Pet Brain is the core of NorthPalace-my-pet. It must produce believable behavior without an LLM or a vision model.
 
-## V0 status
+## V0.2 status
 
-The repository still contains the original V0 `PetActivity` prototype for compatibility while V0.2 is introduced. V0.2 adds separate contracts for parallel state, domain events and behavior intents. The next migration step is to move simulation ownership into the Rust runtime clock and retire UI-owned ticking.
+The original single `PetActivity` Pet Brain and JavaScript-owned `tick_pet` loop have been retired. V0.2 now runs through a Rust-owned Pet Runtime with:
 
-## Parallel state model (V0.2 target)
+- monotonic runtime ticks;
+- parallel pet state dimensions;
+- Domain Events;
+- Behavior Intents with priority, duration and interruption policy;
+- immutable runtime snapshots for presentation;
+- explicit runtime health;
+- a low-cost Windows idle/return sensor;
+- PixiJS as the high-frequency visual renderer boundary.
+
+Svelte polls snapshots for presentation only. It no longer advances Lenvu's simulation clock.
+
+## Parallel state model
 
 Lenvu does not have one exclusive activity. Several dimensions coexist:
 
@@ -15,7 +26,7 @@ PetState
 |- locomotion: stationary | walk | run | jump
 |- posture: stand | sit | lie | sleep
 |- attention: idle | user | cursor | window | object
-|- emotion: calm | curious | happy | shy | concerned | sleepy
+|- emotion: calm | curious | happy | shy | concerned | sleepy | focused
 |- mode: ambient | focus_guard | do_not_disturb | play
 `- cognition: idle | listening | thinking | speaking | remembering
 ```
@@ -25,7 +36,7 @@ Example valid state:
 ```text
 posture     = sit
 attention   = user
-emotion     = curious
+emotion     = focused
 mode        = focus_guard
 cognition   = idle
 ```
@@ -54,7 +65,7 @@ Not every dimension should be exposed as a visible game meter. Some are internal
 
 ## Behavior Intent
 
-Short-lived actions are represented independently from long-lived state. They carry duration/TTL, priority and interruption policy so reactions survive more than one tick.
+Short-lived actions are represented independently from long-lived state. They carry duration/TTL, priority and interruption policy so reactions survive more than one simulation tick.
 
 ```json
 {
@@ -66,14 +77,17 @@ Short-lived actions are represented independently from long-lived state. They ca
 }
 ```
 
-Examples:
+Current intent families include:
 
+- observe user;
 - receive pet;
 - play;
 - wake;
 - settle to rest;
-- focus guard;
-- observe user.
+- sleep entry;
+- focus guard entry.
+
+Persistent modes such as Focus Guard remain in `PetState`; a short Behavior Intent represents their entry/reaction animation rather than the whole mode lifetime.
 
 ## Decision pipeline
 
@@ -93,7 +107,7 @@ Candidate behaviors
 Constraints + priorities + needs
           |
           v
-Weighted behavior selection
+Behavior selection
           |
           v
 Behavior Intent
@@ -102,6 +116,20 @@ Behavior Intent
           +--> Context bubble policy
           `--> Optional AI request
 ```
+
+## Current deterministic reflexes
+
+No AI is required for:
+
+- cursor enter/leave;
+- touch and petting;
+- play requests;
+- sleeping/waking;
+- Focus Guard entry/exit;
+- Windows user idle/return state;
+- simple rest/sleep utility selection;
+- energy drain and sleep recovery;
+- AI worker availability state.
 
 ## Reflex vs cognition
 
@@ -131,17 +159,40 @@ Pet Brain must never depend on raw screenshots. Future screen vision produces a 
 
 ## Sleep and recovery
 
-V0 used a fixed idle threshold. The target system should select rest/sleep based on utility from multiple signals such as energy, sleep pressure, time of day, recent interaction and user idle state. Sleeping should recover energy rather than continue draining it.
+Rest and sleep are selected from multiple signals rather than a single hard-coded inactivity enum transition. Current V0.2 inputs include user idle time, energy, sleep pressure and time-of-day bias. Sleeping recovers energy and reduces sleep pressure.
+
+The policy remains deliberately simple until it can be tuned against real usage on the target Ryzen 3 2200G machine.
 
 ## User focus is not pet focus
 
-Avoid a single ambiguous `focus: f32`. Keep these concepts separate:
+These concepts remain separate:
 
-- pet `attention` / `alertness`;
-- user focus-session/context state;
+- pet `attention` / future `alertness`;
+- user idle/focus-session context;
 - `focus_guard` system mode.
 
+There is no ambiguous global `focus: f32` field in V0.2.
+
 ## Runtime ownership
+
+```text
+Windows sensor / UI command
+          |
+          v
+      Domain Event
+          |
+          v
+ Rust Pet Runtime actor
+          |
+          +--> monotonic Tick
+          +--> PetBrainV2
+          +--> RuntimeSnapshot
+                    |
+              +-----+------+
+              |            |
+           PixiJS        Svelte
+          renderer        panels
+```
 
 Rust owns simulation time. Svelte issues commands and renders immutable snapshots; the UI is not allowed to keep Lenvu alive by repeatedly calling a tick function.
 
