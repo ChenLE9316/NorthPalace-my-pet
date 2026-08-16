@@ -20,28 +20,52 @@ pub struct BehaviorIntent {
     pub priority: u8,
     pub remaining_ms: u64,
     pub interruptible: bool,
-    pub animation: &'static str,
+    pub animation: String,
 }
 
 impl BehaviorIntent {
-    pub fn receive_pet() -> Self {
+    fn new(
+        kind: BehaviorKind,
+        priority: u8,
+        remaining_ms: u64,
+        interruptible: bool,
+        animation: &str,
+    ) -> Self {
         Self {
-            kind: BehaviorKind::ReceivePet,
-            priority: 60,
-            remaining_ms: 3_200,
-            interruptible: true,
-            animation: "pet_receive",
+            kind,
+            priority,
+            remaining_ms,
+            interruptible,
+            animation: animation.to_owned(),
         }
     }
 
+    pub fn observe_user() -> Self {
+        Self::new(BehaviorKind::ObserveUser, 30, 1_800, true, "observe_user")
+    }
+
+    pub fn receive_pet() -> Self {
+        Self::new(BehaviorKind::ReceivePet, 60, 3_200, true, "pet_receive")
+    }
+
     pub fn play() -> Self {
-        Self {
-            kind: BehaviorKind::Play,
-            priority: 50,
-            remaining_ms: 5_000,
-            interruptible: true,
-            animation: "play",
-        }
+        Self::new(BehaviorKind::Play, 50, 5_000, true, "play")
+    }
+
+    pub fn settle_to_rest() -> Self {
+        Self::new(BehaviorKind::SettleToRest, 20, 2_000, true, "lie_down")
+    }
+
+    pub fn sleep() -> Self {
+        Self::new(BehaviorKind::Sleep, 25, 1_600, true, "sleep_enter")
+    }
+
+    pub fn wake() -> Self {
+        Self::new(BehaviorKind::Wake, 80, 1_500, false, "wake")
+    }
+
+    pub fn focus_guard() -> Self {
+        Self::new(BehaviorKind::FocusGuard, 70, 1_400, true, "focus_guard_enter")
     }
 
     pub fn tick(&mut self, delta_ms: u64) {
