@@ -37,6 +37,7 @@ pub enum Emotion {
     Shy,
     Concerned,
     Sleepy,
+    Focused,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
