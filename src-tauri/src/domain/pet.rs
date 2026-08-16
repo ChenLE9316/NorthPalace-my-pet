@@ -6,6 +6,7 @@ use crate::domain::events::DomainEvent;
 #[serde(rename_all = "snake_case")]
 pub enum PetInteraction {
     Hover,
+    HoverEnd,
     Touch,
     Pet,
     Play,
@@ -18,6 +19,7 @@ impl PetInteraction {
     pub fn into_event(self) -> DomainEvent {
         match self {
             Self::Hover => DomainEvent::CursorEnteredPet,
+            Self::HoverEnd => DomainEvent::CursorLeftPet,
             Self::Touch => DomainEvent::PetTouched,
             Self::Pet => DomainEvent::PetPetted,
             Self::Play => DomainEvent::PetPlayRequested,
