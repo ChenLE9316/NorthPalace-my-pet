@@ -14,17 +14,30 @@
       {
         "label": "pet",
         "title": "Lenvu",
-        "width": 540,
-        "height": 430,
-        "minWidth": 360,
-        "minHeight": 300,
+        "width": 360,
+        "height": 320,
         "transparent": true,
         "decorations": false,
         "shadow": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "resizable": true,
+        "resizable": false,
         "visible": true
+      },
+      {
+        "label": "companion",
+        "title": "Lenvu Companion",
+        "width": 390,
+        "height": 650,
+        "minWidth": 340,
+        "minHeight": 480,
+        "transparent": false,
+        "decorations": true,
+        "shadow": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "resizable": true,
+        "visible": false
       }
     ],
     "security": {

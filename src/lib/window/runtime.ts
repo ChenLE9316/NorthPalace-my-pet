@@ -43,3 +43,20 @@ export async function getDisplayContext(): Promise<DisplayContext> {
     return fallbackDisplayContext;
   }
 }
+
+export async function toggleCompanionWindow(): Promise<boolean> {
+  try {
+    return await invoke<boolean>('toggle_companion_window');
+  } catch (error) {
+    console.error('Failed to toggle companion window', error);
+    return false;
+  }
+}
+
+export async function hideCompanionWindow(): Promise<void> {
+  try {
+    await invoke('hide_companion_window');
+  } catch (error) {
+    console.error('Failed to hide companion window', error);
+  }
+}
