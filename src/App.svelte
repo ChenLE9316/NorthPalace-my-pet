@@ -61,6 +61,7 @@
     onclick={pet}
     ondblclick={() => (showPanel = !showPanel)}
     onmouseenter={() => void send('hover')}
+    onmouseleave={() => void send('hover_end')}
     onpointerdown={() => void send('touch')}
   >
     <div class:focus={snapshot.state.mode === 'focus_guard'} class="holo-ring"></div>
