@@ -4,6 +4,7 @@ use serde::Serialize;
 #[serde(rename_all = "snake_case")]
 pub enum BehaviorKind {
     AmbientIdle,
+    Explore,
     ObserveUser,
     ReceivePet,
     Play,
@@ -38,6 +39,10 @@ impl BehaviorIntent {
             interruptible,
             animation: animation.to_owned(),
         }
+    }
+
+    pub fn explore() -> Self {
+        Self::new(BehaviorKind::Explore, 10, 6_500, true, "walk")
     }
 
     pub fn observe_user() -> Self {

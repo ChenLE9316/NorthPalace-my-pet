@@ -4,11 +4,15 @@ use crate::domain::{
     pet_state::{Attention, Emotion, Facing, Locomotion, PetMode, PetStateV2, Posture},
 };
 
+const EXPLORE_INTERVAL_MS: u64 = 45_000;
+const EXPLORE_ACTIVE_USER_IDLE_LIMIT_MS: u64 = 20_000;
+
 #[derive(Debug)]
 pub struct PetBrainV2 {
     state: PetStateV2,
     behavior: Option<BehaviorIntent>,
     time_hour: u8,
+    ambient_elapsed_ms: u64,
 }
 
 impl Default for PetBrainV2 {
@@ -17,6 +21,7 @@ impl Default for PetBrainV2 {
             state: PetStateV2::default(),
             behavior: None,
             time_hour: 12,
+            ambient_elapsed_ms: 0,
         }
     }
 }
@@ -39,6 +44,7 @@ impl PetBrainV2 {
             }
             DomainEvent::UserReturned => {
                 self.state.user_idle_ms = 0;
+                self.ambient_elapsed_ms = 0;
                 self.state.attention = Attention::User;
                 self.state.emotion = Emotion::Happy;
                 self.state.locomotion = Locomotion::Stationary;
@@ -85,6 +91,7 @@ impl PetBrainV2 {
                 self.start_behavior(BehaviorIntent::play());
             }
             DomainEvent::FocusModeStarted => {
+                self.ambient_elapsed_ms = 0;
                 self.state.mode = PetMode::FocusGuard;
                 self.state.attention = Attention::Window;
                 self.state.emotion = Emotion::Focused;
@@ -93,6 +100,7 @@ impl PetBrainV2 {
                 self.start_behavior(BehaviorIntent::focus_guard());
             }
             DomainEvent::FocusModeEnded => {
+                self.ambient_elapsed_ms = 0;
                 self.state.mode = PetMode::Ambient;
                 self.state.emotion = Emotion::Calm;
                 self.state.attention = Attention::User;
@@ -128,7 +136,12 @@ impl PetBrainV2 {
 
     fn on_tick(&mut self, delta_ms: u64) {
         let physiological_delta_ms = delta_ms.min(60_000);
+        let decision_delta_ms = delta_ms.min(5_000);
         let hours = physiological_delta_ms as f32 / 3_600_000.0;
+
+        if self.state.mode == PetMode::Ambient && self.state.posture != Posture::Sleep {
+            self.ambient_elapsed_ms = self.ambient_elapsed_ms.saturating_add(decision_delta_ms);
+        }
 
         let finished_kind = if let Some(behavior) = self.behavior.as_mut() {
             behavior.tick(delta_ms);
@@ -155,6 +168,7 @@ impl PetBrainV2 {
 
     fn wake_for_interaction(&mut self) {
         self.state.user_idle_ms = 0;
+        self.ambient_elapsed_ms = 0;
         if self.state.posture == Posture::Sleep || self.state.posture == Posture::Lie {
             self.state.posture = Posture::Stand;
         }
@@ -174,6 +188,12 @@ impl PetBrainV2 {
 
     fn finish_behavior(&mut self, kind: BehaviorKind) {
         match kind {
+            BehaviorKind::Explore => {
+                self.state.locomotion = Locomotion::Stationary;
+                self.state.posture = Posture::Stand;
+                self.state.emotion = Emotion::Calm;
+                self.state.attention = Attention::Idle;
+            }
             BehaviorKind::ReceivePet => {
                 self.state.emotion = Emotion::Calm;
                 self.state.posture = Posture::Sit;
@@ -251,6 +271,7 @@ impl PetBrainV2 {
             self.state.posture = Posture::Sleep;
             self.state.emotion = Emotion::Sleepy;
             self.state.attention = Attention::Idle;
+            self.ambient_elapsed_ms = 0;
             self.start_behavior(BehaviorIntent::sleep());
         } else if self.state.user_idle_ms >= 180_000 {
             if self.state.posture != Posture::Lie {
@@ -261,6 +282,7 @@ impl PetBrainV2 {
                 } else {
                     Emotion::Calm
                 };
+                self.ambient_elapsed_ms = 0;
                 self.start_behavior(BehaviorIntent::settle_to_rest());
             }
         } else if self.state.user_idle_ms >= 60_000 {
@@ -268,6 +290,13 @@ impl PetBrainV2 {
             self.state.posture = Posture::Sit;
             self.state.attention = Attention::Idle;
             self.state.emotion = Emotion::Calm;
+        } else if self.should_explore() {
+            self.state.locomotion = Locomotion::Walk;
+            self.state.posture = Posture::Stand;
+            self.state.attention = Attention::Idle;
+            self.state.emotion = Emotion::Curious;
+            self.ambient_elapsed_ms = 0;
+            self.start_behavior(BehaviorIntent::explore());
         } else {
             self.state.locomotion = Locomotion::Stationary;
             self.state.posture = Posture::Stand;
@@ -275,6 +304,14 @@ impl PetBrainV2 {
                 self.state.emotion = Emotion::Calm;
             }
         }
+    }
+
+    fn should_explore(&self) -> bool {
+        self.ambient_elapsed_ms >= EXPLORE_INTERVAL_MS
+            && self.state.user_idle_ms <= EXPLORE_ACTIVE_USER_IDLE_LIMIT_MS
+            && self.state.energy >= 0.35
+            && self.state.sleep_pressure <= 0.65
+            && !(self.time_hour >= 23 || self.time_hour < 6)
     }
 }
 
@@ -318,5 +355,29 @@ mod tests {
         let mut brain = PetBrainV2::default();
         brain.handle_event(DomainEvent::PetFacingChanged { facing: Facing::Left });
         assert_eq!(brain.state().facing, Facing::Left);
+    }
+
+    #[test]
+    fn ambient_explore_starts_after_active_interval() {
+        let mut brain = PetBrainV2::default();
+        for _ in 0..10 {
+            brain.handle_event(DomainEvent::Tick { delta_ms: 5_000 });
+        }
+
+        assert_eq!(brain.behavior().map(|b| b.kind), Some(BehaviorKind::Explore));
+        assert_eq!(brain.state().locomotion, Locomotion::Walk);
+        assert_eq!(brain.state().emotion, Emotion::Curious);
+    }
+
+    #[test]
+    fn focus_guard_blocks_ambient_explore() {
+        let mut brain = PetBrainV2::default();
+        brain.handle_event(DomainEvent::FocusModeStarted);
+        for _ in 0..12 {
+            brain.handle_event(DomainEvent::Tick { delta_ms: 5_000 });
+        }
+
+        assert_eq!(brain.state().mode, PetMode::FocusGuard);
+        assert_ne!(brain.behavior().map(|b| b.kind), Some(BehaviorKind::Explore));
     }
 }

@@ -24,6 +24,7 @@ export interface PetState {
 
 export type BehaviorKind =
   | 'ambient_idle'
+  | 'explore'
   | 'observe_user'
   | 'receive_pet'
   | 'play'
