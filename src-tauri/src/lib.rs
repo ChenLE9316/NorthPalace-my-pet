@@ -7,12 +7,13 @@ mod runtime;
 use std::time::Duration;
 
 use domain::pet::PetInteraction;
-use persistence::{spawn_autosave, PersistenceBootstrap};
+use persistence::{spawn_autosave, PersistenceBootstrap, PersistenceHandle};
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
 use tauri::Manager;
 
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
+const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[tauri::command]
 fn get_pet_snapshot(runtime: tauri::State<'_, RuntimeHandle>) -> Result<PetRuntimeSnapshot, String> {
@@ -118,9 +119,10 @@ pub fn run() {
             }
             spawn_autosave(
                 runtime.clone(),
-                persistence,
+                persistence.clone(),
                 PERSISTENCE_AUTOSAVE_INTERVAL,
             );
+            app.manage(persistence);
         }
 
         #[cfg(target_os = "windows")]
@@ -171,7 +173,29 @@ pub fn run() {
         hide_companion_window
     ]);
 
-    builder
-        .run(tauri::generate_context!())
-        .expect("error while running NorthPalace-my-pet");
+    let app = builder
+        .build(tauri::generate_context!())
+        .expect("error while building NorthPalace-my-pet");
+
+    app.run(|app_handle, event| {
+        if !matches!(event, tauri::RunEvent::ExitRequested { .. }) {
+            return;
+        }
+
+        let Some(runtime) = app_handle.try_state::<RuntimeHandle>() else {
+            return;
+        };
+        let Some(persistence) = app_handle.try_state::<PersistenceHandle>() else {
+            return;
+        };
+        let Ok(snapshot) = runtime.snapshot() else {
+            return;
+        };
+
+        if let Err(error) =
+            persistence.save_and_flush(snapshot.state, PERSISTENCE_FINAL_SAVE_TIMEOUT)
+        {
+            eprintln!("Lenvu final persistence save failed: {error}");
+        }
+    });
 }

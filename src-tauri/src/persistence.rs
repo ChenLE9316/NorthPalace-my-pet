@@ -15,6 +15,14 @@ use crate::{
 
 const SCHEMA_VERSION: i64 = 1;
 
+enum PersistenceCommand {
+    Save(PetStateV2),
+    SaveAndFlush {
+        state: PetStateV2,
+        ack: mpsc::SyncSender<Result<(), String>>,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 struct PersistentPetState {
     facing: Facing,
@@ -89,16 +97,28 @@ impl PersistenceBootstrap {
     }
 
     pub fn into_worker(self) -> PersistenceHandle {
-        let (tx, rx) = mpsc::channel::<PetStateV2>();
+        let (tx, rx) = mpsc::channel::<PersistenceCommand>();
         let connection = self.connection;
 
         thread::spawn(move || {
             let mut connection = connection;
-            while let Ok(state) = rx.recv() {
-                if let Err(error) =
-                    save_pet_state(&mut connection, &PersistentPetState::from_runtime(&state))
-                {
-                    eprintln!("Lenvu persistence save failed: {error}");
+            while let Ok(command) = rx.recv() {
+                match command {
+                    PersistenceCommand::Save(state) => {
+                        if let Err(error) = save_pet_state(
+                            &mut connection,
+                            &PersistentPetState::from_runtime(&state),
+                        ) {
+                            eprintln!("Lenvu persistence save failed: {error}");
+                        }
+                    }
+                    PersistenceCommand::SaveAndFlush { state, ack } => {
+                        let result = save_pet_state(
+                            &mut connection,
+                            &PersistentPetState::from_runtime(&state),
+                        );
+                        let _ = ack.send(result);
+                    }
                 }
             }
         });
@@ -112,15 +132,27 @@ impl PersistenceBootstrap {
 
 #[derive(Clone)]
 pub struct PersistenceHandle {
-    tx: Sender<PetStateV2>,
+    tx: Sender<PersistenceCommand>,
     had_saved_state: bool,
 }
 
 impl PersistenceHandle {
     pub fn queue_save(&self, state: PetStateV2) -> Result<(), String> {
         self.tx
-            .send(state)
+            .send(PersistenceCommand::Save(state))
             .map_err(|_| "persistence worker channel is unavailable".to_owned())
+    }
+
+    pub fn save_and_flush(&self, state: PetStateV2, timeout: Duration) -> Result<(), String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::SaveAndFlush { state, ack: ack_tx })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+
+        ack_rx
+            .recv_timeout(timeout)
+            .map_err(|error| format!("persistence final-save acknowledgement failed: {error}"))??;
+        Ok(())
     }
 
     pub fn had_saved_state(&self) -> bool {
@@ -305,5 +337,18 @@ mod tests {
         assert_eq!(runtime.mode, defaults.mode);
         assert_eq!(runtime.user_idle_ms, 0);
         assert!(!runtime.ai_available);
+    }
+
+    #[test]
+    fn final_save_waits_for_worker_acknowledgement() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite");
+        let bootstrap = PersistenceBootstrap::from_connection(connection).expect("bootstrap");
+        let persistence = bootstrap.into_worker();
+
+        let mut state = PetStateV2::default();
+        state.bond = 0.91;
+        persistence
+            .save_and_flush(state, Duration::from_secs(1))
+            .expect("final save acknowledgement");
     }
 }
