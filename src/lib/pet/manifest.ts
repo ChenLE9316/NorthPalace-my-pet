@@ -56,7 +56,9 @@ const requiredAnimations = [
   'thinking',
 ] as const satisfies readonly LenvuAnimationId[];
 
-function validateManifest(manifest: typeof rawManifest): asserts manifest is typeof rawManifest & LenvuManifest {
+const allowedHitZones = new Set<LenvuHitZoneId>(['head', 'body', 'tail']);
+
+function validateManifest(manifest: typeof rawManifest): void {
   if (manifest.schemaVersion !== 1) {
     throw new Error(`Unsupported Lenvu manifest schema: ${manifest.schemaVersion}`);
   }
@@ -68,6 +70,9 @@ function validateManifest(manifest: typeof rawManifest): asserts manifest is typ
   }
 
   for (const zone of manifest.hitZones) {
+    if (!allowedHitZones.has(zone.id as LenvuHitZoneId)) {
+      throw new Error(`Unsupported Lenvu hit zone: ${zone.id}`);
+    }
     if (zone.shape !== 'ellipse') {
       throw new Error(`Unsupported Lenvu hit-zone shape: ${zone.shape}`);
     }
@@ -79,7 +84,9 @@ function validateManifest(manifest: typeof rawManifest): asserts manifest is typ
 
 validateManifest(rawManifest);
 
-export const lenvuManifest: LenvuManifest = rawManifest as LenvuManifest;
+// The JSON module is runtime-validated above. The second assertion only narrows the imported
+// JSON's broad string fields to the stable semantic contract used by the renderer.
+export const lenvuManifest = rawManifest as unknown as LenvuManifest;
 
 export function isLenvuAnimationId(value: string): value is LenvuAnimationId {
   return value in lenvuManifest.animations;
