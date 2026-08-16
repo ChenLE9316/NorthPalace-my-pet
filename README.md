@@ -28,28 +28,29 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   `-- WebView2
 |
 +-- Presentation
-|   +-- PixiJS 8 Pet Overlay
+|   +-- PixiJS 8 Pet Renderer
 |   +-- Context Bubble
 |   `-- Svelte 5 + TypeScript Companion/Settings UI
 |
 +-- Rust Runtime
-|   +-- Runtime Clock
-|   +-- Event Bus
-|   +-- Pet Brain
+|   +-- Monotonic Runtime Clock
+|   +-- Domain Event channel
+|   +-- PetBrainV2
 |   |   +-- Parallel Pet State
 |   |   `-- Behavior Intent
-|   +-- Memory System
+|   +-- Immutable Runtime Snapshot
 |   +-- Windows Adapter
-|   `-- AI Orchestrator
+|   +-- Memory System [planned]
+|   `-- AI Orchestrator [planned]
 |
 +-- Optional AI Workers
-|   +-- Text: llama.cpp -> MiniCPM5-1B GGUF
+|   +-- Text: llama.cpp -> MiniCPM5-1B GGUF [planned]
 |   `-- Vision: deferred, separately-loadable, on-demand only
 |
 `-- Local Data
-    +-- SQLite + FTS5
-    +-- TOML/JSON configuration
-    `-- bounded rolling logs
+    +-- SQLite + FTS5 [planned]
+    +-- TOML/JSON configuration [planned]
+    `-- bounded rolling logs [planned]
 ```
 
 ## Interaction layers
@@ -70,10 +71,11 @@ See `docs/VISION_SYSTEM.md`.
 
 ```text
 NorthPalace-my-pet/
-+-- docs/                  living architecture/product specifications
-+-- public/                current UI-served assets
-+-- src/                   Svelte presentation layer
-+-- src-tauri/             Rust runtime and Tauri shell
++-- .github/workflows/      Windows CI definition
++-- docs/                   living architecture/product specifications
++-- public/                 current UI-served assets
++-- src/                    Svelte + PixiJS presentation
++-- src-tauri/              Rust Pet Runtime + Tauri shell
 +-- README.md
 +-- package.json
 `-- vite.config.ts
@@ -81,16 +83,32 @@ NorthPalace-my-pet/
 
 Reference art and production runtime animation assets will be separated as the visual pipeline is normalized.
 
-## Current foundation status
+## Current foundation status — V0.2
 
-The repository contains a V0 Pet Brain prototype plus the first V0.2 contracts for:
+Implemented now:
 
-- domain events;
-- parallel pet state;
-- behavior intents with duration/priority;
-- deferred/on-demand vision architecture.
+- Rust-owned 250 ms Pet Runtime clock;
+- Domain Event channel;
+- V2 parallel state model for locomotion/posture/attention/emotion/mode/cognition;
+- Behavior Intents with priority, TTL and interruption policy;
+- runtime health snapshots (`ready`, `degraded`, `recovering`, `error`);
+- Svelte snapshot-only presentation path — no JavaScript simulation ticking;
+- low-cost Windows user idle/return sensor through Win32 input timing;
+- hover enter/leave, touch, pet, play and Focus Guard interactions;
+- simple multi-signal rest/sleep policy with energy recovery during sleep;
+- PixiJS renderer boundary with a lightweight vector placeholder Lenvu;
+- Windows CI workflow definition for frontend build + Rust tests.
 
-The next implementation step is to move simulation time into a Rust-owned runtime and wire the V2 state/behavior contracts into it before adding memory or MiniCPM5-1B.
+Still intentionally deferred:
+
+- production Lenvu sprite/atlas assets and animation graph;
+- transparent-pixel click-through / animated hit masks;
+- active-window and monitor awareness;
+- SQLite memory/persistence;
+- MiniCPM5-1B worker;
+- any dedicated vision model.
+
+The next engineering milestone is the **real living desktop-pet layer**: canonical Lenvu assets, production animation graph, transparent hit testing/click-through, desktop movement and multi-monitor/DPI behavior.
 
 ## Living design documents
 
