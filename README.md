@@ -29,6 +29,8 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |
 +-- Presentation
 |   +-- PixiJS 8 Pet Renderer
+|   |   +-- animation resolver
+|   |   `-- runtime asset manifest
 |   +-- Context Bubble
 |   `-- Svelte 5 + TypeScript Companion/Settings UI
 |
@@ -40,6 +42,9 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   |   `-- Behavior Intent
 |   +-- Immutable Runtime Snapshot
 |   +-- Windows Adapter
+|   |   +-- idle / return
+|   |   +-- foreground app identity
+|   |   `-- monitor / DPI / work area context
 |   +-- Memory System [planned]
 |   `-- AI Orchestrator [planned]
 |
@@ -72,16 +77,15 @@ See `docs/VISION_SYSTEM.md`.
 ```text
 NorthPalace-my-pet/
 +-- .github/workflows/      Windows CI definition
++-- assets/                 source/reference and runtime-asset boundaries
 +-- docs/                   living architecture/product specifications
-+-- public/                 current UI-served assets
++-- public/                 UI-served runtime assets/manifests
 +-- src/                    Svelte + PixiJS presentation
 +-- src-tauri/              Rust Pet Runtime + Tauri shell
 +-- README.md
 +-- package.json
 `-- vite.config.ts
 ```
-
-Reference art and production runtime animation assets will be separated as the visual pipeline is normalized.
 
 ## Current foundation status — V0.2
 
@@ -94,21 +98,25 @@ Implemented now:
 - runtime health snapshots (`ready`, `degraded`, `recovering`, `error`);
 - Svelte snapshot-only presentation path — no JavaScript simulation ticking;
 - low-cost Windows user idle/return sensor through Win32 input timing;
+- foreground-app identity awareness without collecting window titles by default;
+- current monitor, DPI scale, work-area and pet-window geometry contract;
 - hover enter/leave, touch, pet, play and Focus Guard interactions;
 - simple multi-signal rest/sleep policy with energy recovery during sleep;
 - PixiJS renderer boundary with a lightweight vector placeholder Lenvu;
+- renderer-facing animation resolver plus runtime animation manifest;
+- reference-art/runtime-asset separation and asset-pipeline specification;
 - Windows CI workflow definition for frontend build + Rust tests.
 
 Still intentionally deferred:
 
-- production Lenvu sprite/atlas assets and animation graph;
-- transparent-pixel click-through / animated hit masks;
-- active-window and monitor awareness;
+- canonical production Lenvu sprite/atlas assets;
+- normalized animated hit zones and native selective click-through;
+- autonomous desktop movement and multi-monitor movement policy;
 - SQLite memory/persistence;
 - MiniCPM5-1B worker;
 - any dedicated vision model.
 
-The next engineering milestone is the **real living desktop-pet layer**: canonical Lenvu assets, production animation graph, transparent hit testing/click-through, desktop movement and multi-monitor/DPI behavior.
+The next engineering milestone is the **desktop-space layer**: normalized hit zones, native selective hit testing, work-area-safe movement, walk/run synchronization and monitor/DPI change observation.
 
 ## Living design documents
 
@@ -116,6 +124,8 @@ The next engineering milestone is the **real living desktop-pet layer**: canonic
 - `docs/FOUNDATION_REVIEW.md`
 - `docs/UI_UX.md`
 - `docs/PET_BRAIN.md`
+- `docs/ASSET_PIPELINE.md`
+- `docs/DESKTOP_WINDOW.md`
 - `docs/MODEL_RUNTIME.md`
 - `docs/VISION_SYSTEM.md`
 - `docs/ROADMAP.md`
