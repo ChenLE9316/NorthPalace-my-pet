@@ -1,4 +1,5 @@
 mod domain;
+mod persistence;
 #[cfg(target_os = "windows")]
 mod platform;
 mod runtime;
@@ -6,8 +7,12 @@ mod runtime;
 use std::time::Duration;
 
 use domain::pet::PetInteraction;
+use persistence::{spawn_autosave, PersistenceBootstrap};
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
 use tauri::Manager;
+
+const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
+const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 
 #[tauri::command]
 fn get_pet_snapshot(runtime: tauri::State<'_, RuntimeHandle>) -> Result<PetRuntimeSnapshot, String> {
@@ -66,38 +71,74 @@ fn configure_pet_hit_regions(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let runtime = RuntimeHandle::spawn(Duration::from_millis(250));
+    let builder = tauri::Builder::default();
 
     #[cfg(target_os = "windows")]
-    {
-        platform::windows::spawn_idle_sensor(runtime.clone());
-        platform::windows::spawn_active_window_sensor(runtime.clone());
-    }
-
-    #[cfg(target_os = "windows")]
-    let motion_runtime = runtime.clone();
-
-    let builder = tauri::Builder::default().manage(runtime);
-
-    #[cfg(target_os = "windows")]
-    let builder = {
+    let (builder, sensor_hit_test) = {
         let hit_test = platform::windows::CursorHitTestHandle::default();
         let sensor_hit_test = hit_test.clone();
+        (builder.manage(hit_test), sensor_hit_test)
+    };
 
-        builder.manage(hit_test).setup(move |app| {
+    let builder = builder.setup(move |app| {
+        let persistence_bootstrap = match app.path().app_local_data_dir() {
+            Ok(data_dir) => {
+                let database_path = data_dir.join("lenvu.sqlite3");
+                match PersistenceBootstrap::open(&database_path) {
+                    Ok(bootstrap) => Some(bootstrap),
+                    Err(error) => {
+                        eprintln!(
+                            "Lenvu persistence unavailable; continuing session-only: {error}"
+                        );
+                        None
+                    }
+                }
+            }
+            Err(error) => {
+                eprintln!(
+                    "Lenvu local-data path unavailable; continuing session-only: {error}"
+                );
+                None
+            }
+        };
+
+        let initial_state = persistence_bootstrap
+            .as_ref()
+            .map(PersistenceBootstrap::initial_state)
+            .unwrap_or_default();
+        let runtime = RuntimeHandle::spawn_with_state(PET_TICK_INTERVAL, initial_state.clone());
+        app.manage(runtime.clone());
+
+        if let Some(bootstrap) = persistence_bootstrap {
+            let persistence = bootstrap.into_worker();
+            if !persistence.had_saved_state() {
+                if let Err(error) = persistence.queue_save(initial_state) {
+                    eprintln!("Lenvu initial persistence save failed: {error}");
+                }
+            }
+            spawn_autosave(
+                runtime.clone(),
+                persistence,
+                PERSISTENCE_AUTOSAVE_INTERVAL,
+            );
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            platform::windows::spawn_idle_sensor(runtime.clone());
+            platform::windows::spawn_active_window_sensor(runtime.clone());
+
             if let Some(pet_window) = app.get_webview_window("pet") {
                 platform::windows::spawn_cursor_passthrough_sensor(
                     pet_window.clone(),
                     sensor_hit_test.clone(),
                 );
-                platform::windows::spawn_pet_motion_controller(
-                    pet_window,
-                    motion_runtime.clone(),
-                );
+                platform::windows::spawn_pet_motion_controller(pet_window, runtime.clone());
             }
-            Ok(())
-        })
-    };
+        }
+
+        Ok(())
+    });
 
     let builder = builder.on_window_event(|window, event| {
         if window.label() != "companion" {

@@ -53,8 +53,12 @@ pub struct RuntimeHandle {
 
 impl RuntimeHandle {
     pub fn spawn(tick_interval: Duration) -> Self {
+        Self::spawn_with_state(tick_interval, PetStateV2::default())
+    }
+
+    pub fn spawn_with_state(tick_interval: Duration, initial_state: PetStateV2) -> Self {
         let (event_tx, event_rx) = mpsc::channel::<DomainEvent>();
-        let brain = PetBrainV2::default();
+        let brain = PetBrainV2::from_state(initial_state);
         let snapshot = Arc::new(RwLock::new(PetRuntimeSnapshot::from_brain(
             RuntimeHealth::Ready,
             0,
@@ -126,5 +130,22 @@ impl RuntimeHandle {
             .read()
             .map(|snapshot| snapshot.clone())
             .map_err(|_| "pet runtime snapshot lock is poisoned".to_owned())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::pet_state::Facing;
+
+    #[test]
+    fn runtime_starts_from_supplied_state() {
+        let mut state = PetStateV2::default();
+        state.bond = 0.66;
+        state.facing = Facing::Left;
+        let runtime = RuntimeHandle::spawn_with_state(Duration::from_secs(60), state);
+        let snapshot = runtime.snapshot().expect("runtime snapshot");
+        assert_eq!(snapshot.state.bond, 0.66);
+        assert_eq!(snapshot.state.facing, Facing::Left);
     }
 }

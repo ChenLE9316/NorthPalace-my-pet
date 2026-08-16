@@ -17,16 +17,20 @@ pub struct PetBrainV2 {
 
 impl Default for PetBrainV2 {
     fn default() -> Self {
+        Self::from_state(PetStateV2::default())
+    }
+}
+
+impl PetBrainV2 {
+    pub fn from_state(state: PetStateV2) -> Self {
         Self {
-            state: PetStateV2::default(),
+            state,
             behavior: None,
             time_hour: 12,
             ambient_elapsed_ms: 0,
         }
     }
-}
 
-impl PetBrainV2 {
     pub fn state(&self) -> PetStateV2 {
         self.state.clone()
     }
@@ -105,7 +109,10 @@ impl PetBrainV2 {
                 self.state.emotion = Emotion::Calm;
                 self.state.attention = Attention::User;
                 self.state.posture = Posture::Sit;
-                if matches!(self.behavior.as_ref().map(|b| b.kind), Some(BehaviorKind::FocusGuard)) {
+                if matches!(
+                    self.behavior.as_ref().map(|b| b.kind),
+                    Some(BehaviorKind::FocusGuard)
+                ) {
                     self.behavior = None;
                 }
             }
@@ -115,7 +122,9 @@ impl PetBrainV2 {
                 }
             }
             DomainEvent::NotificationReceived => {
-                if self.state.mode != PetMode::DoNotDisturb && self.state.posture != Posture::Sleep {
+                if self.state.mode != PetMode::DoNotDisturb
+                    && self.state.posture != Posture::Sleep
+                {
                     self.state.attention = Attention::Window;
                     self.state.emotion = Emotion::Curious;
                     self.start_behavior(BehaviorIntent::observe_user());
@@ -157,10 +166,12 @@ impl PetBrainV2 {
 
         if self.state.posture == Posture::Sleep {
             self.state.energy = (self.state.energy + 0.18 * hours).clamp(0.0, 1.0);
-            self.state.sleep_pressure = (self.state.sleep_pressure - 0.22 * hours).clamp(0.0, 1.0);
+            self.state.sleep_pressure =
+                (self.state.sleep_pressure - 0.22 * hours).clamp(0.0, 1.0);
         } else {
             self.state.energy = (self.state.energy - 0.025 * hours).clamp(0.0, 1.0);
-            self.state.sleep_pressure = (self.state.sleep_pressure + 0.03 * hours).clamp(0.0, 1.0);
+            self.state.sleep_pressure =
+                (self.state.sleep_pressure + 0.03 * hours).clamp(0.0, 1.0);
         }
 
         self.apply_ambient_policy();
@@ -260,7 +271,11 @@ impl PetBrainV2 {
 
         let idle_factor = (self.state.user_idle_ms as f32 / 600_000.0).clamp(0.0, 1.0);
         let low_energy = 1.0 - self.state.energy;
-        let night_bonus = if self.time_hour >= 23 || self.time_hour < 6 { 0.15 } else { 0.0 };
+        let night_bonus = if self.time_hour >= 23 || self.time_hour < 6 {
+            0.15
+        } else {
+            0.0
+        };
         let sleep_score = idle_factor * 0.45
             + self.state.sleep_pressure * 0.35
             + low_energy * 0.20
@@ -320,12 +335,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn constructor_accepts_persistent_initial_state() {
+        let mut state = PetStateV2::default();
+        state.bond = 0.77;
+        state.facing = Facing::Left;
+        let brain = PetBrainV2::from_state(state);
+        assert_eq!(brain.state().bond, 0.77);
+        assert_eq!(brain.state().facing, Facing::Left);
+        assert!(brain.behavior().is_none());
+    }
+
+    #[test]
     fn pet_reaction_survives_multiple_ticks() {
         let mut brain = PetBrainV2::default();
         brain.handle_event(DomainEvent::PetPetted);
         brain.handle_event(DomainEvent::Tick { delta_ms: 1_000 });
 
-        assert_eq!(brain.behavior().map(|b| b.kind), Some(BehaviorKind::ReceivePet));
+        assert_eq!(
+            brain.behavior().map(|b| b.kind),
+            Some(BehaviorKind::ReceivePet)
+        );
         assert_eq!(brain.state().emotion, Emotion::Happy);
     }
 
@@ -353,7 +382,9 @@ mod tests {
     #[test]
     fn facing_is_domain_state() {
         let mut brain = PetBrainV2::default();
-        brain.handle_event(DomainEvent::PetFacingChanged { facing: Facing::Left });
+        brain.handle_event(DomainEvent::PetFacingChanged {
+            facing: Facing::Left,
+        });
         assert_eq!(brain.state().facing, Facing::Left);
     }
 
@@ -364,7 +395,10 @@ mod tests {
             brain.handle_event(DomainEvent::Tick { delta_ms: 5_000 });
         }
 
-        assert_eq!(brain.behavior().map(|b| b.kind), Some(BehaviorKind::Explore));
+        assert_eq!(
+            brain.behavior().map(|b| b.kind),
+            Some(BehaviorKind::Explore)
+        );
         assert_eq!(brain.state().locomotion, Locomotion::Walk);
         assert_eq!(brain.state().emotion, Emotion::Curious);
     }
@@ -378,6 +412,9 @@ mod tests {
         }
 
         assert_eq!(brain.state().mode, PetMode::FocusGuard);
-        assert_ne!(brain.behavior().map(|b| b.kind), Some(BehaviorKind::Explore));
+        assert_ne!(
+            brain.behavior().map(|b| b.kind),
+            Some(BehaviorKind::Explore)
+        );
     }
 }
