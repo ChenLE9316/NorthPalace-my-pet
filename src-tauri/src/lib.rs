@@ -26,7 +26,10 @@ pub fn run() {
     let runtime = RuntimeHandle::spawn(Duration::from_millis(250));
 
     #[cfg(target_os = "windows")]
-    platform::windows::spawn_idle_sensor(runtime.clone());
+    {
+        platform::windows::spawn_idle_sensor(runtime.clone());
+        platform::windows::spawn_active_window_sensor(runtime.clone());
+    }
 
     tauri::Builder::default()
         .manage(runtime)
