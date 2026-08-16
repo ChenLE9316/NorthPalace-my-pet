@@ -74,6 +74,9 @@ pub fn run() {
         platform::windows::spawn_active_window_sensor(runtime.clone());
     }
 
+    #[cfg(target_os = "windows")]
+    let motion_runtime = runtime.clone();
+
     let builder = tauri::Builder::default().manage(runtime);
 
     #[cfg(target_os = "windows")]
@@ -84,8 +87,12 @@ pub fn run() {
         builder.manage(hit_test).setup(move |app| {
             if let Some(pet_window) = app.get_webview_window("pet") {
                 platform::windows::spawn_cursor_passthrough_sensor(
-                    pet_window,
+                    pet_window.clone(),
                     sensor_hit_test.clone(),
+                );
+                platform::windows::spawn_pet_motion_controller(
+                    pet_window,
+                    motion_runtime.clone(),
                 );
             }
             Ok(())
