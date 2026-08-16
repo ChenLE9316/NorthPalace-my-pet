@@ -21,6 +21,14 @@ fn pet_interact(
     runtime.dispatch(kind.into_event())
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn get_display_context(
+    webview_window: tauri::WebviewWindow,
+) -> Result<platform::windows::DisplayContext, String> {
+    platform::windows::read_display_context(&webview_window)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = RuntimeHandle::spawn(Duration::from_millis(250));
@@ -31,9 +39,19 @@ pub fn run() {
         platform::windows::spawn_active_window_sensor(runtime.clone());
     }
 
-    tauri::Builder::default()
-        .manage(runtime)
-        .invoke_handler(tauri::generate_handler![get_pet_snapshot, pet_interact])
+    let builder = tauri::Builder::default().manage(runtime);
+
+    #[cfg(target_os = "windows")]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        get_pet_snapshot,
+        pet_interact,
+        get_display_context
+    ]);
+
+    #[cfg(not(target_os = "windows"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![get_pet_snapshot, pet_interact]);
+
+    builder
         .run(tauri::generate_context!())
         .expect("error while running NorthPalace-my-pet");
 }

@@ -3,10 +3,18 @@
   import type { PetInteraction } from './lib/types';
   import { fallbackSnapshot, getPetSnapshot, interact } from './lib/pet/runtime';
   import { PetRenderer } from './lib/pet/renderer';
+  import {
+    fallbackDisplayContext,
+    getDisplayContext,
+    type DisplayContext,
+  } from './lib/window/runtime';
 
   let snapshot = fallbackSnapshot;
+  let displayContext: DisplayContext = fallbackDisplayContext;
+  let animation = 'idle';
   let showPanel = false;
-  let timer: number | undefined;
+  let snapshotTimer: number | undefined;
+  let displayTimer: number | undefined;
   let petCanvas: HTMLDivElement;
   let renderer: PetRenderer | null = null;
 
@@ -15,6 +23,11 @@
   async function refresh() {
     snapshot = await getPetSnapshot();
     renderer?.update(snapshot);
+    animation = renderer?.currentAnimation() ?? animation;
+  }
+
+  async function refreshDisplay() {
+    displayContext = await getDisplayContext();
   }
 
   async function send(kind: PetInteraction) {
@@ -63,14 +76,18 @@
       }
       renderer = instance;
       renderer.update(snapshot);
+      animation = renderer.currentAnimation();
     })();
 
     void refresh();
-    timer = window.setInterval(() => void refresh(), 500);
+    void refreshDisplay();
+    snapshotTimer = window.setInterval(() => void refresh(), 500);
+    displayTimer = window.setInterval(() => void refreshDisplay(), 2_000);
 
     return () => {
       disposed = true;
-      window.clearInterval(timer);
+      window.clearInterval(snapshotTimer);
+      window.clearInterval(displayTimer);
       renderer?.destroy();
       renderer = null;
     };
@@ -91,9 +108,7 @@
     <div class="pet-label">
       <div class="name">Lenvu</div>
       <div class="activity">{stateLabel()}</div>
-      {#if snapshot.behavior}
-        <div class="activity">{snapshot.behavior.animation}</div>
-      {/if}
+      <div class="activity">anim · {animation}</div>
     </div>
   </button>
 
@@ -134,6 +149,13 @@
         <article><span>Attention</span><b>{snapshot.state.attention}</b></article>
         <article><span>Emotion</span><b>{snapshot.state.emotion}</b></article>
         <article><span>Cognition</span><b>{snapshot.state.cognition}</b></article>
+      </section>
+
+      <section class="status-grid">
+        <article><span>Animation</span><b>{animation}</b></article>
+        <article><span>DPI scale</span><b>{displayContext.scaleFactor.toFixed(2)}×</b></article>
+        <article><span>Monitor</span><b>{displayContext.monitorName ?? 'unknown'}</b></article>
+        <article><span>Displays</span><b>{displayContext.monitorCount}</b></article>
       </section>
 
       <section class="concept-card">

@@ -1,5 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js';
 import type { PetRuntimeSnapshot } from '../types';
+import { animationProfile, resolveAnimation, type LenvuAnimationId } from './animation';
 
 /**
  * PixiJS owns Lenvu's high-frequency presentation layer.
@@ -18,6 +19,7 @@ export class PetRenderer {
   private snapshot: PetRuntimeSnapshot | null = null;
   private raf = 0;
   private startedAt = performance.now();
+  private animation: LenvuAnimationId = 'idle';
 
   async mount(container: HTMLElement) {
     await this.app.init({
@@ -89,6 +91,7 @@ export class PetRenderer {
 
   update(snapshot: PetRuntimeSnapshot) {
     this.snapshot = snapshot;
+    this.animation = resolveAnimation(snapshot);
     this.focusRing.visible = snapshot.state.mode === 'focus_guard';
 
     const eyeScale = snapshot.state.emotion === 'happy' ? 1.18 : 1;
@@ -114,6 +117,10 @@ export class PetRenderer {
     }
   }
 
+  currentAnimation(): LenvuAnimationId {
+    return this.animation;
+  }
+
   destroy() {
     cancelAnimationFrame(this.raf);
     this.app.destroy(true, { children: true });
@@ -121,20 +128,22 @@ export class PetRenderer {
 
   private animate = () => {
     const elapsed = (performance.now() - this.startedAt) / 1000;
-    const behavior = this.snapshot?.behavior?.kind;
+    const profile = animationProfile(this.animation);
     const posture = this.snapshot?.state.posture;
 
-    let bob = Math.sin(elapsed * 2.1) * 1.5;
-    let sway = Math.sin(elapsed * 1.25) * 0.01;
+    let bob = Math.sin(elapsed * 2.1) * profile.bodyBob;
+    let sway = Math.sin(elapsed * 1.25) * profile.sway;
 
-    if (behavior === 'play') {
-      bob = Math.abs(Math.sin(elapsed * 6)) * -8;
-      sway = Math.sin(elapsed * 5) * 0.08;
-    } else if (behavior === 'receive_pet') {
-      bob = Math.sin(elapsed * 4) * 2.5;
-    } else if (posture === 'sleep') {
-      bob = Math.sin(elapsed * 1.2) * 0.8;
+    if (this.animation === 'play') {
+      bob = Math.abs(Math.sin(elapsed * 6)) * -profile.bodyBob;
+      sway = Math.sin(elapsed * 5) * profile.sway;
+    } else if (this.animation === 'pet_receive') {
+      bob = Math.sin(elapsed * 4) * profile.bodyBob;
+    } else if (this.animation === 'sleep') {
+      bob = Math.sin(elapsed * 1.2) * profile.bodyBob;
       sway = -0.12;
+    } else if (this.animation === 'jump') {
+      bob = -Math.abs(Math.sin(elapsed * 4.5)) * profile.bodyBob;
     }
 
     const view = this.app.canvas.parentElement;
