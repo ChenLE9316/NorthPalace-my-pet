@@ -1,22 +1,30 @@
 # NorthPalace-my-pet Roadmap
 
-## Phase 0 — Foundation (now)
+## Phase 0 — Foundation
 
 - [x] Initialize private repository.
-- [x] Commit first architecture/UI concept image.
+- [x] Commit first Lenvu architecture/UI concept board.
 - [x] Create Tauri + Svelte + Rust scaffold.
-- [x] Create minimal offline Pet Brain domain model.
-- [x] Add initial architecture, UI/UX and model-runtime specifications.
+- [x] Create minimal offline Pet Brain prototype.
+- [x] Add architecture, UI/UX and model-runtime specifications.
+- [x] Complete first foundation review.
+- [x] Define parallel Pet State V2 types.
+- [x] Define Domain Event and Behavior Intent contracts.
+- [x] Define vision/screen-understanding policy.
+- [ ] Replace JavaScript-owned simulation ticking with a Rust-owned runtime clock.
+- [ ] Replace the V0 single `PetActivity` state with the V2 parallel state model.
+- [ ] Add explicit runtime health state: ready/degraded/recovering/error.
 - [ ] Run first clean build on the target Windows 11 machine.
-- [ ] Record baseline RAM / idle CPU / GPU usage.
+- [ ] Record baseline RAM / idle CPU / GPU usage on Ryzen 3 2200G + 16 GB.
 
 ## Phase 1 — Living desktop pet
 
-- [ ] Replace placeholder visual with production Lenvu render assets.
+- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets.
+- [ ] Separate reference art from runtime assets.
 - [ ] PixiJS renderer and animation graph.
 - [ ] Transparent hit-test regions / click-through behavior.
 - [ ] Multi-monitor and DPI behavior.
-- [ ] Idle/observe/sit/rest/sleep transitions.
+- [ ] Idle/observe/sit/rest/sleep transitions through Behavior Intents.
 - [ ] Walk/run/reposition behavior.
 - [ ] Hover, touch, pet, drag and play interactions.
 - [ ] Tray control and startup policy.
@@ -29,13 +37,15 @@
 - [ ] Time-of-day rhythm.
 - [ ] Activity/event journal with bounded retention.
 
-## Phase 3 — Focus companion
+## Phase 3 — Windows awareness and focus companion
 
 - [ ] User idle / return sensor.
 - [ ] Active-window adapter.
+- [ ] Window bounds / monitor context.
 - [ ] Focus Guard sessions.
 - [ ] Context bubbles and low-noise reminders.
 - [ ] Per-app privacy exclusions.
+- [ ] Screen Context Broker using structured Windows signals first.
 
 ## Phase 4 — Local AI brain
 
@@ -46,7 +56,16 @@
 - [ ] Structured AI intent contract.
 - [ ] AI load/unload and memory-pressure policy.
 
-## Phase 5 — Companion depth
+## Phase 5 — Optional visual understanding
+
+- [ ] Define `ScreenObservation` domain contract.
+- [ ] On-demand window/region capture with visible privacy indicator.
+- [ ] Per-app capture deny list.
+- [ ] Optional separately-loadable vision worker.
+- [ ] Benchmark vision only if structured Windows/accessibility signals are insufficient.
+- [ ] Do not implement continuous screen capture by default.
+
+## Phase 6 — Companion depth
 
 - [ ] Conversation panel.
 - [ ] Memory browser/editor.
@@ -55,6 +74,16 @@
 - [ ] Optional voice layer.
 - [ ] Optional phone companion bridge.
 
+## Before public release
+
+- [ ] Choose a code license.
+- [ ] Define separate Lenvu character/artwork licensing.
+- [ ] Add dependency lockfiles.
+- [ ] Add Windows CI checks.
+- [ ] Add SECURITY.md.
+- [ ] Restore a restrictive Content Security Policy.
+- [ ] Verify no model weights, local databases, secrets, logs or private user data are tracked.
+
 ## Definition of success
 
-Lenvu should still feel alive and useful when the network is offline and the LLM worker is completely unloaded.
+Unload MiniCPM5-1B completely. Lenvu should still feel alive and useful: movement, sleep/wake, petting, attention, focus behavior, persistence and ordinary desktop interaction must continue without an LLM or a vision model.
