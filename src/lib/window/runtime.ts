@@ -25,6 +25,10 @@ export interface DisplayContext {
   windowSize: PhysicalExtent;
 }
 
+export type CursorHitRegion =
+  | { shape: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
+  | { shape: 'rect'; x: number; y: number; width: number; height: number };
+
 export const fallbackDisplayContext: DisplayContext = {
   scaleFactor: 1,
   monitorName: null,
@@ -58,5 +62,15 @@ export async function hideCompanionWindow(): Promise<void> {
     await invoke('hide_companion_window');
   } catch (error) {
     console.error('Failed to hide companion window', error);
+  }
+}
+
+export async function configurePetHitRegions(regions: CursorHitRegion[]): Promise<void> {
+  try {
+    await invoke('configure_pet_hit_regions', { regions });
+  } catch (error) {
+    // The command is Windows-only. Keeping this non-fatal preserves safe non-passthrough
+    // behavior on unsupported/dev environments.
+    console.debug('Native pet hit testing is unavailable', error);
   }
 }

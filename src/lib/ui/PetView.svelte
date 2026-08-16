@@ -1,14 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { PetInteraction } from '../types';
+  import { lenvuManifest } from '../pet/manifest';
   import { fallbackSnapshot, getPetSnapshot, interact } from '../pet/runtime';
   import { PetRenderer } from '../pet/renderer';
-  import { toggleCompanionWindow } from '../window/runtime';
+  import {
+    configurePetHitRegions,
+    toggleCompanionWindow,
+    type CursorHitRegion,
+  } from '../window/runtime';
 
   let snapshot = fallbackSnapshot;
   let animation = 'idle';
   let snapshotTimer: number | undefined;
   let petCanvas: HTMLDivElement;
+  let panelHandle: HTMLButtonElement;
   let renderer: PetRenderer | null = null;
 
   async function refresh() {
@@ -51,8 +57,39 @@
     return `${posture} · ${emotion} · ${attention}`;
   }
 
+  function configureNativeHitTest() {
+    if (!petCanvas || !panelHandle || window.innerWidth <= 0 || window.innerHeight <= 0) return;
+
+    const petBounds = petCanvas.getBoundingClientRect();
+    const regions: CursorHitRegion[] = lenvuManifest.hitZones.map((zone) => ({
+      shape: 'ellipse',
+      cx: (petBounds.left + zone.cx * petBounds.width) / window.innerWidth,
+      cy: (petBounds.top + zone.cy * petBounds.height) / window.innerHeight,
+      rx: (zone.rx * petBounds.width) / window.innerWidth,
+      ry: (zone.ry * petBounds.height) / window.innerHeight,
+    }));
+
+    const handleBounds = panelHandle.getBoundingClientRect();
+    const margin = 5;
+    const left = Math.max(0, handleBounds.left - margin);
+    const top = Math.max(0, handleBounds.top - margin);
+    const right = Math.min(window.innerWidth, handleBounds.right + margin);
+    const bottom = Math.min(window.innerHeight, handleBounds.bottom + margin);
+
+    regions.push({
+      shape: 'rect',
+      x: left / window.innerWidth,
+      y: top / window.innerHeight,
+      width: Math.max(1, right - left) / window.innerWidth,
+      height: Math.max(1, bottom - top) / window.innerHeight,
+    });
+
+    void configurePetHitRegions(regions);
+  }
+
   onMount(() => {
     let disposed = false;
+    let hitTestFrame = 0;
 
     void (async () => {
       const instance = new PetRenderer();
@@ -64,6 +101,7 @@
       renderer = instance;
       renderer.update(snapshot);
       animation = renderer.currentAnimation();
+      hitTestFrame = window.requestAnimationFrame(configureNativeHitTest);
     })();
 
     void refresh();
@@ -72,6 +110,7 @@
     return () => {
       disposed = true;
       window.clearInterval(snapshotTimer);
+      window.cancelAnimationFrame(hitTestFrame);
       renderer?.destroy();
       renderer = null;
     };
@@ -104,6 +143,7 @@
 
   <button
     class="panel-handle"
+    bind:this={panelHandle}
     onclick={() => void toggleCompanionWindow()}
     aria-label="開啟 Lenvu Companion"
   >☾</button>

@@ -55,6 +55,15 @@ fn get_display_context(
     platform::windows::read_display_context(&webview_window)
 }
 
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn configure_pet_hit_regions(
+    regions: Vec<platform::windows::CursorHitRegion>,
+    hit_test: tauri::State<'_, platform::windows::CursorHitTestHandle>,
+) -> Result<(), String> {
+    hit_test.set_regions(regions)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let runtime = RuntimeHandle::spawn(Duration::from_millis(250));
@@ -65,20 +74,36 @@ pub fn run() {
         platform::windows::spawn_active_window_sensor(runtime.clone());
     }
 
-    let builder = tauri::Builder::default()
-        .manage(runtime)
-        .on_window_event(|window, event| {
-            if window.label() != "companion" {
-                return;
-            }
+    let builder = tauri::Builder::default().manage(runtime);
 
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                if let Err(error) = window.hide() {
-                    eprintln!("failed to hide companion window: {error}");
-                }
+    #[cfg(target_os = "windows")]
+    let builder = {
+        let hit_test = platform::windows::CursorHitTestHandle::default();
+        let sensor_hit_test = hit_test.clone();
+
+        builder.manage(hit_test).setup(move |app| {
+            if let Some(pet_window) = app.get_webview_window("pet") {
+                platform::windows::spawn_cursor_passthrough_sensor(
+                    pet_window,
+                    sensor_hit_test.clone(),
+                );
             }
-        });
+            Ok(())
+        })
+    };
+
+    let builder = builder.on_window_event(|window, event| {
+        if window.label() != "companion" {
+            return;
+        }
+
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            api.prevent_close();
+            if let Err(error) = window.hide() {
+                eprintln!("failed to hide companion window: {error}");
+            }
+        }
+    });
 
     #[cfg(target_os = "windows")]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -86,7 +111,8 @@ pub fn run() {
         pet_interact,
         toggle_companion_window,
         hide_companion_window,
-        get_display_context
+        get_display_context,
+        configure_pet_hit_regions
     ]);
 
     #[cfg(not(target_os = "windows"))]
