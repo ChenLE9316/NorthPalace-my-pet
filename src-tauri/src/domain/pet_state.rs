@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -7,6 +7,13 @@ pub enum Locomotion {
     Walk,
     Run,
     Jump,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Facing {
+    Left,
+    Right,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -63,6 +70,7 @@ pub enum CognitionState {
 #[serde(rename_all = "camelCase")]
 pub struct PetStateV2 {
     pub locomotion: Locomotion,
+    pub facing: Facing,
     pub posture: Posture,
     pub attention: Attention,
     pub emotion: Emotion,
@@ -80,6 +88,7 @@ impl Default for PetStateV2 {
     fn default() -> Self {
         Self {
             locomotion: Locomotion::Stationary,
+            facing: Facing::Right,
             posture: Posture::Stand,
             attention: Attention::Idle,
             emotion: Emotion::Calm,

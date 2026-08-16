@@ -6,6 +6,7 @@ export const fallbackSnapshot: PetRuntimeSnapshot = {
   sequence: 0,
   state: {
     locomotion: 'stationary',
+    facing: 'right',
     posture: 'stand',
     attention: 'idle',
     emotion: 'calm',

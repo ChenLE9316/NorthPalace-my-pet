@@ -1,4 +1,5 @@
 export type Locomotion = 'stationary' | 'walk' | 'run' | 'jump';
+export type Facing = 'left' | 'right';
 export type Posture = 'stand' | 'sit' | 'lie' | 'sleep';
 export type Attention = 'idle' | 'user' | 'cursor' | 'window' | 'object';
 export type Emotion = 'calm' | 'curious' | 'happy' | 'shy' | 'concerned' | 'sleepy' | 'focused';
@@ -7,6 +8,7 @@ export type CognitionState = 'idle' | 'listening' | 'thinking' | 'speaking' | 'r
 
 export interface PetState {
   locomotion: Locomotion;
+  facing: Facing;
   posture: Posture;
   attention: Attention;
   emotion: Emotion;

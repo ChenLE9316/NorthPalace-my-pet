@@ -1,7 +1,10 @@
-use std::{thread, time::{Duration, Instant}};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 use crate::{
-    domain::pet_state::Locomotion,
+    domain::{events::DomainEvent, pet_state::{Facing, Locomotion}},
     runtime::RuntimeHandle,
 };
 
@@ -28,6 +31,13 @@ impl HorizontalDirection {
         match self {
             Self::Left => Self::Right,
             Self::Right => Self::Left,
+        }
+    }
+
+    fn facing(self) -> Facing {
+        match self {
+            Self::Left => Facing::Left,
+            Self::Right => Facing::Right,
         }
     }
 }
@@ -95,12 +105,21 @@ fn advance_x(
     (next, next_direction)
 }
 
+fn publish_facing(runtime: &RuntimeHandle, direction: HorizontalDirection) -> bool {
+    runtime
+        .dispatch(DomainEvent::PetFacingChanged {
+            facing: direction.facing(),
+        })
+        .is_ok()
+}
+
 pub fn spawn_pet_motion_controller(
     window: tauri::WebviewWindow,
     runtime: RuntimeHandle,
 ) {
     thread::spawn(move || {
         let mut direction = HorizontalDirection::Right;
+        let mut published_direction: Option<HorizontalDirection> = None;
         let mut last_step = Instant::now();
         let mut fractional_x: Option<f64> = None;
 
@@ -119,6 +138,13 @@ pub fn spawn_pet_motion_controller(
                 thread::sleep(MOTION_TICK);
                 continue;
             };
+
+            if published_direction != Some(direction) {
+                if !publish_facing(&runtime, direction) {
+                    break;
+                }
+                published_direction = Some(direction);
+            }
 
             let Ok(Some(monitor)) = window.current_monitor() else {
                 thread::sleep(MOTION_TICK);
@@ -147,6 +173,7 @@ pub fn spawn_pet_motion_controller(
 
             let current_x = fractional_x.unwrap_or(window_position.x as f64);
             let speed_physical = speed_logical * scale_factor.max(0.5);
+            let previous_direction = direction;
             let (next_x, next_direction) = advance_x(
                 current_x,
                 direction,
@@ -156,6 +183,13 @@ pub fn spawn_pet_motion_controller(
             );
             direction = next_direction;
             fractional_x = Some(next_x);
+
+            if direction != previous_direction {
+                if !publish_facing(&runtime, direction) {
+                    break;
+                }
+                published_direction = Some(direction);
+            }
 
             let physical_x = next_x.round().clamp(i32::MIN as f64, i32::MAX as f64) as i32;
             if window_position.x != physical_x || window_position.y != bounds.ground_y {
@@ -194,6 +228,7 @@ mod tests {
         let (x, direction) = advance_x(98.0, HorizontalDirection::Right, 100.0, 0.1, bounds);
         assert_eq!(x, 100.0);
         assert_eq!(direction, HorizontalDirection::Left);
+        assert_eq!(direction.facing(), Facing::Left);
     }
 
     #[test]

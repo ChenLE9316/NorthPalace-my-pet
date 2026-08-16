@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::domain::pet_state::Facing;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum DomainEvent {
@@ -17,4 +19,5 @@ pub enum DomainEvent {
     NotificationReceived,
     TimeOfDayChanged { hour: u8 },
     LlmWorkerStateChanged { available: bool },
+    PetFacingChanged { facing: Facing },
 }

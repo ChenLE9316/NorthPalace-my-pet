@@ -21,6 +21,8 @@ export class PetRenderer {
   private snapshot: PetRuntimeSnapshot | null = null;
   private animation: LenvuAnimationId = 'idle';
   private elapsedSeconds = 0;
+  private poseScaleX = 1;
+  private poseScaleY = 1;
 
   async mount(container: HTMLElement) {
     await this.app.init({
@@ -109,20 +111,26 @@ export class PetRenderer {
     switch (snapshot.state.posture) {
       case 'sleep':
         this.root.rotation = -0.12;
-        this.root.scale.set(1.02, 0.72);
+        this.poseScaleX = 1.02;
+        this.poseScaleY = 0.72;
         break;
       case 'lie':
         this.root.rotation = -0.06;
-        this.root.scale.set(1.03, 0.82);
+        this.poseScaleX = 1.03;
+        this.poseScaleY = 0.82;
         break;
       case 'sit':
         this.root.rotation = 0;
-        this.root.scale.set(0.96, 0.94);
+        this.poseScaleX = 0.96;
+        this.poseScaleY = 0.94;
         break;
       default:
         this.root.rotation = 0;
-        this.root.scale.set(1);
+        this.poseScaleX = 1;
+        this.poseScaleY = 1;
     }
+
+    this.applyFacingScale();
   }
 
   currentAnimation(): LenvuAnimationId {
@@ -138,6 +146,11 @@ export class PetRenderer {
   destroy() {
     this.app.ticker.remove(this.animate);
     this.app.destroy(true, { children: true });
+  }
+
+  private applyFacingScale() {
+    const facingSign = this.snapshot?.state.facing === 'left' ? -1 : 1;
+    this.root.scale.set(facingSign * this.poseScaleX, this.poseScaleY);
   }
 
   private animate = (ticker: Ticker) => {
@@ -166,7 +179,8 @@ export class PetRenderer {
       this.root.position.set(view.clientWidth / 2, view.clientHeight / 2 + 8 + bob);
     }
     if (posture !== 'sleep' && posture !== 'lie') {
-      this.root.rotation = sway;
+      const facingSign = this.snapshot?.state.facing === 'left' ? -1 : 1;
+      this.root.rotation = sway * facingSign;
     }
 
     this.focusRing.alpha = 0.45 + Math.sin(elapsed * 2.4) * 0.18;

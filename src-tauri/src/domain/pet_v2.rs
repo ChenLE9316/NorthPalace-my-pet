@@ -1,7 +1,7 @@
 use crate::domain::{
     behavior::{BehaviorIntent, BehaviorKind},
     events::DomainEvent,
-    pet_state::{Attention, Emotion, Locomotion, PetMode, PetStateV2, Posture},
+    pet_state::{Attention, Emotion, Facing, Locomotion, PetMode, PetStateV2, Posture},
 };
 
 #[derive(Debug)]
@@ -119,6 +119,9 @@ impl PetBrainV2 {
             }
             DomainEvent::LlmWorkerStateChanged { available } => {
                 self.state.ai_available = available;
+            }
+            DomainEvent::PetFacingChanged { facing } => {
+                self.state.facing = facing;
             }
         }
     }
@@ -308,5 +311,12 @@ mod tests {
 
         assert_eq!(brain.state().mode, PetMode::FocusGuard);
         assert_eq!(brain.state().posture, Posture::Sit);
+    }
+
+    #[test]
+    fn facing_is_domain_state() {
+        let mut brain = PetBrainV2::default();
+        brain.handle_event(DomainEvent::PetFacingChanged { facing: Facing::Left });
+        assert_eq!(brain.state().facing, Facing::Left);
     }
 }
