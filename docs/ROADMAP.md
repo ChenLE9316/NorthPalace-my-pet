@@ -17,8 +17,8 @@
 - [x] Make Svelte consume immutable Pet Runtime snapshots instead of driving simulation time.
 - [x] Add Windows idle/return and foreground-app awareness.
 - [x] Add Windows CI workflow definition.
-- [ ] Confirm first successful Windows CI run.
-- [ ] Run first clean build on the target Windows 11 machine.
+- [x] Pass the first complete Windows CI: Svelte/PixiJS build + Rust/Tauri tests.
+- [ ] Run first clean executable build on the target Windows 11 / R3 2200G machine.
 - [ ] Record baseline RAM / idle CPU / GPU usage on Ryzen 3 2200G + 16 GB.
 
 ## Phase 1 — Living desktop pet
@@ -35,10 +35,12 @@
 - [ ] Add monitor/DPI change observation.
 - [x] Define normalized semantic pet hit zones.
 - [x] Implement native selective transparent hit testing / click-through with native cursor re-entry.
+- [x] Mirror semantic/native hit regions when Lenvu changes facing direction.
 - [x] Implement desktop movement controller with current work-area clamping.
 - [x] Synchronize `walk` / `run` locomotion with native pet-window repositioning.
-- [ ] Expose facing direction to Pet State / renderer so production sprites flip consistently.
-- [ ] Add autonomous ambient explore/wander behavior selection.
+- [x] Expose facing direction through Pet State and renderer.
+- [x] Add deterministic offline ambient explore/wander behavior selection.
+- [ ] Replace deterministic explore timing with weighted personality/curiosity behavior selection.
 - [ ] Multi-monitor autonomous movement policy.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
@@ -96,11 +98,13 @@
 - [ ] Choose a code license.
 - [ ] Define separate Lenvu character/artwork licensing.
 - [ ] Add dependency lockfiles.
-- [x] Add Windows CI workflow definition.
-- [ ] Execute and pass the first Windows CI run.
+- [x] Add and pass Windows CI checks.
+- [x] Keep only the latest Windows CI run per branch to avoid stale runner queues.
 - [ ] Add SECURITY.md.
 - [ ] Restore a restrictive Content Security Policy.
 - [ ] Replace the low-resolution concept-board copy with the original high-resolution source.
+- [ ] Import selected original Lenvu reference sheets with provenance/resolution records.
+- [ ] Replace temporary Windows placeholder icon with canonical Lenvu application icon.
 - [ ] Verify no model weights, local databases, secrets, logs or private user data are tracked.
 
 ## Definition of success
