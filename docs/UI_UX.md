@@ -10,18 +10,22 @@
 
 No conventional UI is required.
 
-States include idle, observe, walk, sit, rest, sleep and explore. Transparent desktop regions should eventually be click-through while Lenvu's hit area remains interactive.
+States include idle, observe, walk, sit, rest, sleep and explore. The Windows pet overlay uses selective native cursor passthrough: transparent regions do not block the desktop, while semantic Lenvu hit zones and the companion handle remain interactive.
 
 ### Level 2 — Direct pet interaction
 
 - hover head/body → glance / ear response;
-- click → attention;
-- pet gesture → affection animation + bond change;
-- drag body → reposition/pick-up behavior;
+- head pointer-down → petting reaction + bond change;
+- body/tail pointer-down → touch/attention reaction;
+- future drag body → reposition/pick-up behavior;
 - play action → short playful sequence;
-- double-click → companion panel.
+- double-click Lenvu → toggle the independent Companion window.
 
 These actions must feel instant and must not call the LLM.
+
+#### Semantic hit zones
+
+The current V0.2 interaction contract defines forgiving normalized `head`, `body` and `tail` regions in `src/lib/pet/lenvu.manifest.json`. They are mapped into native window coordinates and used by the Windows cursor-passthrough controller. Production frame-aligned masks can replace/augment these regions later without changing Pet Brain commands.
 
 ### Level 3 — Context bubble
 
@@ -34,23 +38,28 @@ A compact temporary bubble near Lenvu is used for:
 - short answers;
 - actionable notifications.
 
-The bubble disappears automatically unless pinned or expanded.
+The bubble is part of the lightweight pet overlay. It should disappear automatically unless a future interaction explicitly pins or expands it.
 
-### Level 4 — Companion panel
+### Level 4 — Companion window
 
-The panel is not 'the app'; it is a deeper view of the companion.
+The Companion is not 'the app'; it is a deeper view of the companion. It is now a separate Tauri window from the transparent pet overlay, so closing/hiding it does not stop Lenvu's Rust Pet Runtime or PixiJS pet layer.
 
-Initial sections:
+Current sections:
 
-- status — mood, energy, bond, focus;
-- interact — pet/play/focus actions;
+- runtime/pet status — energy, curiosity, bond, sleep pressure;
+- state — posture, attention, emotion, cognition;
+- interact — pet/play/Focus Guard actions;
+- renderer/debug context — animation id, sequence and DPI/display information.
+
+Planned sections:
+
 - conversation — optional AI dialogue;
-- memories — recent meaningful moments;
+- memories — meaningful moments and editable memory;
 - activity — what Lenvu has noticed and done.
 
 ### Level 5 — Deep management
 
-Dedicated settings for model/runtime, privacy, memory, performance, display, startup, animation and debug.
+Dedicated settings for model/runtime, privacy, memory, performance, display, startup, animation and debug remain planned as deeper management surfaces.
 
 ## Interaction state families
 
@@ -94,14 +103,29 @@ Special
 
 ## Window model
 
-Planned windows:
+Implemented now:
 
-1. `pet` — transparent always-on-top overlay.
-2. `companion` — compact side/popover panel.
+1. `pet` —  transparent, always-on-top, taskbar-hidden desktop-pet overlay; PixiJS renderer + compact bubble + Companion handle.
+2. `companion` — independently show/hide-able managed window for status and deeper interaction. Native close is converted into hide so it can reopen without restarting Pet Runtime.
+
+Planned:
+
 3. `settings` — normal managed application window.
-4. `debug` — development-only state/event inspector.
+4. `debug` — development-only event/state inspector.
 
-The pet window should never need to carry the full settings/chat interface in memory if it is not open.
+The pet window must remain lightweight when deeper UI is closed.
+
+## Desktop movement UX
+
+`walk` and `run` locomotion now drive actual native pet-window horizontal movement. The controller:
+
+- stays within the current monitor work area;
+- keeps Lenvu above the taskbar/work-area boundary;
+- reverses at horizontal edges;
+- converts logical movement speed through the current DPI scale factor;
+- deliberately avoids autonomous monitor crossing until multi-monitor policy is designed.
+
+Jump currently remains an in-character renderer action instead of moving the native window vertically. This prevents a premature physics/window-position coupling.
 
 ## Visual language
 
@@ -110,6 +134,9 @@ The pet window should never need to carry the full settings/chat interface in me
 - restrained violet for emotional/AI accents;
 - gold only for Lenvu's horn-ring identity details;
 - translucent holographic rings for focus/protection/system states;
-- avoid constant glow/particles when idle to protect Vega 8 resources.
+- avoid constant glow/particles when idle to protect Vega 8 resources;
+- use animation-specific low-power frame budgets for rest/sleep states.
 
 Reference board: `docs/assets/lenvu-system-overview.webp`.
+Character rules: `docs/CHARACTER_BIBLE.md`.
+Runtime asset contract: `docs/ASSET_PIPELINE.md`.
