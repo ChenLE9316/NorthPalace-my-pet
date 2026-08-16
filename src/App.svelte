@@ -43,6 +43,18 @@
     await send('play');
   }
 
+  async function handlePetPointerDown(event: PointerEvent) {
+    const zone = renderer?.hitTest(event.clientX, event.clientY);
+    if (!zone) return;
+
+    if (zone === 'head') {
+      await send('pet');
+      return;
+    }
+
+    await send('touch');
+  }
+
   async function toggleFocus() {
     await send(snapshot.state.mode === 'focus_guard' ? 'focus_stop' : 'focus_start');
   }
@@ -97,12 +109,11 @@
 <main class="desktop-stage">
   <button
     class="pet"
-    aria-label="摸摸 Lenvu"
-    onclick={pet}
+    aria-label="與 Lenvu 互動"
     ondblclick={() => (showPanel = !showPanel)}
     onmouseenter={() => void send('hover')}
     onmouseleave={() => void send('hover_end')}
-    onpointerdown={() => void send('touch')}
+    onpointerdown={(event) => void handlePetPointerDown(event)}
   >
     <div class="pet-canvas" bind:this={petCanvas}></div>
     <div class="pet-label">

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "character": {
+    "id": "lenvu",
+    "displayName": "Lenvu",
+    "species": "Neralune",
+    "referenceCanvas": { "width": 512, "height": 512 },
+    "anchor": { "x": 0.5, "y": 0.86 }
+  },
+  "render": {
+    "nominalWidth": 180,
+    "nominalHeight": 220,
+    "idleFrameBudgetFps": 8,
+    "lowPowerFrameBudgetFps": 4
+  },
+  "hitZones": [
+    { "id": "head", "shape": "ellipse", "cx": 0.5, "cy": 0.28, "rx": 0.29, "ry": 0.25 },
+    { "id": "body", "shape": "ellipse", "cx": 0.48, "cy": 0.59, "rx": 0.31, "ry": 0.34 },
+    { "id": "tail", "shape": "ellipse", "cx": 0.78, "cy": 0.63, "rx": 0.18, "ry": 0.21 }
+  ],
+  "animations": {
+    "idle": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 1.5, "sway": 0.01, "asset": null },
+    "observe": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 1.2, "sway": 0.015, "asset": null },
+    "sit": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 1.0, "sway": 0.008, "asset": null },
+    "rest": { "fps": 6, "loop": true, "lowPowerFps": 3, "bodyBob": 0.7, "sway": 0.004, "asset": null },
+    "sleep": { "fps": 5, "loop": true, "lowPowerFps": 2, "bodyBob": 0.55, "sway": 0.0, "asset": null },
+    "wake": { "fps": 12, "loop": false, "lowPowerFps": 8, "bodyBob": 2.6, "sway": 0.02, "asset": null },
+    "pet_receive": { "fps": 12, "loop": true, "lowPowerFps": 8, "bodyBob": 2.4, "sway": 0.018, "asset": null },
+    "play": { "fps": 16, "loop": true, "lowPowerFps": 10, "bodyBob": 7.5, "sway": 0.08, "asset": null },
+    "focus_guard": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 0.65, "sway": 0.004, "asset": null },
+    "walk": { "fps": 12, "loop": true, "lowPowerFps": 8, "bodyBob": 3.0, "sway": 0.02, "asset": null },
+    "run": { "fps": 18, "loop": true, "lowPowerFps": 12, "bodyBob": 4.5, "sway": 0.03, "asset": null },
+    "jump": { "fps": 16, "loop": false, "lowPowerFps": 10, "bodyBob": 9.0, "sway": 0.025, "asset": null },
+    "thinking": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 0.8, "sway": 0.006, "asset": null }
+  }
+}

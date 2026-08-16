@@ -1,118 +1,107 @@
-# Lenvu Runtime Asset Pipeline
+# Lenvu Asset Pipeline
 
-## Goal
+Reference art and runtime art are intentionally separated.
 
-The concept sheets define Lenvu's visual identity, but they are not animation-ready runtime assets. Production animation must normalize anatomy, scale, anchor, silhouette and frame timing before any sheet is consumed by PixiJS.
-
-## Repository split
+## Repository layout
 
 ```text
 assets/
-|- reference/
-|  |- anatomy/
-|  |- expressions/
-|  |- movement/
-|  |- behavior/
-|  |- abilities/
-|  `- ui-concepts/
-`- runtime/
-   `- lenvu/
-      |- sprites/
-      |- atlases/
-      |- masks/
-      |- effects/
-      `- manifest.json
+├─ reference/
+│  ├─ anatomy/
+│  ├─ expressions/
+│  ├─ movement/
+│  ├─ behavior/
+│  ├─ abilities/
+│  └─ ui-concepts/
+└─ runtime/
+   └─ lenvu/
+      ├─ sprites/
+      ├─ atlases/
+      ├─ masks/
+      ├─ effects/
+      └─ source-notes/
 ```
 
-The currently served runtime contract lives at `public/assets/runtime/lenvu/manifest.json`. It contains animation identifiers and canonical render metadata while production sprite/atlas paths are intentionally empty.
+Runtime behavior metadata lives in `src/lib/pet/lenvu.manifest.json` so the renderer has one versioned contract for animation IDs, frame budgets, anchors and normalized hit zones.
 
-## Canonical character rules
-
-Before authoring frames, lock:
-
-- head/body ratio;
-- ear size and attachment points;
-- horn position and gold ring details;
-- heterochromia orientation;
-- Lumen-Code markings;
-- paw size and leg length;
-- tail base and holographic tip silhouette;
-- neutral ground contact line;
-- pivot/anchor location;
-- left/right facing convention.
-
-Every animation sheet must be derived from this canonical body, not independently redrawn from a different concept sheet.
-
-## Animation contract
-
-Initial IDs:
-
-- `idle`
-- `observe`
-- `sit`
-- `rest`
-- `sleep`
-- `wake`
-- `pet_receive`
-- `play`
-- `focus_guard`
-- `walk`
-- `run`
-- `jump`
-- `thinking`
-
-Pet Brain emits domain state and Behavior Intents. `src/lib/pet/animation.ts` resolves those facts into one renderer-facing animation ID. The renderer must not infer personality or mutate Pet Brain state.
-
-## PixiJS loading strategy
-
-Production assets should use PixiJS Assets/manifest bundles and sprite sheets rather than dozens of independent image requests. The expected runtime flow is:
+## Pipeline
 
 ```text
-Lenvu runtime manifest
-        |
-        v
-quality-tier bundle
-        |
-        v
-sprite sheet / atlas
-        |
-        v
-animation frames
-        |
-        v
-PixiJS AnimatedSprite / renderer graph
+Source concept/reference art
+        ↓
+Canonical anatomy normalization
+        ↓
+Master pose / anchor guide
+        ↓
+Animation cleanup
+        ↓
+Consistent transparent frame bounds
+        ↓
+Sprite atlas + hit masks
+        ↓
+Manifest asset paths
+        ↓
+PixiJS renderer
 ```
 
-Keep a vector placeholder path until the first canonical atlas is complete so engineering does not block on art production.
+## Rules
 
-## Low-end target policy
+1. Never use concept-board screenshots as production sprite frames.
+2. Never resize each animation independently; normalize against one canonical master.
+3. Preserve original reference files when possible. Runtime derivatives may be optimized separately.
+4. Runtime texture dimensions should be selected from measured Vega 8 memory/performance results, not assumed high-resolution defaults.
+5. Transparent padding, pivot and ground contact must remain stable across frames.
+6. Hit masks must follow the visible body while keeping interaction forgiving at small sizes.
+7. The renderer consumes semantic animation IDs such as `sleep`, `walk` or `pet_receive`; Pet Brain never knows atlas/frame filenames.
+8. Lumen-Code glow/effects should be separable from base character sprites so low-power mode can reduce or disable them.
 
-Target: Ryzen 3 2200G + Vega 8 + 16 GB DRAM.
+## Manifest contract
 
-- default renderer resolution: 1x;
-- avoid antialiasing unless measurements justify it;
-- prefer atlases to many standalone textures;
-- keep idle animation frame rates low;
-- allow a low-power animation tier;
-- avoid permanent particles/glow layers;
-- unload optional/high-cost asset bundles when not needed;
-- record VRAM/system-memory impact of each quality tier.
+Current schema version: `1`.
 
-## Hit masks
+The manifest records:
 
-Runtime hit masks are separate from visible textures. Each major pose/animation family eventually needs a coarse interaction mask for:
+- character identity and reference canvas;
+- canonical anchor;
+- nominal desktop render size;
+- normal and low-power frame budgets;
+- normalized interaction hit zones;
+- semantic animation profiles;
+- future atlas asset locations.
 
-- head/petting region;
-- body/drag region;
-- tail interaction region;
-- transparent pass-through region.
+An animation entry with `asset: null` means the current procedural/vector placeholder remains active. When production sprites are ready, set the entry to a runtime atlas reference without changing domain behavior.
 
-Do not use full per-pixel alpha testing as the first implementation. A small number of normalized geometric zones is cheaper and easier to keep stable across frames.
+## Interaction masks
 
-## Acceptance criteria for the first production atlas
+V0.2 uses forgiving normalized ellipse zones for `head`, `body` and `tail`. They are **interaction semantics**, not final per-pixel Windows hit masks.
 
-1. No body-size popping between idle, sit, walk and sleep.
-2. Anchor remains stable on the desktop ground line.
-3. Heterochromia and horn details do not swap accidentally when facing changes.
-4. Hit regions stay aligned with visible anatomy.
-5. Idle rendering remains cheap enough for all-day use on Vega 8.
+The migration path is:
+
+```text
+normalized semantic hit zones
+        ↓
+frame-aligned mask metadata
+        ↓
+Windows cursor re-entry / native hit-test layer
+        ↓
+transparent desktop click-through outside Lenvu
+```
+
+The application must not enable whole-window cursor passthrough until a reliable native re-entry path exists, otherwise Lenvu could become impossible to click again from inside the WebView.
+
+## Low-power renderer policy
+
+The PixiJS ticker must be capped using animation-specific FPS values. Rest/sleep can use lower frame budgets than active play/run states. This matters because NorthPalace-my-pet targets an always-on Ryzen 3 2200G + Vega 8 + 16 GB system.
+
+## Acceptance checklist for a production animation
+
+- anatomy matches the canonical master;
+- left/right eye identity is correct;
+- horn-ring and markings remain stable;
+- frame bounds do not jitter;
+- anchor/ground contact is stable;
+- loop has no visible pop when `loop=true`;
+- hit mask aligns with the pose;
+- normal and low-power FPS both look acceptable;
+- memory cost is recorded;
+- source/provenance is documented.

@@ -1,12 +1,14 @@
-import { Application, Container, Graphics } from 'pixi.js';
+import { Application, Container, Graphics, type Ticker } from 'pixi.js';
 import type { PetRuntimeSnapshot } from '../types';
 import { animationProfile, resolveAnimation, type LenvuAnimationId } from './animation';
+import { hitTestLenvu } from './hitTest';
+import { lenvuManifest, type LenvuHitZoneId } from './manifest';
 
 /**
  * PixiJS owns Lenvu's high-frequency presentation layer.
  *
- * This is intentionally a vector placeholder renderer. Production sprites/atlases will replace
- * these primitives after the canonical Lenvu anatomy and animation anchors are normalized.
+ * This remains a procedural placeholder. The manifest already defines the stable renderer contract,
+ * so production sprites/atlases can replace these primitives without changing Pet Brain.
  */
 export class PetRenderer {
   private readonly app = new Application();
@@ -17,9 +19,8 @@ export class PetRenderer {
   private readonly leftEye = new Graphics().circle(-18, -26, 6).fill(0x67e9ff);
   private readonly rightEye = new Graphics().circle(18, -26, 6).fill(0xb991ff);
   private snapshot: PetRuntimeSnapshot | null = null;
-  private raf = 0;
-  private startedAt = performance.now();
   private animation: LenvuAnimationId = 'idle';
+  private elapsedSeconds = 0;
 
   async mount(container: HTMLElement) {
     await this.app.init({
@@ -30,6 +31,8 @@ export class PetRenderer {
       antialias: false,
       resolution: 1,
       autoDensity: false,
+      sharedTicker: false,
+      autoStart: true,
     });
 
     this.app.canvas.setAttribute('aria-hidden', 'true');
@@ -85,14 +88,19 @@ export class PetRenderer {
 
     this.root.position.set(container.clientWidth / 2, container.clientHeight / 2 + 8);
     this.app.stage.addChild(this.root);
-    this.startedAt = performance.now();
-    this.animate();
+    this.app.ticker.minFPS = 2;
+    this.app.ticker.maxFPS = lenvuManifest.render.idleFrameBudgetFps;
+    this.app.ticker.add(this.animate);
   }
 
   update(snapshot: PetRuntimeSnapshot) {
     this.snapshot = snapshot;
     this.animation = resolveAnimation(snapshot);
     this.focusRing.visible = snapshot.state.mode === 'focus_guard';
+
+    const profile = animationProfile(this.animation);
+    const lowPower = snapshot.behavior === null && (snapshot.state.posture === 'sleep' || snapshot.state.posture === 'lie');
+    this.app.ticker.maxFPS = Math.max(2, lowPower ? profile.lowPowerFps : profile.fps);
 
     const eyeScale = snapshot.state.emotion === 'happy' ? 1.18 : 1;
     this.leftEye.scale.set(eyeScale);
@@ -121,13 +129,20 @@ export class PetRenderer {
     return this.animation;
   }
 
+  hitTest(clientX: number, clientY: number): LenvuHitZoneId | null {
+    const view = this.app.canvas.parentElement;
+    if (!view) return null;
+    return hitTestLenvu(clientX, clientY, view.getBoundingClientRect());
+  }
+
   destroy() {
-    cancelAnimationFrame(this.raf);
+    this.app.ticker.remove(this.animate);
     this.app.destroy(true, { children: true });
   }
 
-  private animate = () => {
-    const elapsed = (performance.now() - this.startedAt) / 1000;
+  private animate = (ticker: Ticker) => {
+    this.elapsedSeconds += ticker.deltaMS / 1000;
+    const elapsed = this.elapsedSeconds;
     const profile = animationProfile(this.animation);
     const posture = this.snapshot?.state.posture;
 
@@ -155,6 +170,5 @@ export class PetRenderer {
     }
 
     this.focusRing.alpha = 0.45 + Math.sin(elapsed * 2.4) * 0.18;
-    this.raf = requestAnimationFrame(this.animate);
   };
 }

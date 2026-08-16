@@ -1,14 +1,16 @@
 # Lenvu Reference Art
 
-This directory is reserved for source/reference artwork that defines Lenvu's visual bible. Reference art is not loaded by the desktop runtime.
+This directory is for source/reference material only: anatomy sheets, expressions, movement studies, interaction concepts, abilities and UI concept boards.
 
-Planned categories:
+Reference files are not loaded by the desktop runtime. Preserve provenance, original resolution and notes when adding them.
 
-- `anatomy/` - front/side/back/three-quarter turnarounds and proportion sheets;
-- `expressions/` - eye, ear, mouth and emotion studies;
-- `movement/` - walk/run/jump/pose references;
-- `behavior/` - sleep, petting, play, greeting and interaction sheets;
-- `abilities/` - Focus Guard, Lumen-Code and holographic effects;
-- `ui-concepts/` - desktop/phone companion UI concept boards.
+Suggested subdirectories:
 
-Before public release, every reference asset must have documented provenance and an explicit artwork/character license separate from the source-code license.
+- `anatomy/`
+- `expressions/`
+- `movement/`
+- `behavior/`
+- `abilities/`
+- `ui-concepts/`
+
+See `docs/CHARACTER_BIBLE.md` and `docs/ASSET_PIPELINE.md`.
