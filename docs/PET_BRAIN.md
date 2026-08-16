@@ -1,15 +1,45 @@
 # Lenvu Pet Brain
 
-Pet Brain is the core of NorthPalace-my-pet. It must produce believable behavior without an LLM.
+Pet Brain is the core of NorthPalace-my-pet. It must produce believable behavior without an LLM or a vision model.
 
-## State dimensions
+## V0 status
+
+The repository still contains the original V0 `PetActivity` prototype for compatibility while V0.2 is introduced. V0.2 adds separate contracts for parallel state, domain events and behavior intents. The next migration step is to move simulation ownership into the Rust runtime clock and retire UI-owned ticking.
+
+## Parallel state model (V0.2 target)
+
+Lenvu does not have one exclusive activity. Several dimensions coexist:
+
+```text
+PetState
+|- locomotion: stationary | walk | run | jump
+|- posture: stand | sit | lie | sleep
+|- attention: idle | user | cursor | window | object
+|- emotion: calm | curious | happy | shy | concerned | sleepy
+|- mode: ambient | focus_guard | do_not_disturb | play
+`- cognition: idle | listening | thinking | speaking | remembering
+```
+
+Example valid state:
+
+```text
+posture     = sit
+attention   = user
+emotion     = curious
+mode        = focus_guard
+cognition   = idle
+```
+
+This avoids conflating movement, pose, emotion and AI state into one enum.
+
+## Internal dimensions
 
 Initial normalized dimensions:
 
 - `energy`
 - `curiosity`
 - `bond`
-- `focus`
+- `sleep_pressure`
 
 Planned later dimensions:
 
@@ -17,50 +47,65 @@ Planned later dimensions:
 - social need
 - confidence
 - stimulation
-- sleep pressure
 - trust
+- alertness
 
-Not every dimension should be shown directly to the user. Some are internal causes of behavior rather than game meters.
+Not every dimension should be exposed as a visible game meter. Some are internal causes of behavior.
 
-## Current V0 behavior
+## Behavior Intent
 
-The first code commit intentionally starts with a tiny deterministic system:
+Short-lived actions are represented independently from long-lived state. They carry duration/TTL, priority and interruption policy so reactions survive more than one tick.
 
-```text
-0–14 s idle   → Idle
-15–59 s       → Observe
-60–179 s      → Sit
-180–599 s     → Rest
-600+ s        → Sleep
+```json
+{
+  "kind": "receive_pet",
+  "priority": 60,
+  "remainingMs": 3200,
+  "interruptible": true,
+  "animation": "pet_receive"
+}
 ```
 
-Interactions reset idle time. Petting raises bond; play spends some energy; Focus Guard holds a focused state.
+Examples:
 
-This is scaffolding, not the final behavioral model.
+- receive pet;
+- play;
+- wake;
+- settle to rest;
+- focus guard;
+- observe user.
 
-## Target decision pipeline
+## Decision pipeline
 
 ```text
-Observation
-    ↓
+Observation / Domain Event
+          |
+          v
 Perception / normalization
-    ↓
+          |
+          v
 Internal state update
-    ↓
+          |
+          v
 Candidate behaviors
-    ↓
-Constraints + priorities
-    ↓
+          |
+          v
+Constraints + priorities + needs
+          |
+          v
 Weighted behavior selection
-    ↓
-Action intent
-    ↓
-Animation / bubble / AI request
+          |
+          v
+Behavior Intent
+          |
+          +--> Animation intent
+          +--> Context bubble policy
+          `--> Optional AI request
 ```
 
 ## Reflex vs cognition
 
-### Reflex layer — no LLM
+### Reflex layer — no AI required
 
 - cursor proximity;
 - petting;
@@ -68,31 +113,38 @@ Animation / bubble / AI request
 - walking/sitting;
 - notification ear twitch;
 - focus shield animation;
-- idle exploration.
+- idle exploration;
+- user return greeting motion;
+- time-of-day resting tendencies.
 
-### Cognition layer — LLM may help
+### Cognition layer — text LLM may help
 
 - interpreting user language;
 - summarizing a cluster of events;
-- deciding whether a memory is meaningful;
-- generating a nuanced response;
-- connecting current context with relevant past memories.
+- evaluating whether an event is worth remembering;
+- generating a nuanced reply;
+- relating current context to stored memories.
 
-The LLM produces suggestions/intent, not raw animation commands.
+### Visual cognition — optional, later
 
-## Behavior contract
+Pet Brain must never depend on raw screenshots. Future screen vision produces a validated `ScreenObservation` through a separate Screen Context Broker. Structured Windows/accessibility context is preferred whenever possible.
 
-A future action intent should resemble:
+## Sleep and recovery
 
-```json
-{
-  "behavior": "approach_and_check_in",
-  "urgency": 0.25,
-  "emotion": "gentle_concern",
-  "speech_policy": "silent_first",
-  "animation": "walk_then_sit",
-  "ttl_ms": 12000
-}
-```
+V0 used a fixed idle threshold. The target system should select rest/sleep based on utility from multiple signals such as energy, sleep pressure, time of day, recent interaction and user idle state. Sleeping should recover energy rather than continue draining it.
 
-This keeps model output behind a validated domain contract.
+## User focus is not pet focus
+
+Avoid a single ambiguous `focus: f32`. Keep these concepts separate:
+
+- pet `attention` / `alertness`;
+- user focus-session/context state;
+- `focus_guard` system mode.
+
+## Runtime ownership
+
+Rust owns simulation time. Svelte issues commands and renders immutable snapshots; the UI is not allowed to keep Lenvu alive by repeatedly calling a tick function.
+
+## Acceptance test
+
+With the text model and any future vision worker fully unloaded, Lenvu must still have a complete behavior path for ambient life, sleep/wake, direct interaction, focus mode and persistence.
