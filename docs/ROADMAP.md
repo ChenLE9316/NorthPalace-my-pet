@@ -44,7 +44,7 @@
 ## Phase 3 — Windows awareness and focus companion
 
 - [x] User idle / return sensor using low-cost Win32 input timing.
-- [ ] Active-window adapter.
+- [x] Active-window app identity sensor without collecting window titles by default.
 - [ ] Window bounds / monitor context.
 - [x] Focus Guard domain mode and UI control.
 - [ ] Context bubbles and low-noise reminder policy.
@@ -83,7 +83,8 @@
 - [ ] Choose a code license.
 - [ ] Define separate Lenvu character/artwork licensing.
 - [ ] Add dependency lockfiles.
-- [ ] Add Windows CI checks.
+- [x] Add Windows CI workflow definition.
+- [ ] Execute and pass the first Windows CI run.
 - [ ] Add SECURITY.md.
 - [ ] Restore a restrictive Content Security Policy.
 - [ ] Replace the low-resolution concept-board copy with the original high-resolution source.
