@@ -23,17 +23,22 @@
 
 ## Phase 1 — Living desktop pet
 
-- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets.
+- [x] Define the Lenvu Character Bible and canonical visual identity rules.
+- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets into a production master.
 - [x] Define reference-art vs runtime-asset separation.
 - [x] Define runtime animation manifest and renderer-facing animation resolver.
 - [x] Add PixiJS vector placeholder renderer for state/behavior validation.
+- [x] Add animation-specific normal/low-power FPS budgets.
 - [ ] Replace placeholder with production sprite/atlas animation graph.
+- [x] Split the lightweight `pet` overlay from the independent `companion` window.
 - [x] Add current monitor / DPI / work-area display context contract.
 - [ ] Add monitor/DPI change observation.
-- [ ] Define normalized pet hit zones.
-- [ ] Implement native selective transparent hit testing / click-through behavior.
-- [ ] Implement autonomous desktop movement controller with work-area clamping.
-- [ ] Synchronize walk/run movement with window repositioning.
+- [x] Define normalized semantic pet hit zones.
+- [x] Implement native selective transparent hit testing / click-through with native cursor re-entry.
+- [x] Implement desktop movement controller with current work-area clamping.
+- [x] Synchronize `walk` / `run` locomotion with native pet-window repositioning.
+- [ ] Expose facing direction to Pet State / renderer so production sprites flip consistently.
+- [ ] Add autonomous ambient explore/wander behavior selection.
 - [ ] Multi-monitor autonomous movement policy.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
