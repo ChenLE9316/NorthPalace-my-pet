@@ -1,4 +1,5 @@
 mod domain;
+mod runtime;
 
 use std::sync::Mutex;
 use domain::pet::{PetBrain, PetInteraction, PetState};
@@ -10,6 +11,8 @@ fn get_pet_state(brain: tauri::State<'_, Mutex<PetBrain>>) -> PetState {
 
 #[tauri::command]
 fn tick_pet(seconds: u64, brain: tauri::State<'_, Mutex<PetBrain>>) -> PetState {
+    // V0 compatibility command. The V0.2 migration moves simulation time into
+    // `runtime::RuntimeClock` and will remove this UI-owned ticking path.
     let mut brain = brain.lock().expect("pet brain mutex poisoned");
     brain.tick(seconds);
     brain.state()
