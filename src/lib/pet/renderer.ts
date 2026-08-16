@@ -140,7 +140,12 @@ export class PetRenderer {
   hitTest(clientX: number, clientY: number): LenvuHitZoneId | null {
     const view = this.app.canvas.parentElement;
     if (!view) return null;
-    return hitTestLenvu(clientX, clientY, view.getBoundingClientRect());
+    return hitTestLenvu(
+      clientX,
+      clientY,
+      view.getBoundingClientRect(),
+      this.snapshot?.state.facing ?? 'right',
+    );
   }
 
   destroy() {

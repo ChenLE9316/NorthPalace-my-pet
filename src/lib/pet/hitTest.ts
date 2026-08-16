@@ -1,3 +1,4 @@
+import type { Facing } from '../types';
 import { lenvuManifest, type LenvuHitZoneId } from './manifest';
 
 export interface RectLike {
@@ -21,12 +22,22 @@ export function normalizePoint(clientX: number, clientY: number, bounds: RectLik
   return { x, y };
 }
 
-export function hitTestLenvu(clientX: number, clientY: number, bounds: RectLike): LenvuHitZoneId | null {
+export function canonicalX(x: number, facing: Facing): number {
+  return facing === 'left' ? 1 - x : x;
+}
+
+export function hitTestLenvu(
+  clientX: number,
+  clientY: number,
+  bounds: RectLike,
+  facing: Facing = 'right',
+): LenvuHitZoneId | null {
   const point = normalizePoint(clientX, clientY, bounds);
   if (!point) return null;
 
+  const x = canonicalX(point.x, facing);
   for (const zone of lenvuManifest.hitZones) {
-    const dx = (point.x - zone.cx) / zone.rx;
+    const dx = (x - zone.cx) / zone.rx;
     const dy = (point.y - zone.cy) / zone.ry;
     if (dx * dx + dy * dy <= 1) return zone.id;
   }

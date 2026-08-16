@@ -18,9 +18,14 @@
   let renderer: PetRenderer | null = null;
 
   async function refresh() {
+    const previousFacing = snapshot.state.facing;
     snapshot = await getPetSnapshot();
     renderer?.update(snapshot);
     animation = renderer?.currentAnimation() ?? animation;
+
+    if (snapshot.state.facing !== previousFacing) {
+      window.requestAnimationFrame(configureNativeHitTest);
+    }
   }
 
   async function send(kind: PetInteraction) {
@@ -53,21 +58,25 @@
   }
 
   function stateLabel() {
-    const { posture, emotion, attention } = snapshot.state;
-    return `${posture} · ${emotion} · ${attention}`;
+    const { posture, emotion, attention, facing } = snapshot.state;
+    return `${posture} · ${emotion} · ${attention} · ${facing}`;
   }
 
   function configureNativeHitTest() {
     if (!petCanvas || !panelHandle || window.innerWidth <= 0 || window.innerHeight <= 0) return;
 
     const petBounds = petCanvas.getBoundingClientRect();
-    const regions: CursorHitRegion[] = lenvuManifest.hitZones.map((zone) => ({
-      shape: 'ellipse',
-      cx: (petBounds.left + zone.cx * petBounds.width) / window.innerWidth,
-      cy: (petBounds.top + zone.cy * petBounds.height) / window.innerHeight,
-      rx: (zone.rx * petBounds.width) / window.innerWidth,
-      ry: (zone.ry * petBounds.height) / window.innerHeight,
-    }));
+    const facing = snapshot.state.facing;
+    const regions: CursorHitRegion[] = lenvuManifest.hitZones.map((zone) => {
+      const cx = facing === 'left' ? 1 - zone.cx : zone.cx;
+      return {
+        shape: 'ellipse',
+        cx: (petBounds.left + cx * petBounds.width) / window.innerWidth,
+        cy: (petBounds.top + zone.cy * petBounds.height) / window.innerHeight,
+        rx: (zone.rx * petBounds.width) / window.innerWidth,
+        ry: (zone.ry * petBounds.height) / window.innerHeight,
+      };
+    });
 
     const handleBounds = panelHandle.getBoundingClientRect();
     const margin = 5;
