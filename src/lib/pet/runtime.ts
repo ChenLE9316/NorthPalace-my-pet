@@ -1,37 +1,41 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { PetInteraction, PetState } from '../types';
+import type { PetInteraction, PetRuntimeSnapshot } from '../types';
 
-export const fallbackState: PetState = {
-  activity: 'idle',
-  mood: 'calm',
-  energy: 0.82,
-  curiosity: 0.62,
-  bond: 0.2,
-  focus: 0.5,
-  idleSeconds: 0,
-  aiAvailable: false,
+export const fallbackSnapshot: PetRuntimeSnapshot = {
+  health: 'degraded',
+  sequence: 0,
+  state: {
+    locomotion: 'stationary',
+    posture: 'stand',
+    attention: 'idle',
+    emotion: 'calm',
+    mode: 'ambient',
+    cognition: 'idle',
+    energy: 0.82,
+    curiosity: 0.62,
+    bond: 0.2,
+    sleepPressure: 0.1,
+    userIdleMs: 0,
+    aiAvailable: false,
+  },
+  behavior: null,
 };
 
-export async function getPetState(): Promise<PetState> {
+export async function getPetSnapshot(): Promise<PetRuntimeSnapshot> {
   try {
-    return await invoke<PetState>('get_pet_state');
-  } catch {
-    return fallbackState;
+    return await invoke<PetRuntimeSnapshot>('get_pet_snapshot');
+  } catch (error) {
+    console.error('Failed to read Pet Runtime snapshot', error);
+    return { ...fallbackSnapshot, health: 'error' };
   }
 }
 
-export async function tickPet(seconds = 1): Promise<PetState> {
+export async function interact(kind: PetInteraction): Promise<boolean> {
   try {
-    return await invoke<PetState>('tick_pet', { seconds });
-  } catch {
-    return fallbackState;
-  }
-}
-
-export async function interact(kind: PetInteraction): Promise<PetState> {
-  try {
-    return await invoke<PetState>('pet_interact', { kind });
-  } catch {
-    return { ...fallbackState, mood: kind === 'pet' ? 'happy' : 'curious' };
+    await invoke('pet_interact', { kind });
+    return true;
+  } catch (error) {
+    console.error(`Failed to dispatch pet interaction: ${kind}`, error);
+    return false;
   }
 }
