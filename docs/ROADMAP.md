@@ -11,9 +11,10 @@
 - [x] Define parallel Pet State V2 types.
 - [x] Define Domain Event and Behavior Intent contracts.
 - [x] Define vision/screen-understanding policy.
-- [ ] Replace JavaScript-owned simulation ticking with a Rust-owned runtime clock.
-- [ ] Replace the V0 single `PetActivity` state with the V2 parallel state model.
-- [ ] Add explicit runtime health state: ready/degraded/recovering/error.
+- [x] Replace JavaScript-owned simulation ticking with a Rust-owned runtime clock.
+- [x] Replace the V0 single `PetActivity` state with the V2 parallel state model.
+- [x] Add explicit runtime health state: ready/degraded/recovering/error.
+- [x] Make Svelte consume immutable Pet Runtime snapshots instead of driving simulation time.
 - [ ] Run first clean build on the target Windows 11 machine.
 - [ ] Record baseline RAM / idle CPU / GPU usage on Ryzen 3 2200G + 16 GB.
 
@@ -21,12 +22,15 @@
 
 - [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets.
 - [ ] Separate reference art from runtime assets.
-- [ ] PixiJS renderer and animation graph.
+- [x] Add PixiJS renderer boundary and vector placeholder Lenvu.
+- [ ] Replace vector placeholder with production sprite/atlas assets.
+- [ ] Build production animation graph and animation-state manifest.
 - [ ] Transparent hit-test regions / click-through behavior.
 - [ ] Multi-monitor and DPI behavior.
-- [ ] Idle/observe/sit/rest/sleep transitions through Behavior Intents.
-- [ ] Walk/run/reposition behavior.
-- [ ] Hover, touch, pet, drag and play interactions.
+- [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
+- [ ] Walk/run/reposition behavior across the desktop.
+- [x] Hover enter/leave, touch, pet and play event loop.
+- [ ] Drag/pick-up interaction.
 - [ ] Tray control and startup policy.
 
 ## Phase 2 — Persistent life
@@ -34,16 +38,16 @@
 - [ ] SQLite schema and migrations.
 - [ ] Save pet state and relationship.
 - [ ] Episodic/semantic/preference/relationship memory types.
-- [ ] Time-of-day rhythm.
+- [ ] Time-of-day rhythm persistence.
 - [ ] Activity/event journal with bounded retention.
 
 ## Phase 3 — Windows awareness and focus companion
 
-- [ ] User idle / return sensor.
+- [x] User idle / return sensor using low-cost Win32 input timing.
 - [ ] Active-window adapter.
 - [ ] Window bounds / monitor context.
-- [ ] Focus Guard sessions.
-- [ ] Context bubbles and low-noise reminders.
+- [x] Focus Guard domain mode and UI control.
+- [ ] Context bubbles and low-noise reminder policy.
 - [ ] Per-app privacy exclusions.
 - [ ] Screen Context Broker using structured Windows signals first.
 
@@ -82,6 +86,7 @@
 - [ ] Add Windows CI checks.
 - [ ] Add SECURITY.md.
 - [ ] Restore a restrictive Content Security Policy.
+- [ ] Replace the low-resolution concept-board copy with the original high-resolution source.
 - [ ] Verify no model weights, local databases, secrets, logs or private user data are tracked.
 
 ## Definition of success
