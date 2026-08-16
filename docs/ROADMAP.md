@@ -15,20 +15,27 @@
 - [x] Replace the V0 single `PetActivity` state with the V2 parallel state model.
 - [x] Add explicit runtime health state: ready/degraded/recovering/error.
 - [x] Make Svelte consume immutable Pet Runtime snapshots instead of driving simulation time.
+- [x] Add Windows idle/return and foreground-app awareness.
+- [x] Add Windows CI workflow definition.
+- [ ] Confirm first successful Windows CI run.
 - [ ] Run first clean build on the target Windows 11 machine.
 - [ ] Record baseline RAM / idle CPU / GPU usage on Ryzen 3 2200G + 16 GB.
 
 ## Phase 1 — Living desktop pet
 
 - [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets.
-- [ ] Separate reference art from runtime assets.
-- [x] Add PixiJS renderer boundary and vector placeholder Lenvu.
-- [ ] Replace vector placeholder with production sprite/atlas assets.
-- [ ] Build production animation graph and animation-state manifest.
-- [ ] Transparent hit-test regions / click-through behavior.
-- [ ] Multi-monitor and DPI behavior.
+- [x] Define reference-art vs runtime-asset separation.
+- [x] Define runtime animation manifest and renderer-facing animation resolver.
+- [x] Add PixiJS vector placeholder renderer for state/behavior validation.
+- [ ] Replace placeholder with production sprite/atlas animation graph.
+- [x] Add current monitor / DPI / work-area display context contract.
+- [ ] Add monitor/DPI change observation.
+- [ ] Define normalized pet hit zones.
+- [ ] Implement native selective transparent hit testing / click-through behavior.
+- [ ] Implement autonomous desktop movement controller with work-area clamping.
+- [ ] Synchronize walk/run movement with window repositioning.
+- [ ] Multi-monitor autonomous movement policy.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
-- [ ] Walk/run/reposition behavior across the desktop.
 - [x] Hover enter/leave, touch, pet and play event loop.
 - [ ] Drag/pick-up interaction.
 - [ ] Tray control and startup policy.
@@ -45,7 +52,8 @@
 
 - [x] User idle / return sensor using low-cost Win32 input timing.
 - [x] Active-window app identity sensor without collecting window titles by default.
-- [ ] Window bounds / monitor context.
+- [x] Current monitor / work-area / DPI context.
+- [ ] Window bounds context for observed apps.
 - [x] Focus Guard domain mode and UI control.
 - [ ] Context bubbles and low-noise reminder policy.
 - [ ] Per-app privacy exclusions.
