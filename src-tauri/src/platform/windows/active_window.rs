@@ -8,6 +8,7 @@ use std::{
 
 use crate::{
     domain::events::DomainEvent,
+    privacy::PrivacyPolicyService,
     runtime::RuntimeHandle,
 };
 
@@ -85,7 +86,10 @@ fn foreground_app_id() -> Option<String> {
     Some(app_id)
 }
 
-pub fn spawn_active_window_sensor(runtime: RuntimeHandle) {
+pub fn spawn_active_window_sensor(
+    runtime: RuntimeHandle,
+    privacy: PrivacyPolicyService,
+) {
     thread::spawn(move || {
         let mut last_app_id: Option<String> = None;
 
@@ -93,9 +97,10 @@ pub fn spawn_active_window_sensor(runtime: RuntimeHandle) {
             let app_id = foreground_app_id();
             if app_id != last_app_id {
                 if let Some(app_id) = app_id.clone() {
-                    if runtime
-                        .dispatch(DomainEvent::ActiveWindowChanged { app_id })
-                        .is_err()
+                    if !privacy.is_app_excluded(&app_id)
+                        && runtime
+                            .dispatch(DomainEvent::ActiveWindowChanged { app_id })
+                            .is_err()
                     {
                         break;
                     }
