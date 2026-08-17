@@ -1,18 +1,18 @@
 use crate::domain::{
     behavior::{BehaviorIntent, BehaviorKind},
     events::DomainEvent,
+    personality::{AmbientAction, AmbientContext, PersonalityProfile},
     pet_state::{Attention, Emotion, Facing, Locomotion, PetMode, PetStateV2, Posture},
 };
-
-const EXPLORE_INTERVAL_MS: u64 = 45_000;
-const EXPLORE_ACTIVE_USER_IDLE_LIMIT_MS: u64 = 20_000;
 
 #[derive(Debug)]
 pub struct PetBrainV2 {
     state: PetStateV2,
     behavior: Option<BehaviorIntent>,
+    personality: PersonalityProfile,
     time_hour: u8,
     ambient_elapsed_ms: u64,
+    ambient_decision_index: u64,
 }
 
 impl Default for PetBrainV2 {
@@ -26,8 +26,10 @@ impl PetBrainV2 {
         Self {
             state,
             behavior: None,
+            personality: PersonalityProfile::canonical_lenvu(),
             time_hour: 12,
             ambient_elapsed_ms: 0,
+            ambient_decision_index: 0,
         }
     }
 
@@ -272,6 +274,7 @@ impl PetBrainV2 {
             BehaviorKind::ObserveUser => {
                 if self.state.mode == PetMode::Ambient {
                     self.state.emotion = Emotion::Calm;
+                    self.state.attention = Attention::Idle;
                 }
             }
             BehaviorKind::SettleToRest => {
@@ -283,7 +286,14 @@ impl PetBrainV2 {
                 self.state.posture = Posture::Sleep;
                 self.state.emotion = Emotion::Sleepy;
             }
-            BehaviorKind::AmbientIdle => {}
+            BehaviorKind::AmbientIdle => {
+                if self.state.mode == PetMode::Ambient && self.state.user_idle_ms < 60_000 {
+                    self.state.locomotion = Locomotion::Stationary;
+                    self.state.posture = Posture::Stand;
+                    self.state.attention = Attention::Idle;
+                    self.state.emotion = Emotion::Calm;
+                }
+            }
         }
     }
 
@@ -349,13 +359,21 @@ impl PetBrainV2 {
             self.state.posture = Posture::Sit;
             self.state.attention = Attention::Idle;
             self.state.emotion = Emotion::Calm;
-        } else if self.should_explore() {
-            self.state.locomotion = Locomotion::Walk;
-            self.state.posture = Posture::Stand;
-            self.state.attention = Attention::Idle;
-            self.state.emotion = Emotion::Curious;
+        } else if let Some(action) = self.personality.choose_ambient_action(
+            AmbientContext {
+                elapsed_ms: self.ambient_elapsed_ms,
+                user_idle_ms: self.state.user_idle_ms,
+                energy: self.state.energy,
+                curiosity: self.state.curiosity,
+                bond: self.state.bond,
+                sleep_pressure: self.state.sleep_pressure,
+                hour: self.time_hour,
+            },
+            self.ambient_decision_index,
+        ) {
             self.ambient_elapsed_ms = 0;
-            self.start_behavior(BehaviorIntent::explore());
+            self.ambient_decision_index = self.ambient_decision_index.wrapping_add(1);
+            self.apply_ambient_action(action);
         } else {
             self.state.locomotion = Locomotion::Stationary;
             self.state.posture = Posture::Stand;
@@ -365,12 +383,36 @@ impl PetBrainV2 {
         }
     }
 
-    fn should_explore(&self) -> bool {
-        self.ambient_elapsed_ms >= EXPLORE_INTERVAL_MS
-            && self.state.user_idle_ms <= EXPLORE_ACTIVE_USER_IDLE_LIMIT_MS
-            && self.state.energy >= 0.35
-            && self.state.sleep_pressure <= 0.65
-            && !(self.time_hour >= 23 || self.time_hour < 6)
+    fn apply_ambient_action(&mut self, action: AmbientAction) {
+        match action {
+            AmbientAction::Explore => {
+                self.state.locomotion = Locomotion::Walk;
+                self.state.posture = Posture::Stand;
+                self.state.attention = Attention::Idle;
+                self.state.emotion = Emotion::Curious;
+                self.start_behavior(BehaviorIntent::explore());
+            }
+            AmbientAction::Observe => {
+                self.state.locomotion = Locomotion::Stationary;
+                self.state.posture = Posture::Stand;
+                self.state.attention = Attention::User;
+                self.state.emotion = Emotion::Curious;
+                self.start_behavior(BehaviorIntent::observe_user());
+            }
+            AmbientAction::Sit => {
+                self.state.locomotion = Locomotion::Stationary;
+                self.state.posture = Posture::Sit;
+                self.state.attention = Attention::Idle;
+                self.state.emotion = Emotion::Calm;
+                self.start_behavior(BehaviorIntent::ambient_sit());
+            }
+            AmbientAction::Stay => {
+                self.state.locomotion = Locomotion::Stationary;
+                self.state.posture = Posture::Stand;
+                self.state.attention = Attention::Idle;
+                self.state.emotion = Emotion::Calm;
+            }
+        }
     }
 }
 
@@ -433,25 +475,26 @@ mod tests {
     }
 
     #[test]
-    fn ambient_explore_starts_after_active_interval() {
+    fn personality_selector_eventually_explores_during_active_ambient_time() {
         let mut brain = PetBrainV2::default();
-        for _ in 0..10 {
+        let mut saw_explore = false;
+
+        for _ in 0..80 {
             brain.handle_event(DomainEvent::Tick { delta_ms: 5_000 });
+            if brain.behavior().map(|b| b.kind) == Some(BehaviorKind::Explore) {
+                saw_explore = true;
+                break;
+            }
         }
 
-        assert_eq!(
-            brain.behavior().map(|b| b.kind),
-            Some(BehaviorKind::Explore)
-        );
-        assert_eq!(brain.state().locomotion, Locomotion::Walk);
-        assert_eq!(brain.state().emotion, Emotion::Curious);
+        assert!(saw_explore);
     }
 
     #[test]
-    fn focus_guard_blocks_ambient_explore() {
+    fn focus_guard_blocks_personality_ambient_actions() {
         let mut brain = PetBrainV2::default();
         brain.handle_event(DomainEvent::FocusModeStarted);
-        for _ in 0..12 {
+        for _ in 0..20 {
             brain.handle_event(DomainEvent::Tick { delta_ms: 5_000 });
         }
 
