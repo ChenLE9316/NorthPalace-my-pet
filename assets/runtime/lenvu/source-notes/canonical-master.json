@@ -5,7 +5,8 @@
   "authority": {
     "document": "docs/CANONICAL_LENVU.md",
     "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
-    "referenceManifest": "assets/reference/manifest.json"
+    "referenceManifest": "assets/reference/manifest.json",
+    "candidateMetadata": "assets/runtime/lenvu/source-notes/master-candidate.json"
   },
   "canvas": {
     "authoringWidth": 1024,

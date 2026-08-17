@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "characterId": "lenvu",
+  "status": "awaiting_candidate_artwork",
+  "candidateKind": "canonical_master_review_sheet",
+  "runtimeAsset": false,
+  "authority": {
+    "masterContract": "assets/runtime/lenvu/source-notes/canonical-master.json",
+    "landmarks": "assets/runtime/lenvu/source-notes/master-landmarks.json",
+    "referenceManifest": "assets/reference/manifest.json"
+  },
+  "artifact": {
+    "path": "assets/runtime/lenvu/master/review/lenvu-canonical-master-review-v1.webp",
+    "sha256": null,
+    "bytes": null,
+    "width": null,
+    "height": null
+  },
+  "requiredViews": [
+    "front",
+    "left_profile",
+    "right_profile",
+    "back",
+    "front_left_three_quarter",
+    "front_right_three_quarter",
+    "head_identity_closeup",
+    "paws_and_lumen_code",
+    "tail_base_and_terminal"
+  ],
+  "review": {
+    "sourceReferenceMatched": false,
+    "requiredViewsPresent": false,
+    "rightEyeCyanVerified": false,
+    "leftEyeVioletVerified": false,
+    "leftHornGoldCrescentVerified": false,
+    "foreheadGlyphVerified": false,
+    "silhouetteConsistencyVerified": false,
+    "groundAndAnchorsMeasured": false,
+    "desktopPreviewVerified": false,
+    "approved": false
+  },
+  "promotionPolicy": {
+    "generatedArtworkIsCandidateOnly": true,
+    "blindMirroringForbidden": true,
+    "candidateMayBeUsedAsRuntimeTexture": false,
+    "approvalRequiredBeforeNormalizedMasterExport": true
+  }
+}

@@ -7,6 +7,7 @@ const root = process.cwd();
 const paths = {
   runtime: 'src/lib/pet/lenvu.manifest.json',
   master: 'assets/runtime/lenvu/source-notes/canonical-master.json',
+  candidate: 'assets/runtime/lenvu/source-notes/master-candidate.json',
   landmarks: 'assets/runtime/lenvu/source-notes/master-landmarks.json',
   references: 'assets/reference/manifest.json',
 };
@@ -35,14 +36,40 @@ function approx(actual, expected, label, epsilon = 1e-9) {
   }
 }
 
+function verifyArtifact(artifact, label) {
+  if (!artifact || typeof artifact.path !== 'string' || artifact.path.length === 0) {
+    fail(`${label} artifact path is missing`);
+  }
+  const absolutePath = resolve(root, artifact.path);
+  if (!existsSync(absolutePath)) fail(`${label} artifact file is missing: ${artifact.path}`);
+  if (!Number.isInteger(artifact.bytes) || artifact.bytes <= 0) fail(`${label} artifact byte length is invalid`);
+  if (typeof artifact.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(artifact.sha256)) {
+    fail(`${label} artifact SHA-256 is invalid`);
+  }
+  equal(statSync(absolutePath).size, artifact.bytes, `${label} artifact byte length`);
+  const digest = createHash('sha256').update(readFileSync(absolutePath)).digest('hex');
+  equal(digest, artifact.sha256, `${label} artifact SHA-256`);
+}
+
 const runtime = readJson(paths.runtime);
 const master = readJson(paths.master);
+const candidate = readJson(paths.candidate);
 const landmarks = readJson(paths.landmarks);
 const references = readJson(paths.references);
 
 equal(runtime.character.id, 'lenvu', 'runtime character id');
 equal(master.characterId, runtime.character.id, 'master character id');
+equal(candidate.characterId, runtime.character.id, 'candidate character id');
 equal(landmarks.characterId, runtime.character.id, 'landmark character id');
+
+equal(master.authority.candidateMetadata, paths.candidate, 'master candidate-metadata path');
+equal(candidate.authority.masterContract, paths.master, 'candidate master-contract path');
+equal(candidate.authority.landmarks, paths.landmarks, 'candidate landmarks path');
+equal(candidate.authority.referenceManifest, paths.references, 'candidate reference-manifest path');
+equal(candidate.runtimeAsset, false, 'candidate runtimeAsset');
+equal(candidate.promotionPolicy.generatedArtworkIsCandidateOnly, true, 'candidate-only promotion policy');
+equal(candidate.promotionPolicy.blindMirroringForbidden, true, 'blind-mirroring policy');
+equal(candidate.promotionPolicy.candidateMayBeUsedAsRuntimeTexture, false, 'candidate runtime-texture policy');
 
 equal(master.canvas.runtimeCellWidth, runtime.character.referenceCanvas.width, 'runtime cell width');
 equal(master.canvas.runtimeCellHeight, runtime.character.referenceCanvas.height, 'runtime cell height');
@@ -56,6 +83,10 @@ equal(master.render.nominalDesktopHeightLogicalPx, runtime.render.nominalHeight,
 for (const field of ['rightEye', 'leftEye', 'goldCrescentHorn', 'blindHorizontalMirrorAllowed']) {
   equal(master.identity[field], runtime.identity[field], `identity ${field}`);
   equal(landmarks.identityConstraints[field], runtime.identity[field], `landmark identity ${field}`);
+}
+
+for (const view of master.requiredMasterViews) {
+  if (!candidate.requiredViews.includes(view)) fail(`candidate requiredViews is missing ${view}`);
 }
 
 approx(landmarks.coordinateSpace.groundY, master.anchors.groundY, 'landmark ground y');
@@ -81,6 +112,22 @@ equal(statSync(primaryAbsolute).size, referenceRecord.bytes, 'primary reference 
 const digest = createHash('sha256').update(readFileSync(primaryAbsolute)).digest('hex');
 equal(digest, referenceRecord.sha256, 'primary reference SHA-256');
 
+if (candidate.review.approved) {
+  const requiredChecks = [
+    'sourceReferenceMatched',
+    'requiredViewsPresent',
+    'rightEyeCyanVerified',
+    'leftEyeVioletVerified',
+    'leftHornGoldCrescentVerified',
+    'foreheadGlyphVerified',
+    'silhouetteConsistencyVerified',
+    'groundAndAnchorsMeasured',
+    'desktopPreviewVerified',
+  ];
+  for (const check of requiredChecks) equal(candidate.review[check], true, `approved candidate review ${check}`);
+  verifyArtifact(candidate.artifact, 'approved candidate');
+}
+
 const configuredAssets = Object.entries(runtime.animations)
   .filter(([, profile]) => profile.asset !== null)
   .map(([id]) => id);
@@ -89,7 +136,11 @@ if (!master.runtimeAssetReady && configuredAssets.length > 0) {
   fail(`runtimeAssetReady=false but production animation assets are configured: ${configuredAssets.join(', ')}`);
 }
 
+if (master.runtimeAssetReady && !candidate.review.approved) {
+  fail('runtimeAssetReady=true requires an approved canonical master candidate');
+}
+
 console.log(
   `[Lenvu asset contract] OK — ${Object.keys(runtime.animations).length} animation profiles, `
-  + `${references.assets.length} reference asset(s), productionReady=${master.runtimeAssetReady}`,
+  + `${references.assets.length} reference asset(s), candidate=${candidate.status}, productionReady=${master.runtimeAssetReady}`,
 );
