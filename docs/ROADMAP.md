@@ -81,13 +81,14 @@
 - [x] Current monitor / work-area / DPI context.
 - [x] Observe pet-window movement and DPI scale-factor changes.
 - [x] Local time-of-day sensor using Win32 rather than a JavaScript clock.
-- [ ] Window bounds context for observed apps.
+- [x] Add privacy-gated visible active-window bounds using DWM frame geometry.
 - [x] Focus Guard domain mode and UI control.
 - [x] Context bubbles and low-noise reminder policy.
 - [x] Add fail-closed per-app privacy exclusions before active-app identity reaches Domain Events.
 - [x] Add user-managed local `privacy-rules.json` deny list without recent-app history.
-- [x] Add structured Screen Context Broker V1 for active app / idle / local hour, with no pixels or screenshots.
-- [ ] Add optional structured window bounds/accessibility context behind the same privacy gate.
+- [x] Add structured Screen Context Broker V1 for active app / bounds / idle / local hour, with no pixels or screenshots.
+- [ ] Define opt-in structured accessibility-context capability behind the same privacy gate.
+- [ ] Implement bounded accessibility metadata only after the capability contract is approved by tests/UI.
 
 ## Phase 4 — Local AI brain
 
