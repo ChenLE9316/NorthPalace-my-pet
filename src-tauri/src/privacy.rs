@@ -11,19 +11,24 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct PrivacyRulesSnapshot {
     pub excluded_apps: Vec<String>,
+    pub accessibility_context_enabled: bool,
     pub fail_closed: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StoredPrivacyRules {
+    #[serde(default)]
     excluded_apps: Vec<String>,
+    #[serde(default)]
+    accessibility_context_enabled: bool,
 }
 
 #[derive(Debug)]
 struct PrivacyState {
     path: Option<PathBuf>,
     excluded_apps: BTreeSet<String>,
+    accessibility_context_enabled: bool,
     fail_closed: bool,
 }
 
@@ -32,6 +37,7 @@ impl Default for PrivacyState {
         Self {
             path: None,
             excluded_apps: BTreeSet::new(),
+            accessibility_context_enabled: false,
             fail_closed: true,
         }
     }
@@ -55,13 +61,20 @@ impl PrivacyPolicyService {
             })?;
         }
 
-        let excluded_apps = load_rules(&path)?;
+        let stored = load_rules(&path)?;
+        let excluded_apps = stored
+            .excluded_apps
+            .into_iter()
+            .map(|app_id| normalize_app_id(&app_id))
+            .collect::<Result<BTreeSet<_>, _>>()?;
+
         let mut state = self
             .inner
             .write()
             .map_err(|_| "privacy-policy lock is poisoned".to_owned())?;
         state.path = Some(path);
         state.excluded_apps = excluded_apps;
+        state.accessibility_context_enabled = stored.accessibility_context_enabled;
         state.fail_closed = false;
         Ok(())
     }
@@ -70,6 +83,7 @@ impl PrivacyPolicyService {
         let Ok(state) = self.inner.read() else {
             return PrivacyRulesSnapshot {
                 excluded_apps: Vec::new(),
+                accessibility_context_enabled: false,
                 fail_closed: true,
             };
         };
@@ -86,46 +100,75 @@ impl PrivacyPolicyService {
         state.fail_closed || state.excluded_apps.contains(&normalized)
     }
 
+    pub fn is_accessibility_context_allowed(&self, app_id: &str) -> bool {
+        let Ok(normalized) = normalize_app_id(app_id) else {
+            return false;
+        };
+        let Ok(state) = self.inner.read() else {
+            return false;
+        };
+
+        !state.fail_closed
+            && state.accessibility_context_enabled
+            && !state.excluded_apps.contains(&normalized)
+    }
+
     pub fn add_excluded_app(&self, app_id: &str) -> Result<PrivacyRulesSnapshot, String> {
         let normalized = normalize_app_id(app_id)?;
-        self.update_rules(|rules| {
-            rules.insert(normalized);
+        self.update_state(|state| {
+            state.excluded_apps.insert(normalized);
         })
     }
 
     pub fn remove_excluded_app(&self, app_id: &str) -> Result<PrivacyRulesSnapshot, String> {
         let normalized = normalize_app_id(app_id)?;
-        self.update_rules(|rules| {
-            rules.remove(&normalized);
+        self.update_state(|state| {
+            state.excluded_apps.remove(&normalized);
         })
     }
 
-    fn update_rules(
+    pub fn set_accessibility_context_enabled(
         &self,
-        update: impl FnOnce(&mut BTreeSet<String>),
+        enabled: bool,
+    ) -> Result<PrivacyRulesSnapshot, String> {
+        self.update_state(|state| {
+            state.accessibility_context_enabled = enabled;
+        })
+    }
+
+    fn update_state(
+        &self,
+        update: impl FnOnce(&mut PrivacyState),
     ) -> Result<PrivacyRulesSnapshot, String> {
         let mut state = self
             .inner
             .write()
             .map_err(|_| "privacy-policy lock is poisoned".to_owned())?;
         if state.fail_closed {
-            return Err("privacy rules are unavailable; app identity remains blocked".to_owned());
+            return Err("privacy rules are unavailable; sensitive context remains blocked".to_owned());
         }
         let path = state
             .path
             .clone()
             .ok_or_else(|| "privacy-rules path is unavailable".to_owned())?;
 
-        let mut next = state.excluded_apps.clone();
-        update(&mut next);
-        persist_rules(&path, &next)?;
-        state.excluded_apps = next;
+        let previous_excluded_apps = state.excluded_apps.clone();
+        let previous_accessibility = state.accessibility_context_enabled;
+        update(&mut state);
+
+        if let Err(error) = persist_rules(&path, &state) {
+            state.excluded_apps = previous_excluded_apps;
+            state.accessibility_context_enabled = previous_accessibility;
+            return Err(error);
+        }
+
         Ok(snapshot_from_state(&state))
     }
 
     fn mark_fail_closed(&self) {
         if let Ok(mut state) = self.inner.write() {
             state.fail_closed = true;
+            state.accessibility_context_enabled = false;
         }
     }
 }
@@ -133,6 +176,7 @@ impl PrivacyPolicyService {
 fn snapshot_from_state(state: &PrivacyState) -> PrivacyRulesSnapshot {
     PrivacyRulesSnapshot {
         excluded_apps: state.excluded_apps.iter().cloned().collect(),
+        accessibility_context_enabled: state.accessibility_context_enabled,
         fail_closed: state.fail_closed,
     }
 }
@@ -152,26 +196,21 @@ fn normalize_app_id(app_id: &str) -> Result<String, String> {
     Ok(value.to_owned())
 }
 
-fn load_rules(path: &Path) -> Result<BTreeSet<String>, String> {
+fn load_rules(path: &Path) -> Result<StoredPrivacyRules, String> {
     if !path.exists() {
-        return Ok(BTreeSet::new());
+        return Ok(StoredPrivacyRules::default());
     }
 
     let content = fs::read_to_string(path)
         .map_err(|error| format!("failed to read privacy rules {}: {error}", path.display()))?;
-    let stored: StoredPrivacyRules = serde_json::from_str(&content)
-        .map_err(|error| format!("invalid privacy rules {}: {error}", path.display()))?;
-
-    stored
-        .excluded_apps
-        .into_iter()
-        .map(|app_id| normalize_app_id(&app_id))
-        .collect()
+    serde_json::from_str(&content)
+        .map_err(|error| format!("invalid privacy rules {}: {error}", path.display()))
 }
 
-fn persist_rules(path: &Path, rules: &BTreeSet<String>) -> Result<(), String> {
+fn persist_rules(path: &Path, state: &PrivacyState) -> Result<(), String> {
     let stored = StoredPrivacyRules {
-        excluded_apps: rules.iter().cloned().collect(),
+        excluded_apps: state.excluded_apps.iter().cloned().collect(),
+        accessibility_context_enabled: state.accessibility_context_enabled,
     };
     let content = serde_json::to_string_pretty(&stored)
         .map_err(|error| format!("failed to serialize privacy rules: {error}"))?;
@@ -201,42 +240,78 @@ mod tests {
     }
 
     #[test]
-    fn default_service_blocks_identity_until_installed() {
+    fn default_service_blocks_identity_and_accessibility_until_installed() {
         let privacy = PrivacyPolicyService::default();
-        assert!(privacy.snapshot().fail_closed);
+        let snapshot = privacy.snapshot();
+        assert!(snapshot.fail_closed);
+        assert!(!snapshot.accessibility_context_enabled);
         assert!(privacy.is_app_excluded("explorer"));
+        assert!(!privacy.is_accessibility_context_allowed("explorer"));
     }
 
     #[test]
-    fn missing_rules_file_installs_as_empty_open_policy() {
+    fn missing_rules_file_installs_with_accessibility_disabled() {
         let path = unique_test_path();
         let privacy = PrivacyPolicyService::default();
         privacy.install(path.clone()).expect("install privacy rules");
-        assert!(!privacy.snapshot().fail_closed);
+        let snapshot = privacy.snapshot();
+        assert!(!snapshot.fail_closed);
+        assert!(!snapshot.accessibility_context_enabled);
         assert!(!privacy.is_app_excluded("explorer"));
+        assert!(!privacy.is_accessibility_context_allowed("explorer"));
         if let Some(parent) = path.parent() {
             let _ = fs::remove_dir_all(parent);
         }
     }
 
     #[test]
-    fn exclusions_persist_and_reload() {
+    fn legacy_rules_without_capability_keep_accessibility_off() {
+        let path = unique_test_path();
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create temp privacy directory");
+        }
+        fs::write(&path, r#"{"excludedApps":["discord"]}"#)
+            .expect("write legacy privacy rules");
+
+        let privacy = PrivacyPolicyService::default();
+        privacy.install(path.clone()).expect("load legacy rules");
+        let snapshot = privacy.snapshot();
+        assert_eq!(snapshot.excluded_apps, vec!["discord"]);
+        assert!(!snapshot.accessibility_context_enabled);
+        assert!(!privacy.is_accessibility_context_allowed("explorer"));
+
+        if let Some(parent) = path.parent() {
+            let _ = fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn exclusions_and_accessibility_capability_persist_and_reload() {
         let path = unique_test_path();
         let privacy = PrivacyPolicyService::default();
         privacy.install(path.clone()).expect("install privacy rules");
-        let snapshot = privacy
+        privacy
             .add_excluded_app("KeePassXC.EXE")
             .expect("add exclusion");
+        let snapshot = privacy
+            .set_accessibility_context_enabled(true)
+            .expect("enable accessibility context");
         assert_eq!(snapshot.excluded_apps, vec!["keepassxc"]);
-        assert!(privacy.is_app_excluded("KEEPASSXC"));
+        assert!(snapshot.accessibility_context_enabled);
+        assert!(privacy.is_accessibility_context_allowed("explorer"));
+        assert!(!privacy.is_accessibility_context_allowed("KEEPASSXC"));
 
         let reloaded = PrivacyPolicyService::default();
         reloaded.install(path.clone()).expect("reload privacy rules");
-        assert!(reloaded.is_app_excluded("keepassxc.exe"));
+        let reloaded_snapshot = reloaded.snapshot();
+        assert!(reloaded_snapshot.accessibility_context_enabled);
+        assert!(!reloaded.is_accessibility_context_allowed("keepassxc.exe"));
+        assert!(reloaded.is_accessibility_context_allowed("explorer"));
+
         reloaded
             .remove_excluded_app("keepassxc")
             .expect("remove exclusion");
-        assert!(!reloaded.is_app_excluded("keepassxc"));
+        assert!(reloaded.is_accessibility_context_allowed("keepassxc"));
 
         if let Some(parent) = path.parent() {
             let _ = fs::remove_dir_all(parent);
@@ -255,6 +330,7 @@ mod tests {
         assert!(privacy.install(path.clone()).is_err());
         assert!(privacy.snapshot().fail_closed);
         assert!(privacy.is_app_excluded("explorer"));
+        assert!(!privacy.is_accessibility_context_allowed("explorer"));
 
         if let Some(parent) = path.parent() {
             let _ = fs::remove_dir_all(parent);
