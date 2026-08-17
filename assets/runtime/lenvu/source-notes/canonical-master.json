@@ -3,10 +3,20 @@
   "characterId": "lenvu",
   "status": "contract_frozen_master_art_pending",
   "authority": {
+    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "document": "docs/CANONICAL_LENVU.md",
     "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
+    "readmeOverview": "docs/assets/lenvu-system-overview.webp",
     "referenceManifest": "assets/reference/manifest.json",
-    "candidateMetadata": "assets/runtime/lenvu/source-notes/master-candidate.json"
+    "candidateMetadata": "assets/runtime/lenvu/source-notes/master-candidate.json",
+    "sourcePriority": [
+      "original_high_resolution_character_sheets",
+      "original_readme_system_overview",
+      "consistent_original_reference_sheets",
+      "character_bible",
+      "production_normalization_contracts",
+      "generated_review_candidates"
+    ]
   },
   "canvas": {
     "authoringWidth": 1024,
@@ -31,11 +41,19 @@
     "frontPawRight": { "x": 0.57, "y": 0.84 }
   },
   "identity": {
+    "speciesSilhouette": "tall_lean_long_legged_canine_dragon_digital",
+    "baseFurPalette": "cool_slate_blue_gray_and_white",
+    "muzzle": "elongated_canine",
     "rightEye": "cyan",
     "leftEye": "violet",
     "goldCrescentHorn": "left",
-    "foreheadGlyph": "centered",
+    "foreheadGlyph": "centered_white",
+    "hornPair": "dark_segmented_swept_back",
+    "earInterior": "cyan_digital_circuit",
+    "tail": "physical_fluffy_base_with_cyan_holographic_terminal",
     "blindHorizontalMirrorAllowed": false,
+    "chibiOrCatLikeRedesignAllowed": false,
+    "generatedCandidateMayRedefineIdentity": false,
     "mirrorPolicy": "mirror geometry/base layers only and restore semantic identity layers, or author explicit left/right variants"
   },
   "render": {

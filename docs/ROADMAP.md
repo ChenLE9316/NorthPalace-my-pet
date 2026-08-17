@@ -23,11 +23,15 @@
 
 ## Phase 1 — Living desktop pet
 
-- [x] Define the Lenvu Character Bible and canonical visual identity rules.
-- [x] Import the first provenance-tracked high-resolution anatomy reference preview and preserve original-source checksum/resolution metadata.
+- [x] Define the Lenvu Character Bible.
+- [x] Freeze original-image visual ground truth and authority order so generated candidates cannot redefine Lenvu.
+- [x] Import the first provenance-tracked high-resolution-canvas anatomy reference preview and preserve original-source checksum/resolution metadata.
 - [x] Freeze the Canonical Lenvu production coordinate, anchor, identity and directional-mirroring contract.
 - [x] Freeze canonical front/profile/back target landmarks and QA tolerances for production normalization.
-- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets into a production master artwork.
+- [x] Add a candidate-promotion gate that rejects source-divergent/chibi/cat-like master artwork.
+- [ ] Replace the transport-optimized anatomy preview with a high-quality source-faithful repository derivative.
+- [ ] Replace the low-resolution README concept-board copy with the original high-resolution source-faithful derivative.
+- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the original sheets into a production master artwork.
 - [x] Define reference-art vs runtime-asset separation.
 - [x] Define runtime animation manifest and renderer-facing animation resolver.
 - [x] Add PixiJS vector placeholder renderer for state/behavior validation.
@@ -137,8 +141,8 @@
 - [x] Keep only the latest Windows CI run per branch to avoid stale runner queues.
 - [ ] Add SECURITY.md.
 - [ ] Restore a restrictive Content Security Policy.
-- [ ] Replace the low-resolution concept-board copy with the original high-resolution source.
-- [ ] Import selected original Lenvu reference sheets with provenance/resolution records.
+- [ ] Replace the low-resolution concept-board copy with the original high-resolution source-faithful derivative.
+- [ ] Import additional selected original Lenvu reference sheets with provenance/resolution records.
 - [ ] Replace temporary Windows placeholder icon with canonical Lenvu application icon.
 - [ ] Verify no model weights, local databases, secrets, logs or private user data are tracked.
 

@@ -6,6 +6,7 @@ const root = process.cwd();
 
 const paths = {
   runtime: 'src/lib/pet/lenvu.manifest.json',
+  visualGroundTruth: 'docs/LENVU_VISUAL_GROUND_TRUTH.md',
   master: 'assets/runtime/lenvu/source-notes/canonical-master.json',
   candidate: 'assets/runtime/lenvu/source-notes/master-candidate.json',
   landmarks: 'assets/runtime/lenvu/source-notes/master-landmarks.json',
@@ -51,6 +52,10 @@ function verifyArtifact(artifact, label) {
   equal(digest, artifact.sha256, `${label} artifact SHA-256`);
 }
 
+if (!existsSync(resolve(root, paths.visualGroundTruth))) {
+  fail(`missing ${paths.visualGroundTruth}`);
+}
+
 const runtime = readJson(paths.runtime);
 const master = readJson(paths.master);
 const candidate = readJson(paths.candidate);
@@ -62,14 +67,29 @@ equal(master.characterId, runtime.character.id, 'master character id');
 equal(candidate.characterId, runtime.character.id, 'candidate character id');
 equal(landmarks.characterId, runtime.character.id, 'landmark character id');
 
+equal(master.authority.visualGroundTruth, paths.visualGroundTruth, 'master visual-ground-truth path');
 equal(master.authority.candidateMetadata, paths.candidate, 'master candidate-metadata path');
+equal(candidate.authority.visualGroundTruth, paths.visualGroundTruth, 'candidate visual-ground-truth path');
 equal(candidate.authority.masterContract, paths.master, 'candidate master-contract path');
 equal(candidate.authority.landmarks, paths.landmarks, 'candidate landmarks path');
 equal(candidate.authority.referenceManifest, paths.references, 'candidate reference-manifest path');
 equal(candidate.runtimeAsset, false, 'candidate runtimeAsset');
+
 equal(candidate.promotionPolicy.generatedArtworkIsCandidateOnly, true, 'candidate-only promotion policy');
 equal(candidate.promotionPolicy.blindMirroringForbidden, true, 'blind-mirroring policy');
 equal(candidate.promotionPolicy.candidateMayBeUsedAsRuntimeTexture, false, 'candidate runtime-texture policy');
+equal(candidate.promotionPolicy.candidateMayRedefineSourceIdentity, false, 'candidate identity-authority policy');
+equal(candidate.promotionPolicy.sourceVisualEvidenceOverridesCandidate, true, 'source-evidence priority policy');
+
+equal(master.identity.speciesSilhouette, 'tall_lean_long_legged_canine_dragon_digital', 'species silhouette');
+equal(master.identity.baseFurPalette, 'cool_slate_blue_gray_and_white', 'base fur palette');
+equal(master.identity.muzzle, 'elongated_canine', 'muzzle identity');
+equal(master.identity.rightEye, runtime.identity.rightEye, 'identity right eye');
+equal(master.identity.leftEye, runtime.identity.leftEye, 'identity left eye');
+equal(master.identity.goldCrescentHorn, runtime.identity.goldCrescentHorn, 'identity gold horn side');
+equal(master.identity.blindHorizontalMirrorAllowed, runtime.identity.blindHorizontalMirrorAllowed, 'blind mirror policy');
+equal(master.identity.chibiOrCatLikeRedesignAllowed, false, 'chibi/cat redesign policy');
+equal(master.identity.generatedCandidateMayRedefineIdentity, false, 'generated candidate identity policy');
 
 equal(master.canvas.runtimeCellWidth, runtime.character.referenceCanvas.width, 'runtime cell width');
 equal(master.canvas.runtimeCellHeight, runtime.character.referenceCanvas.height, 'runtime cell height');
@@ -115,11 +135,20 @@ equal(digest, referenceRecord.sha256, 'primary reference SHA-256');
 if (candidate.review.approved) {
   const requiredChecks = [
     'sourceReferenceMatched',
+    'speciesSilhouetteVerified',
+    'nonChibiProportionsVerified',
+    'elongatedCanineMuzzleVerified',
+    'slateGrayWhitePaletteVerified',
     'requiredViewsPresent',
     'rightEyeCyanVerified',
     'leftEyeVioletVerified',
     'leftHornGoldCrescentVerified',
     'foreheadGlyphVerified',
+    'darkSegmentedHornPairVerified',
+    'cyanEarCircuitryVerified',
+    'cyanLumenCodePlacementVerified',
+    'physicalTailBaseVerified',
+    'cyanHolographicTailTerminalVerified',
     'silhouetteConsistencyVerified',
     'groundAndAnchorsMeasured',
     'desktopPreviewVerified',

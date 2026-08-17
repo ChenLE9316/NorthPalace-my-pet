@@ -1,10 +1,11 @@
 {
   "schemaVersion": 1,
   "characterId": "lenvu",
-  "status": "awaiting_candidate_artwork",
+  "status": "awaiting_source_faithful_candidate_artwork",
   "candidateKind": "canonical_master_review_sheet",
   "runtimeAsset": false,
   "authority": {
+    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "masterContract": "assets/runtime/lenvu/source-notes/canonical-master.json",
     "landmarks": "assets/runtime/lenvu/source-notes/master-landmarks.json",
     "referenceManifest": "assets/reference/manifest.json"
@@ -29,11 +30,20 @@
   ],
   "review": {
     "sourceReferenceMatched": false,
+    "speciesSilhouetteVerified": false,
+    "nonChibiProportionsVerified": false,
+    "elongatedCanineMuzzleVerified": false,
+    "slateGrayWhitePaletteVerified": false,
     "requiredViewsPresent": false,
     "rightEyeCyanVerified": false,
     "leftEyeVioletVerified": false,
     "leftHornGoldCrescentVerified": false,
     "foreheadGlyphVerified": false,
+    "darkSegmentedHornPairVerified": false,
+    "cyanEarCircuitryVerified": false,
+    "cyanLumenCodePlacementVerified": false,
+    "physicalTailBaseVerified": false,
+    "cyanHolographicTailTerminalVerified": false,
     "silhouetteConsistencyVerified": false,
     "groundAndAnchorsMeasured": false,
     "desktopPreviewVerified": false,
@@ -43,6 +53,8 @@
     "generatedArtworkIsCandidateOnly": true,
     "blindMirroringForbidden": true,
     "candidateMayBeUsedAsRuntimeTexture": false,
+    "candidateMayRedefineSourceIdentity": false,
+    "sourceVisualEvidenceOverridesCandidate": true,
     "approvalRequiredBeforeNormalizedMasterExport": true
   }
 }
