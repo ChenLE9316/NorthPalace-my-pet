@@ -14,6 +14,7 @@ This document freezes the **production coordinate, identity and mirroring contra
 - Primary anatomy evidence: `assets/reference/anatomy/lenvu-anatomy-reference.webp`
 - README visual context: `docs/assets/lenvu-system-overview.webp`
 - Runtime consumer: `src/lib/pet/lenvu.manifest.json`
+- Landmark state: **provisional normalization targets; original high-resolution source measurement still required before master approval**
 
 This milestone does **not** mark the production sprite/atlas as complete.
 
@@ -44,6 +45,26 @@ Runtime export may use 512×512 cells, but anchors and pivots are normalized and
 The current desktop nominal render target remains approximately `180 × 220` CSS logical pixels. Higher-density texture cells are allowed and preferred; nominal display size and source texture resolution are separate concerns.
 
 The coordinates above are production starting contracts, not visual-source facts. They remain adjustable if measured normalization proves that a small correction is required to preserve the source anatomy.
+
+### 3.1 Landmark measurement status
+
+`assets/runtime/lenvu/source-notes/master-landmarks.json` is deliberately **provisional** until measured against the original high-resolution source artwork.
+
+Its current front/profile/back coordinates are engineering normalization targets inferred from the source sheet; they are not claims of exact pixel tracing and they are not allowed to define Lenvu's identity. The approval order is:
+
+```text
+original high-resolution image evidence
+        ↓
+measured source-faithful landmarks
+        ↓
+normalized production master
+        ↓
+review/promotion
+        ↓
+runtime animation assets
+```
+
+A generated candidate cannot be used to retroactively change source landmarks or visual identity. `candidate.review.approved=true` and `runtimeAssetReady=true` are invalid while landmark provenance remains `inferred_not_pixel_traced`; the asset validator enforces this.
 
 ## 4. Identity asymmetry — never blindly mirror
 
@@ -167,6 +188,7 @@ A future `canonical-master` artwork milestone is complete only when:
 - [ ] species/silhouette matches the primary anatomy evidence;
 - [ ] head/body ratio is non-chibi and muzzle remains canine;
 - [ ] slate-gray/white fur distribution is preserved;
+- [ ] original high-resolution source landmarks have been measured and recorded;
 - [ ] all required views share one body scale and ground line;
 - [ ] anatomical right-eye cyan / left-eye violet are verified;
 - [ ] anatomical left-horn gold accent is verified;
