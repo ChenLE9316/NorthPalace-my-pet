@@ -3,6 +3,7 @@ mod history_admin;
 mod memory_admin;
 mod persistence;
 mod privacy;
+mod screen_context;
 #[cfg(target_os = "windows")]
 mod platform;
 mod runtime;
@@ -17,6 +18,7 @@ use persistence::{
 };
 use privacy::{PrivacyPolicyService, PrivacyRulesSnapshot};
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
+use screen_context::{ScreenContextBroker, ScreenContextSnapshot};
 use serde::Serialize;
 use tauri::{
     menu::{Menu, MenuItem},
@@ -155,6 +157,13 @@ fn privacy_remove_excluded_app(
 }
 
 #[tauri::command]
+fn screen_context_get(
+    screen_context: tauri::State<'_, ScreenContextBroker>,
+) -> ScreenContextSnapshot {
+    screen_context.snapshot()
+}
+
+#[tauri::command]
 fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String> {
     #[cfg(target_os = "windows")]
     {
@@ -268,11 +277,13 @@ pub fn run() {
     let memory_admin_service = MemoryAdminService::default();
     let history_admin_service = HistoryAdminService::default();
     let privacy_policy_service = PrivacyPolicyService::default();
+    let screen_context_broker = ScreenContextBroker::default();
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
         .manage(memory_admin_service.clone())
         .manage(history_admin_service.clone())
-        .manage(privacy_policy_service.clone());
+        .manage(privacy_policy_service.clone())
+        .manage(screen_context_broker.clone());
 
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_autostart::init(
@@ -406,11 +417,18 @@ pub fn run() {
 
         #[cfg(target_os = "windows")]
         {
-            platform::windows::spawn_local_time_sensor(runtime.clone());
-            platform::windows::spawn_idle_sensor(runtime.clone());
+            platform::windows::spawn_local_time_sensor(
+                runtime.clone(),
+                screen_context_broker.clone(),
+            );
+            platform::windows::spawn_idle_sensor(
+                runtime.clone(),
+                screen_context_broker.clone(),
+            );
             platform::windows::spawn_active_window_sensor(
                 runtime.clone(),
                 privacy_policy_service.clone(),
+                screen_context_broker.clone(),
             );
 
             if let Some(pet_window) = app.get_webview_window("pet") {
@@ -452,6 +470,7 @@ pub fn run() {
         privacy_get,
         privacy_add_excluded_app,
         privacy_remove_excluded_app,
+        screen_context_get,
         startup_get,
         startup_set,
         toggle_companion_window,
@@ -474,6 +493,7 @@ pub fn run() {
         privacy_get,
         privacy_add_excluded_app,
         privacy_remove_excluded_app,
+        screen_context_get,
         startup_get,
         startup_set,
         toggle_companion_window,
