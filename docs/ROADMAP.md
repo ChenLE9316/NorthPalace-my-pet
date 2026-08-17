@@ -46,7 +46,8 @@
 - [x] Hover enter/leave, touch, pet and play event loop.
 - [x] Add drag/pick-up gesture with a domain-level `held` posture and native pet-window dragging.
 - [x] Add native system-tray controls for Companion, pet visibility and quit.
-- [ ] Add explicit Windows startup / launch-at-login policy.
+- [x] Add opt-in Windows launch-at-login policy with OS registration as the source of truth.
+- [x] Add lazy Settings UI for Windows startup state/control.
 
 ## Phase 2 — Persistent life
 
@@ -83,8 +84,10 @@
 - [ ] Window bounds context for observed apps.
 - [x] Focus Guard domain mode and UI control.
 - [x] Context bubbles and low-noise reminder policy.
-- [ ] Per-app privacy exclusions.
-- [ ] Screen Context Broker using structured Windows signals first.
+- [x] Add fail-closed per-app privacy exclusions before active-app identity reaches Domain Events.
+- [x] Add user-managed local `privacy-rules.json` deny list without recent-app history.
+- [x] Add structured Screen Context Broker V1 for active app / idle / local hour, with no pixels or screenshots.
+- [ ] Add optional structured window bounds/accessibility context behind the same privacy gate.
 
 ## Phase 4 — Local AI brain
 
@@ -100,14 +103,16 @@
 
 - [ ] Define `ScreenObservation` domain contract.
 - [ ] On-demand window/region capture with visible privacy indicator.
-- [ ] Per-app capture deny list.
+- [ ] Reuse per-app privacy exclusions for capture deny policy.
 - [ ] Optional separately-loadable vision worker.
 - [ ] Benchmark vision only if structured Windows/accessibility signals are insufficient.
 - [ ] Do not implement continuous screen capture by default.
 
 ## Phase 6 — Companion depth
 
-- [x] Split Companion V2 into lazy-loaded Home / Memory / Activity tabs.
+- [x] Split Companion V2 into lazy-loaded Home / Memory / Activity / Settings tabs.
+- [x] Add Windows startup control in Settings.
+- [x] Add per-app privacy exclusion management in Settings.
 - [ ] Conversation panel.
 - [x] Memory browser/editor V1.
 - [ ] Personality and bond evolution.
