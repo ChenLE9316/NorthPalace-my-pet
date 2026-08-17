@@ -87,7 +87,8 @@
 - [x] Add fail-closed per-app privacy exclusions before active-app identity reaches Domain Events.
 - [x] Add user-managed local `privacy-rules.json` deny list without recent-app history.
 - [x] Add structured Screen Context Broker V1 for active app / bounds / idle / local hour, with no pixels or screenshots.
-- [ ] Define opt-in structured accessibility-context capability behind the same privacy gate.
+- [x] Define opt-in structured accessibility-context capability behind the same privacy gate.
+- [x] Expose the accessibility capability and current structured-context status in Settings.
 - [ ] Implement bounded accessibility metadata only after the capability contract is approved by tests/UI.
 
 ## Phase 4 — Local AI brain
@@ -114,6 +115,7 @@
 - [x] Split Companion V2 into lazy-loaded Home / Memory / Activity / Settings tabs.
 - [x] Add Windows startup control in Settings.
 - [x] Add per-app privacy exclusion management in Settings.
+- [x] Add explicit accessibility-context capability control and structured Screen Context status in Settings.
 - [ ] Conversation panel.
 - [x] Memory browser/editor V1.
 - [ ] Personality and bond evolution.

@@ -121,6 +121,21 @@ Current controls:
    - an excluded app is blocked before active-app identity reaches Domain Events or Screen Context Broker;
    - fail-closed state is shown explicitly rather than presented as an empty rule list.
 
+3. **Accessibility context capability**
+   - off by default;
+   - explicit opt-in is persisted in the same local privacy policy as app exclusions;
+   - the same app deny list always wins over this capability;
+   - granting the capability does not itself start collection;
+   - the current collector is deliberately still unimplemented;
+   - the contract excludes screenshots, screen pixels, window-title capture and raw accessibility-text dumps.
+
+4. **Structured Screen Context status**
+   - visible only while the Settings surface is mounted;
+   - shows the Broker's current `available / privacy_blocked / unknown` state;
+   - shows active app identity only when the privacy gate allows it;
+   - shows privacy-approved window bounds, user-idle duration and local hour;
+   - does not create foreground-app history.
+
 The Settings UX should always explain what a control changes. Privacy controls are capability boundaries, not cosmetic switches.
 
 ### Level 5 — Deep management
@@ -150,7 +165,7 @@ Awareness
 ├─ UserIdle
 ├─ ActiveWindowChanged
 ├─ TimeOfDay
-└─ future structured context
+└─ StructuredContext
 
 AI
 ├─ Listening
@@ -171,19 +186,19 @@ Special
 
 Lenvu's awareness must be useful without feeling invasive.
 
-Current structured awareness uses process app identity, user idle state and local hour. The Screen Context Broker contains no pixels, screenshot history or window-title history.
+Current structured awareness uses process app identity, privacy-approved visible window bounds, user idle state and local hour. The Screen Context Broker contains no pixels, screenshot history or window-title history.
 
 ```text
 Windows sensor
     ↓
 Privacy gate
-    ├─ blocked → identity discarded / broker marked privacy_blocked
+    ├─ blocked → identity/bounds discarded; broker marked privacy_blocked
     └─ allowed → structured context only
 ```
 
-When the current foreground application is added to the deny list, the normal one-second active-window sensor tick re-evaluates privacy and clears the broker's previous app identity. The user does not have to switch windows for the new rule to take effect.
+When the current foreground application is added to the deny list, the normal one-second active-window sensor tick re-evaluates privacy and clears the broker's previous app identity and bounds. The user does not have to switch windows for the new rule to take effect.
 
-Future window-title/accessibility/capture features must be separately permissioned and pass the same exclusion policy. Privacy should not be reimplemented independently by each subsystem.
+The accessibility capability is now explicit and opt-in, but the bounded collector remains a separate implementation step. Window-title and future capture capabilities must also remain separately permissioned. All of them must reuse the same exclusion service instead of inventing independent privacy lists.
 
 ## Window model
 

@@ -7,18 +7,19 @@ A dedicated vision model is **not required for the first living-desktop-pet rele
 NorthPalace-my-pet first obtains useful context from low-cost deterministic Windows signals:
 
 - active app identity;
+- privacy-approved visible active-window bounds;
 - user idle/return state;
 - local hour;
 - monitor / DPI / work-area context;
 - cursor and semantic pet hit-testing;
 - focus session state;
-- future structured window/accessibility metadata only when explicitly allowed.
+- future bounded accessibility metadata only when explicitly allowed.
 
 These signals are enough for Lenvu to feel aware without continuously capturing the screen.
 
 ## Current implementation
 
-The structured path is now implemented through a privacy-gated `ScreenContextBroker`.
+The structured path is implemented through a fail-closed `PrivacyPolicyService` and an in-memory `ScreenContextBroker`.
 
 ```text
 Windows signals
@@ -27,6 +28,7 @@ PrivacyPolicyService
       ↓
 ScreenContextBroker
       ├─ active app identity or privacy-blocked state
+      ├─ visible active-window bounds when allowed
       ├─ user idle milliseconds
       └─ local hour
       ↓
@@ -35,7 +37,9 @@ on-demand ScreenContextSnapshot
 
 The current broker contains **no pixels, screenshots, OCR output or window-title history**. It is an in-memory current-context boundary, not a surveillance log.
 
-Per-app exclusions are also implemented. The deny list is user-managed, local and fail-closed. Excluded active apps are filtered before their identity reaches the broker/Domain Event path.
+Per-app exclusions are implemented. The deny list is user-managed, local and fail-closed. Excluded active apps are filtered before their identity or window geometry reaches the broker/Domain Event path.
+
+An explicit `accessibilityContextEnabled` privacy capability is also implemented and exposed in Settings. It is **off by default** and uses the same per-app exclusion service. The capability currently grants permission only; the bounded Windows accessibility collector is still intentionally unimplemented.
 
 ## Why vision is deferred
 
@@ -50,8 +54,9 @@ Level 0: Windows/system events
 
 Level 1: structured app/context adapters
         -> brokered + privacy-gated
-        -> active app / idle / time implemented
-        -> bounds/accessibility later
+        -> app identity / bounds / idle / time implemented
+        -> accessibility capability implemented
+        -> bounded accessibility collector next
 
 Level 2: on-demand screenshot/region understanding
         -> optional vision worker
@@ -60,6 +65,29 @@ Level 2: on-demand screenshot/region understanding
 Level 3: continuous visual perception
         -> explicitly out of scope
 ```
+
+## Bounded accessibility contract
+
+The future accessibility collector must remain deliberately narrow. The approved capability does **not** grant a license to dump an accessibility tree.
+
+Allowed first-step metadata should be bounded and structural, for example:
+
+- focused element control type;
+- whether the focused element is enabled/focusable/focused;
+- whether it is offscreen;
+- whether it is a password element;
+- bounded geometry if useful.
+
+The first collector should explicitly avoid:
+
+- element names or window titles by default;
+- raw text/value content;
+- help text;
+- full accessibility-tree enumeration;
+- continuous event history;
+- persisting accessibility metadata into long-term memory automatically.
+
+A per-app exclusion must override the global accessibility capability.
 
 ## When a vision model becomes useful
 
@@ -81,6 +109,10 @@ The following prerequisites are now partially in place:
 - [x] user-managed per-app deny list;
 - [x] deny filtering before structured active-app context crosses the privacy boundary;
 - [x] Screen Context Broker with no screenshot persistence;
+- [x] privacy-gated visible active-window bounds;
+- [x] explicit accessibility-context capability, off by default;
+- [x] Settings UI showing current structured-context/privacy state;
+- [ ] bounded accessibility metadata collector;
 - [ ] visible indicator while capture is active;
 - [ ] region/window capture instead of whole desktop where possible;
 - [ ] explicit capture capability/permission setting;
@@ -88,7 +120,7 @@ The following prerequisites are now partially in place:
 - [ ] bounded capture frequency;
 - [ ] optional vision-worker lifecycle and immediate unload policy.
 
-The same app exclusion service should be reused for future accessibility metadata and capture. A subsystem must not invent a second independent privacy list.
+The same app exclusion service must be reused for future accessibility metadata and capture. A subsystem must not invent a second independent privacy list.
 
 ## Future architecture
 
@@ -102,6 +134,7 @@ PrivacyPolicyService
 Screen Context Broker
         |
         +--> structured Windows context
+        |      `--> bounded accessibility metadata [next]
         |
         `--> optional on-demand capture
                   |
@@ -149,4 +182,4 @@ This lets NorthPalace-my-pet run with:
 
 ## Current recommendation
 
-Continue expanding **structured, privacy-approved context** before adding any image model. Window bounds/accessibility context is the next reasonable Screen Context layer. Screenshot capture should remain unimplemented until there is a clear user-facing capability, permission UI and visible capture indicator.
+Implement the **bounded accessibility metadata collector** behind the already-approved capability and per-app deny gate. Do not collect element names/raw text in the first version. Screenshot capture should remain unimplemented until there is a clear user-facing capability, separate permission UI and visible capture indicator.
