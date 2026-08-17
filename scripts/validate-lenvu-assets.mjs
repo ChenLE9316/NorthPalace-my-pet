@@ -10,6 +10,7 @@ const paths = {
   master: 'assets/runtime/lenvu/source-notes/canonical-master.json',
   candidate: 'assets/runtime/lenvu/source-notes/master-candidate.json',
   landmarks: 'assets/runtime/lenvu/source-notes/master-landmarks.json',
+  sourceMeasurement: 'assets/runtime/lenvu/source-notes/source-measurement.json',
   references: 'assets/reference/manifest.json',
 };
 
@@ -60,14 +61,17 @@ const runtime = readJson(paths.runtime);
 const master = readJson(paths.master);
 const candidate = readJson(paths.candidate);
 const landmarks = readJson(paths.landmarks);
+const sourceMeasurement = readJson(paths.sourceMeasurement);
 const references = readJson(paths.references);
 
 equal(runtime.character.id, 'lenvu', 'runtime character id');
 equal(master.characterId, runtime.character.id, 'master character id');
 equal(candidate.characterId, runtime.character.id, 'candidate character id');
 equal(landmarks.characterId, runtime.character.id, 'landmark character id');
+equal(sourceMeasurement.characterId, runtime.character.id, 'source-measurement character id');
 
 equal(master.authority.visualGroundTruth, paths.visualGroundTruth, 'master visual-ground-truth path');
+equal(master.authority.sourceMeasurement, paths.sourceMeasurement, 'master source-measurement path');
 equal(master.authority.candidateMetadata, paths.candidate, 'master candidate-metadata path');
 equal(candidate.authority.visualGroundTruth, paths.visualGroundTruth, 'candidate visual-ground-truth path');
 equal(candidate.authority.masterContract, paths.master, 'candidate master-contract path');
@@ -91,23 +95,37 @@ equal(master.identity.blindHorizontalMirrorAllowed, runtime.identity.blindHorizo
 equal(master.identity.chibiOrCatLikeRedesignAllowed, false, 'chibi/cat redesign policy');
 equal(master.identity.generatedCandidateMayRedefineIdentity, false, 'generated candidate identity policy');
 
+// Verify the source measurement is bound to the original reference provenance, not to a generated image.
+equal(sourceMeasurement.authority.visualGroundTruth, paths.visualGroundTruth, 'source-measurement ground-truth path');
+equal(sourceMeasurement.authority.referenceManifest, paths.references, 'source-measurement reference-manifest path');
+equal(sourceMeasurement.measurementMethod.sourceWasOriginalHighResolution, true, 'source-measurement original-source policy');
+equal(sourceMeasurement.measurementMethod.sourceChecksumMatchedReferenceManifest, true, 'source-measurement checksum policy');
+equal(sourceMeasurement.measurementPolicy.assistantMemoryMayFillMissingValues, false, 'source-measurement memory policy');
+equal(sourceMeasurement.measurementPolicy.generatedCandidateMayFillMissingValues, false, 'source-measurement generated-candidate policy');
+equal(sourceMeasurement.completion.allRequiredPixelMeasurementsPresent, true, 'source pixel-measurement completion');
+equal(sourceMeasurement.completion.identityDetailsVerifiedFromSource, true, 'source identity verification');
+
+for (const check of Object.entries(sourceMeasurement.measurements.identityDetails)) {
+  equal(check[1], true, `source identity detail ${check[0]}`);
+}
+
 // Landmarks are engineering normalization targets, never character-identity authority.
 equal(landmarks.authority.visualGroundTruth, paths.visualGroundTruth, 'landmark visual-ground-truth path');
 equal(landmarks.authority.primaryReference, master.authority.primaryReference, 'landmark primary-reference path');
 equal(landmarks.authority.referenceManifest, paths.references, 'landmark reference-manifest path');
-equal(landmarks.provenance.measurementStatus, 'inferred_not_pixel_traced', 'landmark measurement status');
+equal(landmarks.authority.sourceMeasurement, paths.sourceMeasurement, 'landmark source-measurement path');
 equal(landmarks.provenance.coordinatesAreIdentityAuthority, false, 'landmark identity-authority policy');
 equal(landmarks.revisionPolicy.sourceVisualEvidenceOverridesCoordinates, true, 'source-over-coordinate policy');
 equal(landmarks.revisionPolicy.candidateArtworkMayNotRedefineCoordinatesOrIdentity, true, 'candidate landmark-authority policy');
 equal(landmarks.revisionPolicy.measureAgainstOriginalHighResolutionSourceBeforeMasterApproval, true, 'source-measurement approval policy');
 
-const landmarkNeedsSourceMeasurement = landmarks.provenance.measurementStatus !== 'measured_from_original_high_resolution_source';
-if (candidate.review.approved && landmarkNeedsSourceMeasurement) {
-  fail('approved canonical master requires landmarks measured from the original high-resolution source');
+const normalizedRemapComplete = sourceMeasurement.completion.normalizedLandmarksUpdatedFromMeasurements === true
+  && landmarks.provenance.measurementStatus === 'measured_from_original_high_resolution_source';
+if (candidate.review.approved && !normalizedRemapComplete) {
+  fail('approved canonical master requires normalized landmarks remapped from the measured original source');
 }
-
-if (master.runtimeAssetReady && landmarkNeedsSourceMeasurement) {
-  fail('runtimeAssetReady=true requires source-measured production landmarks');
+if (master.runtimeAssetReady && !normalizedRemapComplete) {
+  fail('runtimeAssetReady=true requires normalized landmarks remapped from the measured original source');
 }
 
 equal(master.canvas.runtimeCellWidth, runtime.character.referenceCanvas.width, 'runtime cell width');
@@ -144,10 +162,13 @@ const primaryReference = master.authority.primaryReference;
 const referenceRecord = references.assets.find((asset) => asset.path === primaryReference);
 if (!referenceRecord) fail(`primary reference ${primaryReference} is missing from reference manifest`);
 
+equal(sourceMeasurement.authority.sourceSha256, referenceRecord.sourceSha256, 'source-measurement source SHA-256');
+equal(sourceMeasurement.authority.sourceWidth, referenceRecord.sourceWidth, 'source-measurement source width');
+equal(sourceMeasurement.authority.sourceHeight, referenceRecord.sourceHeight, 'source-measurement source height');
+
 const primaryAbsolute = resolve(root, primaryReference);
 if (!existsSync(primaryAbsolute)) fail(`primary reference file is missing: ${primaryReference}`);
 equal(statSync(primaryAbsolute).size, referenceRecord.bytes, 'primary reference byte length');
-
 const digest = createHash('sha256').update(readFileSync(primaryAbsolute)).digest('hex');
 equal(digest, referenceRecord.sha256, 'primary reference SHA-256');
 
@@ -183,13 +204,13 @@ const configuredAssets = Object.entries(runtime.animations)
 if (!master.runtimeAssetReady && configuredAssets.length > 0) {
   fail(`runtimeAssetReady=false but production animation assets are configured: ${configuredAssets.join(', ')}`);
 }
-
 if (master.runtimeAssetReady && !candidate.review.approved) {
   fail('runtimeAssetReady=true requires an approved canonical master candidate');
 }
 
 console.log(
   `[Lenvu asset contract] OK — ${Object.keys(runtime.animations).length} animation profiles, `
-  + `${references.assets.length} reference asset(s), landmarks=${landmarks.provenance.measurementStatus}, `
-  + `candidate=${candidate.status}, productionReady=${master.runtimeAssetReady}`,
+  + `${references.assets.length} reference asset(s), sourcePixels=measured, `
+  + `landmarks=${landmarks.provenance.measurementStatus}, candidate=${candidate.status}, `
+  + `productionReady=${master.runtimeAssetReady}`,
 );
