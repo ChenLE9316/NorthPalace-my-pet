@@ -13,7 +13,8 @@ The original single `PetActivity` Pet Brain and JavaScript-owned `tick_pet` loop
 - immutable runtime snapshots for presentation;
 - explicit runtime health;
 - a low-cost Windows idle/return sensor;
-- PixiJS as the high-frequency visual renderer boundary.
+- PixiJS as the high-frequency visual renderer boundary;
+- a deterministic weighted personality selector for ambient behavior.
 
 Svelte polls snapshots for presentation only. It no longer advances Lenvu's simulation clock.
 
@@ -79,6 +80,8 @@ Short-lived actions are represented independently from long-lived state. They ca
 
 Current intent families include:
 
+- ambient sitting;
+- explore;
 - observe user;
 - receive pet;
 - play;
@@ -117,6 +120,44 @@ Behavior Intent
           `--> Optional AI request
 ```
 
+## Weighted ambient personality selector
+
+Ambient behavior is no longer tied to a single fixed explore timer. A low-frequency pure Rust selector evaluates candidate actions while the user is active and Lenvu is in `ambient` mode.
+
+Current candidate set:
+
+```text
+Stay
+Observe
+Sit
+Explore
+```
+
+The selector consumes normalized context:
+
+- energy;
+- curiosity;
+- bond;
+- sleep pressure;
+- user idle time;
+- local hour;
+- elapsed ambient decision time.
+
+The canonical Lenvu baseline currently uses four internal tuning traits:
+
+```text
+curiosity_drive
+calmness
+sociability
+independence
+```
+
+These are behavior tuning constants, not user-facing game meters. They provide Lenvu with a recognizable baseline temperament while keeping all ordinary ambient behavior independent from the LLM.
+
+Selection is weighted but deterministic for the same state and decision index. This gives variation without introducing an opaque global RNG into Pet Brain tests. Higher curiosity and wakefulness increase explore pressure; stronger bond/sociability increase observing behavior; lower energy and higher sleep pressure increase calm sitting; night hours suppress exploration before the separate rest/sleep policy takes over.
+
+Future long-term personality evolution may adjust bounded traits from relationship history, but it must not let an LLM directly command animation or bypass behavior constraints.
+
 ## Current deterministic reflexes
 
 No AI is required for:
@@ -127,6 +168,7 @@ No AI is required for:
 - sleeping/waking;
 - Focus Guard entry/exit;
 - Windows user idle/return state;
+- weighted ambient stay/observe/sit/explore selection;
 - simple rest/sleep utility selection;
 - energy drain and sleep recovery;
 - AI worker availability state.
