@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "characterId": "lenvu",
-  "status": "pending_original_source_measurement",
+  "status": "source_measurement_complete_landmark_remap_pending",
   "authority": {
     "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "sourceSessionFilename": "ce9a4acd-0710-4d38-9619-912a47ec41de(1).png",
@@ -9,6 +9,15 @@
     "sourceWidth": 1536,
     "sourceHeight": 1024,
     "referenceManifest": "assets/reference/manifest.json"
+  },
+  "measurementMethod": {
+    "kind": "tool_assisted_manual_pixel_measurement",
+    "sourceWasOriginalHighResolution": true,
+    "sourceChecksumMatchedReferenceManifest": true,
+    "coordinateOrigin": "top_left",
+    "coordinatesAreAbsoluteSourcePixels": true,
+    "estimatedPointTolerancePx": 4,
+    "note": "Measurements were taken from the original 1536x1024 anatomy source, not from generated candidates. Visible bounds were assisted by foreground/background segmentation; semantic landmarks were visually checked against the source crops."
   },
   "measurementPolicy": {
     "originalImageOnly": true,
@@ -28,59 +37,59 @@
   },
   "measurements": {
     "frontNeutral": {
-      "visibleBoundsPx": null,
-      "groundContactYPx": null,
-      "earTipRightPx": null,
-      "earTipLeftPx": null,
-      "hornTipRightPx": null,
-      "hornTipLeftPx": null,
-      "rightEyeCenterPx": null,
-      "leftEyeCenterPx": null,
-      "noseCenterPx": null,
-      "chinPx": null,
-      "shoulderRightPx": null,
-      "shoulderLeftPx": null,
-      "frontPawRightContactPx": null,
-      "frontPawLeftContactPx": null
+      "visibleBoundsPx": { "x": 49, "y": 24, "width": 182, "height": 495 },
+      "groundContactYPx": 515,
+      "earTipRightPx": { "x": 76, "y": 25 },
+      "earTipLeftPx": { "x": 203, "y": 25 },
+      "hornTipRightPx": { "x": 126, "y": 62 },
+      "hornTipLeftPx": { "x": 171, "y": 51 },
+      "rightEyeCenterPx": { "x": 113, "y": 166 },
+      "leftEyeCenterPx": { "x": 167, "y": 166 },
+      "noseCenterPx": { "x": 139, "y": 206 },
+      "chinPx": { "x": 139, "y": 225 },
+      "shoulderRightPx": { "x": 96, "y": 273 },
+      "shoulderLeftPx": { "x": 183, "y": 273 },
+      "frontPawRightContactPx": { "x": 93, "y": 515 },
+      "frontPawLeftContactPx": { "x": 187, "y": 515 }
     },
     "leftProfileNeutral": {
-      "visibleBoundsPx": null,
-      "groundContactYPx": null,
-      "noseTipPx": null,
-      "visibleEyeCenterPx": null,
-      "headCenterPx": null,
-      "shoulderPx": null,
-      "frontPawContactPx": null,
-      "hipPx": null,
-      "rearPawContactPx": null,
-      "tailBasePx": null,
-      "tailEffectPeakPx": null
+      "visibleBoundsPx": { "x": 309, "y": 22, "width": 549, "height": 494 },
+      "groundContactYPx": 510,
+      "noseTipPx": { "x": 314, "y": 175 },
+      "visibleEyeCenterPx": { "x": 362, "y": 139 },
+      "headCenterPx": { "x": 403, "y": 145 },
+      "shoulderPx": { "x": 445, "y": 235 },
+      "frontPawContactPx": { "x": 450, "y": 508 },
+      "hipPx": { "x": 643, "y": 307 },
+      "rearPawContactPx": { "x": 720, "y": 508 },
+      "tailBasePx": { "x": 690, "y": 257 },
+      "tailEffectPeakPx": { "x": 770, "y": 100 }
     },
     "backNeutral": {
-      "visibleBoundsPx": null,
-      "groundContactYPx": null,
-      "spineCenterTopPx": null,
-      "spineCenterMidPx": null,
-      "tailBasePx": null,
-      "rearPawRightContactPx": null,
-      "rearPawLeftContactPx": null
+      "visibleBoundsPx": { "x": 891, "y": 25, "width": 179, "height": 488 },
+      "groundContactYPx": 510,
+      "spineCenterTopPx": { "x": 981, "y": 78 },
+      "spineCenterMidPx": { "x": 981, "y": 259 },
+      "tailBasePx": { "x": 981, "y": 325 },
+      "rearPawRightContactPx": { "x": 934, "y": 510 },
+      "rearPawLeftContactPx": { "x": 1030, "y": 510 }
     },
     "identityDetails": {
-      "rightEyeCyanSourceVerified": false,
-      "leftEyeVioletSourceVerified": false,
-      "leftHornGoldAccentSourceVerified": false,
-      "foreheadGlyphCenteredSourceVerified": false,
-      "darkSegmentedHornPairSourceVerified": false,
-      "cyanEarCircuitrySourceVerified": false,
-      "slateGrayWhiteFurSourceVerified": false,
-      "cyanLumenCodeSourceVerified": false,
-      "physicalTailBaseSourceVerified": false,
-      "cyanHolographicTailTerminalSourceVerified": false
+      "rightEyeCyanSourceVerified": true,
+      "leftEyeVioletSourceVerified": true,
+      "leftHornGoldAccentSourceVerified": true,
+      "foreheadGlyphCenteredSourceVerified": true,
+      "darkSegmentedHornPairSourceVerified": true,
+      "cyanEarCircuitrySourceVerified": true,
+      "slateGrayWhiteFurSourceVerified": true,
+      "cyanLumenCodeSourceVerified": true,
+      "physicalTailBaseSourceVerified": true,
+      "cyanHolographicTailTerminalSourceVerified": true
     }
   },
   "completion": {
-    "allRequiredPixelMeasurementsPresent": false,
-    "identityDetailsVerifiedFromSource": false,
+    "allRequiredPixelMeasurementsPresent": true,
+    "identityDetailsVerifiedFromSource": true,
     "normalizedLandmarksUpdatedFromMeasurements": false,
     "completed": false
   }
