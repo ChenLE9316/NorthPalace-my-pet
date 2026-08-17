@@ -2,6 +2,7 @@ mod domain;
 mod history_admin;
 mod memory_admin;
 mod persistence;
+mod privacy;
 #[cfg(target_os = "windows")]
 mod platform;
 mod runtime;
@@ -14,6 +15,7 @@ use memory_admin::{MemoryAdminService, MemoryInput, MemoryKind, MemoryRecord};
 use persistence::{
     spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
 };
+use privacy::{PrivacyPolicyService, PrivacyRulesSnapshot};
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
 use serde::Serialize;
 use tauri::{
@@ -132,6 +134,27 @@ fn activity_get(
 }
 
 #[tauri::command]
+fn privacy_get(privacy: tauri::State<'_, PrivacyPolicyService>) -> PrivacyRulesSnapshot {
+    privacy.snapshot()
+}
+
+#[tauri::command]
+fn privacy_add_excluded_app(
+    app_id: String,
+    privacy: tauri::State<'_, PrivacyPolicyService>,
+) -> Result<PrivacyRulesSnapshot, String> {
+    privacy.add_excluded_app(&app_id)
+}
+
+#[tauri::command]
+fn privacy_remove_excluded_app(
+    app_id: String,
+    privacy: tauri::State<'_, PrivacyPolicyService>,
+) -> Result<PrivacyRulesSnapshot, String> {
+    privacy.remove_excluded_app(&app_id)
+}
+
+#[tauri::command]
 fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String> {
     #[cfg(target_os = "windows")]
     {
@@ -244,10 +267,12 @@ pub fn run() {
     let persistence_service = PersistenceService::default();
     let memory_admin_service = MemoryAdminService::default();
     let history_admin_service = HistoryAdminService::default();
+    let privacy_policy_service = PrivacyPolicyService::default();
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
         .manage(memory_admin_service.clone())
-        .manage(history_admin_service.clone());
+        .manage(history_admin_service.clone())
+        .manage(privacy_policy_service.clone());
 
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_autostart::init(
@@ -312,33 +337,45 @@ pub fn run() {
         }
         tray.build(app)?;
 
-        let persistence_bootstrap = match app.path().app_local_data_dir() {
-            Ok(data_dir) => {
-                let database_path = data_dir.join("lenvu.sqlite3");
-                match PersistenceBootstrap::open(&database_path) {
-                    Ok(bootstrap) => {
-                        if let Err(error) = memory_admin_service.install(database_path.clone()) {
-                            eprintln!("Lenvu Memory Browser unavailable: {error}");
-                        }
-                        if let Err(error) = history_admin_service.install(database_path) {
-                            eprintln!("Lenvu Activity History unavailable: {error}");
-                        }
-                        Some(bootstrap)
-                    }
-                    Err(error) => {
-                        eprintln!(
-                            "Lenvu persistence unavailable; continuing session-only: {error}"
-                        );
-                        None
-                    }
-                }
-            }
+        let local_data_dir = match app.path().app_local_data_dir() {
+            Ok(data_dir) => Some(data_dir),
             Err(error) => {
                 eprintln!(
-                    "Lenvu local-data path unavailable; continuing session-only: {error}"
+                    "Lenvu local-data path unavailable; privacy remains fail-closed and persistence is session-only: {error}"
                 );
                 None
             }
+        };
+
+        if let Some(data_dir) = &local_data_dir {
+            if let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json")) {
+                eprintln!(
+                    "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
+                );
+            }
+        }
+
+        let persistence_bootstrap = if let Some(data_dir) = local_data_dir {
+            let database_path = data_dir.join("lenvu.sqlite3");
+            match PersistenceBootstrap::open(&database_path) {
+                Ok(bootstrap) => {
+                    if let Err(error) = memory_admin_service.install(database_path.clone()) {
+                        eprintln!("Lenvu Memory Browser unavailable: {error}");
+                    }
+                    if let Err(error) = history_admin_service.install(database_path) {
+                        eprintln!("Lenvu Activity History unavailable: {error}");
+                    }
+                    Some(bootstrap)
+                }
+                Err(error) => {
+                    eprintln!(
+                        "Lenvu persistence unavailable; continuing session-only: {error}"
+                    );
+                    None
+                }
+            }
+        } else {
+            None
         };
 
         let initial_state = persistence_bootstrap
@@ -371,7 +408,10 @@ pub fn run() {
         {
             platform::windows::spawn_local_time_sensor(runtime.clone());
             platform::windows::spawn_idle_sensor(runtime.clone());
-            platform::windows::spawn_active_window_sensor(runtime.clone());
+            platform::windows::spawn_active_window_sensor(
+                runtime.clone(),
+                privacy_policy_service.clone(),
+            );
 
             if let Some(pet_window) = app.get_webview_window("pet") {
                 platform::windows::spawn_cursor_passthrough_sensor(
@@ -409,6 +449,9 @@ pub fn run() {
         memory_delete,
         activity_list,
         activity_get,
+        privacy_get,
+        privacy_add_excluded_app,
+        privacy_remove_excluded_app,
         startup_get,
         startup_set,
         toggle_companion_window,
@@ -428,6 +471,9 @@ pub fn run() {
         memory_delete,
         activity_list,
         activity_get,
+        privacy_get,
+        privacy_add_excluded_app,
+        privacy_remove_excluded_app,
         startup_get,
         startup_set,
         toggle_companion_window,
