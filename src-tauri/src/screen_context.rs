@@ -10,11 +10,21 @@ pub enum ActiveAppContextState {
     PrivacyBlocked,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct WindowBounds {
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+}
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ScreenContextSnapshot {
     pub active_app_id: Option<String>,
     pub active_app_state: ActiveAppContextState,
+    pub active_window_bounds: Option<WindowBounds>,
     pub user_idle_ms: u64,
     pub local_hour: u8,
     pub sequence: u64,
@@ -24,6 +34,7 @@ pub struct ScreenContextSnapshot {
 struct ScreenContextState {
     active_app_id: Option<String>,
     active_app_state: ActiveAppContextState,
+    active_window_bounds: Option<WindowBounds>,
     user_idle_ms: u64,
     local_hour: u8,
     sequence: u64,
@@ -34,6 +45,7 @@ impl Default for ScreenContextState {
         Self {
             active_app_id: None,
             active_app_state: ActiveAppContextState::Unknown,
+            active_window_bounds: None,
             user_idle_ms: 0,
             local_hour: 12,
             sequence: 0,
@@ -56,16 +68,22 @@ impl ScreenContextBroker {
         ScreenContextSnapshot {
             active_app_id: state.active_app_id,
             active_app_state: state.active_app_state,
+            active_window_bounds: state.active_window_bounds,
             user_idle_ms: state.user_idle_ms,
             local_hour: state.local_hour,
             sequence: state.sequence,
         }
     }
 
-    pub fn observe_active_app(&self, app_id: String) {
+    pub fn observe_active_app(
+        &self,
+        app_id: String,
+        bounds: Option<WindowBounds>,
+    ) {
         self.update(|state| {
             state.active_app_id = Some(app_id);
             state.active_app_state = ActiveAppContextState::Available;
+            state.active_window_bounds = bounds;
         });
     }
 
@@ -73,6 +91,7 @@ impl ScreenContextBroker {
         self.update(|state| {
             state.active_app_id = None;
             state.active_app_state = ActiveAppContextState::PrivacyBlocked;
+            state.active_window_bounds = None;
         });
     }
 
@@ -80,6 +99,7 @@ impl ScreenContextBroker {
         self.update(|state| {
             state.active_app_id = None;
             state.active_app_state = ActiveAppContextState::Unknown;
+            state.active_window_bounds = None;
         });
     }
 
@@ -107,15 +127,27 @@ impl ScreenContextBroker {
 mod tests {
     use super::*;
 
+    fn example_bounds() -> WindowBounds {
+        WindowBounds {
+            x: 120,
+            y: 80,
+            width: 1280,
+            height: 720,
+        }
+    }
+
     #[test]
-    fn privacy_block_clears_previous_app_identity() {
+    fn privacy_block_clears_previous_app_identity_and_bounds() {
         let broker = ScreenContextBroker::default();
-        broker.observe_active_app("code".to_owned());
-        assert_eq!(broker.snapshot().active_app_id.as_deref(), Some("code"));
+        broker.observe_active_app("code".to_owned(), Some(example_bounds()));
+        let visible = broker.snapshot();
+        assert_eq!(visible.active_app_id.as_deref(), Some("code"));
+        assert_eq!(visible.active_window_bounds, Some(example_bounds()));
 
         broker.observe_active_app_blocked();
         let snapshot = broker.snapshot();
         assert_eq!(snapshot.active_app_id, None);
+        assert_eq!(snapshot.active_window_bounds, None);
         assert_eq!(
             snapshot.active_app_state,
             ActiveAppContextState::PrivacyBlocked
