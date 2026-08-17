@@ -22,17 +22,21 @@
     type DisplayContext,
   } from '../window/runtime';
 
+  type CompanionSection = 'home' | 'memory' | 'activity';
+
   let snapshot = fallbackSnapshot;
   let displayContext: DisplayContext = fallbackDisplayContext;
   let snapshotTimer: number | undefined;
   let displayTimer: number | undefined;
   let activityRefreshTimer: number | undefined;
+  let activeSection: CompanionSection = 'home';
 
   let memories: MemoryRecord[] = [];
   let memoryQuery = '';
   let memoryFilter: MemoryKind | 'all' = 'all';
   let memoryStatus = '';
   let memoryBusy = false;
+  let memoryLoaded = false;
   let draftContent = '';
   let draftKind: MemoryKind = 'episodic';
   let draftImportance = 0.65;
@@ -40,6 +44,7 @@
 
   let activities: ActivityHistoryRecord[] = [];
   let historyBusy = false;
+  let historyLoaded = false;
   let historyStatus = '';
 
   const percent = (value: number) => `${Math.round(value * 100)}%`;
@@ -70,12 +75,24 @@
     displayContext = await getDisplayContext();
   }
 
+  async function openSection(section: CompanionSection) {
+    activeSection = section;
+    if (section === 'memory' && !memoryLoaded) {
+      await refreshMemories();
+    } else if (section === 'activity' && !historyLoaded) {
+      await refreshActivity();
+    }
+  }
+
   async function send(kind: PetInteraction) {
     await interact(kind);
     await refresh();
     if (kind === 'pet' || kind === 'play' || kind === 'focus_start' || kind === 'focus_stop') {
-      window.clearTimeout(activityRefreshTimer);
-      activityRefreshTimer = window.setTimeout(() => void refreshActivity(), 250);
+      historyLoaded = false;
+      if (activeSection === 'activity') {
+        window.clearTimeout(activityRefreshTimer);
+        activityRefreshTimer = window.setTimeout(() => void refreshActivity(), 250);
+      }
     }
   }
 
@@ -108,6 +125,7 @@
       memories = [];
       memorySources = new Map();
     } finally {
+      memoryLoaded = true;
       memoryBusy = false;
     }
   }
@@ -141,6 +159,7 @@
       historyStatus = error instanceof Error ? error.message : String(error);
       activities = [];
     } finally {
+      historyLoaded = true;
       historyBusy = false;
     }
   }
@@ -229,8 +248,6 @@
   onMount(() => {
     void refresh();
     void refreshDisplay();
-    void refreshMemories();
-    void refreshActivity();
     snapshotTimer = window.setInterval(() => void refresh(), 500);
     displayTimer = window.setInterval(() => void refreshDisplay(), 2_000);
 
@@ -244,7 +261,7 @@
 
 <main class="companion-stage">
   <section class="companion-panel companion-panel--standalone">
-    <header>
+    <header class="companion-header">
       <div>
         <strong>Lenvu</strong>
         <span>Neralune Digital Companion · runtime {snapshot.health}</span>
@@ -252,154 +269,194 @@
       <button onclick={() => void hideCompanionWindow()} aria-label="關閉 Companion">×</button>
     </header>
 
-    <section class="status-grid">
+    <section class="status-grid status-grid--summary" aria-label="Lenvu 即時狀態摘要">
       <article><span>Energy</span><b>{percent(snapshot.state.energy)}</b></article>
       <article><span>Curiosity</span><b>{percent(snapshot.state.curiosity)}</b></article>
       <article><span>Bond</span><b>{percent(snapshot.state.bond)}</b></article>
-      <article><span>Sleep pressure</span><b>{percent(snapshot.state.sleepPressure)}</b></article>
+      <article><span>Sleep</span><b>{percent(snapshot.state.sleepPressure)}</b></article>
     </section>
 
-    <section class="actions">
-      <button onclick={pet}>摸摸</button>
-      <button onclick={play}>玩耍</button>
-      <button onclick={toggleFocus}>
-        {snapshot.state.mode === 'focus_guard' ? '離開專注' : 'Focus Guard'}
-      </button>
-    </section>
+    <nav class="companion-tabs" role="tablist" aria-label="Companion 功能">
+      <button
+        role="tab"
+        aria-selected={activeSection === 'home'}
+        class:active={activeSection === 'home'}
+        onclick={() => void openSection('home')}
+      >Home</button>
+      <button
+        role="tab"
+        aria-selected={activeSection === 'memory'}
+        class:active={activeSection === 'memory'}
+        onclick={() => void openSection('memory')}
+      >Memory</button>
+      <button
+        role="tab"
+        aria-selected={activeSection === 'activity'}
+        class:active={activeSection === 'activity'}
+        onclick={() => void openSection('activity')}
+      >Activity</button>
+    </nav>
 
-    <section class="status-grid">
-      <article><span>Posture</span><b>{snapshot.state.posture}</b></article>
-      <article><span>Attention</span><b>{snapshot.state.attention}</b></article>
-      <article><span>Emotion</span><b>{snapshot.state.emotion}</b></article>
-      <article><span>Cognition</span><b>{snapshot.state.cognition}</b></article>
-    </section>
-
-    <section class="status-grid">
-      <article><span>Animation</span><b>{resolveAnimation(snapshot)}</b></article>
-      <article><span>Sequence</span><b>{snapshot.sequence}</b></article>
-      <article><span>Panel DPI</span><b>{displayContext.scaleFactor.toFixed(2)}×</b></article>
-      <article><span>Displays</span><b>{displayContext.monitorCount}</b></article>
-    </section>
-
-    <section class="memory-panel">
-      <div class="section-heading">
-        <div>
-          <strong>Memory</strong>
-          <span>本地 SQLite · 手動可檢視／修改／刪除</span>
+    {#if activeSection === 'home'}
+      <section class="companion-section home-section" role="tabpanel" aria-label="Home">
+        <div class="section-heading section-heading--compact">
+          <div>
+            <strong>Companion</strong>
+            <span>即時互動留在這裡；Memory / Activity 按需載入。</span>
+          </div>
         </div>
-        <button onclick={() => void refreshMemories()} disabled={memoryBusy}>重新整理</button>
-      </div>
 
-      <div class="memory-create">
-        <textarea bind:value={draftContent} rows="3" placeholder="請 Lenvu 記住這件事……"></textarea>
-        <div class="memory-toolbar">
-          <select bind:value={draftKind} aria-label="記憶類型">
-            <option value="episodic">事件</option>
-            <option value="semantic">事實</option>
-            <option value="preference">偏好</option>
-            <option value="relationship">關係</option>
-          </select>
-          <label>
-            重要度 {Math.round(draftImportance * 100)}%
-            <input type="range" min="0" max="1" step="0.05" bind:value={draftImportance} />
-          </label>
-          <button onclick={() => void remember()} disabled={memoryBusy || !draftContent.trim()}>記住</button>
-        </div>
-      </div>
+        <section class="actions">
+          <button onclick={pet}>摸摸</button>
+          <button onclick={play}>玩耍</button>
+          <button onclick={toggleFocus}>
+            {snapshot.state.mode === 'focus_guard' ? '離開專注' : 'Focus Guard'}
+          </button>
+        </section>
 
-      <div class="memory-search">
-        <input
-          bind:value={memoryQuery}
-          onkeydown={(event) => event.key === 'Enter' && void refreshMemories()}
-          placeholder="搜尋 Lenvu 的記憶"
-          aria-label="搜尋記憶"
-        />
-        <select bind:value={memoryFilter} onchange={() => void refreshMemories()} aria-label="篩選記憶類型">
-          <option value="all">全部</option>
-          <option value="episodic">事件</option>
-          <option value="semantic">事實</option>
-          <option value="preference">偏好</option>
-          <option value="relationship">關係</option>
-        </select>
-        <button onclick={() => void refreshMemories()} disabled={memoryBusy}>搜尋</button>
-      </div>
+        <section class="status-grid">
+          <article><span>Posture</span><b>{snapshot.state.posture}</b></article>
+          <article><span>Attention</span><b>{snapshot.state.attention}</b></article>
+          <article><span>Emotion</span><b>{snapshot.state.emotion}</b></article>
+          <article><span>Cognition</span><b>{snapshot.state.cognition}</b></article>
+        </section>
 
-      {#if memoryStatus}
-        <p class="memory-status">{memoryStatus}</p>
-      {/if}
+        <section class="status-grid status-grid--technical">
+          <article><span>Animation</span><b>{resolveAnimation(snapshot)}</b></article>
+          <article><span>Sequence</span><b>{snapshot.sequence}</b></article>
+          <article><span>Panel DPI</span><b>{displayContext.scaleFactor.toFixed(2)}×</b></article>
+          <article><span>Displays</span><b>{displayContext.monitorCount}</b></article>
+        </section>
 
-      <div class="memory-list" aria-busy={memoryBusy}>
-        {#if !memoryBusy && memories.length === 0}
-          <div class="memory-empty">目前沒有符合條件的長期記憶。</div>
-        {/if}
+        <section class="concept-card">
+          <img src="/lenvu-system-overview.webp" alt="NorthPalace-my-pet UI/UX and architecture concept" />
+          <div>
+            <strong>Pet first, AI second.</strong>
+            <p>Pet Runtime、互動、記憶與 Activity 都能在 MiniCPM5-1B 未載入時獨立運作。</p>
+          </div>
+        </section>
+      </section>
+    {:else if activeSection === 'memory'}
+      <section class="companion-section" role="tabpanel" aria-label="Memory">
+        <section class="memory-panel">
+          <div class="section-heading">
+            <div>
+              <strong>Memory</strong>
+              <span>本地 SQLite · 可搜尋、修改、查看來源與刪除</span>
+            </div>
+            <button onclick={() => void refreshMemories()} disabled={memoryBusy}>重新整理</button>
+          </div>
 
-        {#each memories as memory (memory.id)}
-          <article class="memory-card">
-            <div class="memory-card-meta">
-              <select bind:value={memory.kind} aria-label="記憶類型">
+          <div class="memory-create">
+            <textarea bind:value={draftContent} rows="3" placeholder="請 Lenvu 記住這件事……"></textarea>
+            <div class="memory-toolbar">
+              <select bind:value={draftKind} aria-label="記憶類型">
                 <option value="episodic">事件</option>
                 <option value="semantic">事實</option>
                 <option value="preference">偏好</option>
                 <option value="relationship">關係</option>
               </select>
-              <span>{kindLabels[memory.kind]} · {memoryTime(memory.updatedAtMs)}</span>
-            </div>
-            <p class="memory-provenance">{memorySourceLabel(memory)}</p>
-            <textarea bind:value={memory.content} rows="3" aria-label="記憶內容"></textarea>
-            <div class="memory-card-actions">
               <label>
-                重要度 {Math.round(memory.importance * 100)}%
-                <input type="range" min="0" max="1" step="0.05" bind:value={memory.importance} />
+                重要度 {Math.round(draftImportance * 100)}%
+                <input type="range" min="0" max="1" step="0.05" bind:value={draftImportance} />
               </label>
-              <button onclick={() => void saveMemory(memory)} disabled={memoryBusy}>儲存</button>
-              <button class="danger" onclick={() => void removeMemory(memory)} disabled={memoryBusy}>忘記</button>
+              <button onclick={() => void remember()} disabled={memoryBusy || !draftContent.trim()}>記住</button>
             </div>
-          </article>
-        {/each}
-      </div>
-    </section>
+          </div>
 
-    <section class="activity-panel">
-      <div class="section-heading">
-        <div>
-          <strong>Activity History</strong>
-          <span>只保留低頻、有意義的互動事件；不是桌面監控紀錄</span>
-        </div>
-        <button onclick={() => void refreshActivity()} disabled={historyBusy}>重新整理</button>
-      </div>
+          <div class="memory-search">
+            <input
+              bind:value={memoryQuery}
+              onkeydown={(event) => event.key === 'Enter' && void refreshMemories()}
+              placeholder="搜尋 Lenvu 的記憶"
+              aria-label="搜尋記憶"
+            />
+            <select bind:value={memoryFilter} onchange={() => void refreshMemories()} aria-label="篩選記憶類型">
+              <option value="all">全部</option>
+              <option value="episodic">事件</option>
+              <option value="semantic">事實</option>
+              <option value="preference">偏好</option>
+              <option value="relationship">關係</option>
+            </select>
+            <button onclick={() => void refreshMemories()} disabled={memoryBusy}>搜尋</button>
+          </div>
 
-      {#if historyStatus}
-        <p class="memory-status">{historyStatus}</p>
-      {/if}
+          {#if memoryStatus}
+            <p class="memory-status">{memoryStatus}</p>
+          {/if}
 
-      <div class="activity-list" aria-busy={historyBusy}>
-        {#if !historyBusy && activities.length === 0}
-          <div class="memory-empty">目前還沒有可顯示的活動紀錄。</div>
-        {/if}
+          <div class="memory-list" aria-busy={memoryBusy}>
+            {#if memoryBusy && !memoryLoaded}
+              <div class="memory-empty">正在讀取本地記憶……</div>
+            {:else if memories.length === 0}
+              <div class="memory-empty">目前沒有符合條件的長期記憶。</div>
+            {/if}
 
-        {#each activities as activity (activity.id)}
-          <article class="activity-row">
+            {#each memories as memory (memory.id)}
+              <article class="memory-card">
+                <div class="memory-card-meta">
+                  <select bind:value={memory.kind} aria-label="記憶類型">
+                    <option value="episodic">事件</option>
+                    <option value="semantic">事實</option>
+                    <option value="preference">偏好</option>
+                    <option value="relationship">關係</option>
+                  </select>
+                  <span>{kindLabels[memory.kind]} · {memoryTime(memory.updatedAtMs)}</span>
+                </div>
+                <p class="memory-provenance">{memorySourceLabel(memory)}</p>
+                <textarea bind:value={memory.content} rows="3" aria-label="記憶內容"></textarea>
+                <div class="memory-card-actions">
+                  <label>
+                    重要度 {Math.round(memory.importance * 100)}%
+                    <input type="range" min="0" max="1" step="0.05" bind:value={memory.importance} />
+                  </label>
+                  <button onclick={() => void saveMemory(memory)} disabled={memoryBusy}>儲存</button>
+                  <button class="danger" onclick={() => void removeMemory(memory)} disabled={memoryBusy}>忘記</button>
+                </div>
+              </article>
+            {/each}
+          </div>
+        </section>
+      </section>
+    {:else}
+      <section class="companion-section" role="tabpanel" aria-label="Activity">
+        <section class="activity-panel">
+          <div class="section-heading">
             <div>
-              <strong>{activityLabel(activity)}</strong>
-              <span>{activity.category}{relationshipLabel(activity) ? ` · ${relationshipLabel(activity)}` : ''}</span>
+              <strong>Activity History</strong>
+              <span>只顯示低頻、有意義的互動；不是桌面監控紀錄</span>
             </div>
-            <div class="activity-meta">
-              {#if bondDeltaLabel(activity)}
-                <b>{bondDeltaLabel(activity)}</b>
-              {/if}
-              <time>{memoryTime(activity.createdAtMs)}</time>
-            </div>
-          </article>
-        {/each}
-      </div>
-    </section>
+            <button onclick={() => void refreshActivity()} disabled={historyBusy}>重新整理</button>
+          </div>
 
-    <section class="concept-card">
-      <img src="/lenvu-system-overview.webp" alt="NorthPalace-my-pet UI/UX and architecture concept" />
-      <div>
-        <strong>Pet first, AI second.</strong>
-        <p>Pet Overlay 與 Companion Window 已分離。Memory Browser 與 Activity History 都直接管理本地資料，不需要先載入 MiniCPM5-1B。</p>
-      </div>
-    </section>
+          {#if historyStatus}
+            <p class="memory-status">{historyStatus}</p>
+          {/if}
+
+          <div class="activity-list" aria-busy={historyBusy}>
+            {#if historyBusy && !historyLoaded}
+              <div class="memory-empty">正在讀取 Activity History……</div>
+            {:else if activities.length === 0}
+              <div class="memory-empty">目前還沒有可顯示的活動紀錄。</div>
+            {/if}
+
+            {#each activities as activity (activity.id)}
+              <article class="activity-row">
+                <div>
+                  <strong>{activityLabel(activity)}</strong>
+                  <span>{activity.category}{relationshipLabel(activity) ? ` · ${relationshipLabel(activity)}` : ''}</span>
+                </div>
+                <div class="activity-meta">
+                  {#if bondDeltaLabel(activity)}
+                    <b>{bondDeltaLabel(activity)}</b>
+                  {/if}
+                  <time>{memoryTime(activity.createdAtMs)}</time>
+                </div>
+              </article>
+            {/each}
+          </div>
+        </section>
+      </section>
+    {/if}
   </section>
 </main>
