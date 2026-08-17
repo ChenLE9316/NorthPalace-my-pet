@@ -22,7 +22,7 @@ Windows 11
 │  │
 │  ├─ Windows adapters
 │  │  ├─ idle / return sensor
-│  │  ├─ active-app identity sensor
+│  │  ├─ active-app identity + visible-bounds sensor
 │  │  ├─ local-hour sensor
 │  │  ├─ display / DPI / work-area context
 │  │  ├─ native cursor click-through controller
@@ -31,10 +31,11 @@ Windows 11
 │  ├─ PrivacyPolicyService
 │  │  ├─ fail-closed startup state
 │  │  ├─ local privacy-rules.json
-│  │  └─ per-app identity gate
+│  │  └─ per-app context gate
 │  │
 │  ├─ ScreenContextBroker
 │  │  ├─ active app identity or privacy-blocked state
+│  │  ├─ privacy-approved visible window bounds
 │  │  ├─ user idle milliseconds
 │  │  ├─ local hour
 │  │  └─ on-demand immutable snapshot
@@ -87,10 +88,12 @@ Ambient behavior uses a deterministic weighted personality selector driven by cu
 Platform controllers consume snapshots and/or produce domain events:
 
 - idle sensor → `UserIdleChanged` / `UserReturned` and current idle value into Screen Context Broker;
-- active-app sensor → privacy check → Screen Context Broker → `ActiveWindowChanged` only when identity is allowed;
+- active-app sensor → process identity → privacy gate → allowed-only visible DWM frame bounds → Screen Context Broker; `ActiveWindowChanged` is emitted only for allowed identity transitions;
 - local-hour sensor → `TimeOfDayChanged` and broker hour;
 - motion controller → turns `walk/run` locomotion into native pet-window displacement while clamping to the current work area;
 - cursor hit-test controller → toggles native cursor passthrough using normalized semantic interaction regions.
+
+Moving/resizing the same allowed foreground window updates broker geometry without repeatedly emitting `ActiveWindowChanged`, so Pet Brain is not spammed by geometry-only changes.
 
 Native window coordinates and Win32 cursor details stay outside Pet Brain.
 
@@ -109,27 +112,32 @@ PrivacyPolicyService
       ├─ excluded / fail-closed
       │      ↓
       │   identity blocked
-      │   broker app id cleared
+      │   window bounds not queried
+      │   broker id/bounds cleared
       │   no ActiveWindowChanged
       │
       └─ allowed
              ↓
+      DWM visible frame bounds
+             ↓
       ScreenContextBroker
              ↓
-      ActiveWindowChanged
+      ActiveWindowChanged (identity transition only)
 ```
 
 `PrivacyPolicyService` starts fail-closed. Until its local rule file has been safely initialized, all active-app identity is treated as blocked. A corrupt rule file therefore reduces awareness instead of silently disabling privacy.
 
 The deny list is stored separately in `privacy-rules.json`; it is not copied into SQLite, Memory or Activity History. The Settings UI only shows rules the user explicitly created and does not maintain a recent-app inventory.
 
-This service is also the intended common gate for future structured window metadata, accessibility context and optional capture.
+Window geometry is treated as context data under the same gate: the sensor does not ask DWM for visible frame bounds until the foreground process identity has passed the exclusion policy.
+
+This service is also the intended common gate for future structured accessibility context and optional capture.
 
 ## 5. Screen Context Broker
 
 `ScreenContextBroker` is the application-level boundary between low-cost environment sensors and future AI/context composition.
 
-V1 contains only structured values already available without visual capture:
+V1 contains only structured values available without visual capture:
 
 ```text
 ScreenContextSnapshot
@@ -138,16 +146,23 @@ ScreenContextSnapshot
 │  ├─ unknown
 │  ├─ available
 │  └─ privacy_blocked
+├─ activeWindowBounds: WindowBounds | null
+│  ├─ x
+│  ├─ y
+│  ├─ width
+│  └─ height
 ├─ userIdleMs
 ├─ localHour
 └─ sequence
 ```
 
-An excluded app never appears as an app id in the snapshot. When privacy rules change while that application remains in the foreground, the sensor re-evaluates the in-memory gate on its next normal one-second tick and clears stale identity.
+An excluded app never appears as an app id or geometry in the snapshot. When privacy rules change while that application remains in the foreground, the sensor re-evaluates the in-memory gate on its next normal one-second tick and clears stale identity and bounds.
+
+For allowed applications, the active-window adapter uses the visible DWM frame rectangle and preserves negative desktop coordinates so monitors positioned left/up of the primary display remain representable.
 
 The broker has no screenshot buffer, no OCR data, no window-title history and no persistence. `screen_context_get` is an on-demand snapshot command; the normal Companion UI does not continuously poll it.
 
-Future context can extend the broker with bounded structured fields such as window bounds or accessibility metadata, but each capability must pass the privacy boundary first.
+Future context can extend the broker with bounded accessibility metadata, but that capability must be independently opt-in and pass the same app privacy boundary first.
 
 ## 6. Window boundaries
 
@@ -276,6 +291,7 @@ The first performance budgets are design targets, not measured guarantees:
 
 - Rust runtime and sensors should remain inexpensive enough for all-day use;
 - no new polling loop was added for Screen Context Broker — it consumes existing sensor observations;
+- active-window bounds reuse the same one-second foreground observation loop;
 - PixiJS uses animation-specific normal/low-power FPS caps;
 - Companion UI can be hidden independently from the pet overlay;
 - Memory/Activity/Settings management reads are lazy;
@@ -287,7 +303,8 @@ The first performance budgets are design targets, not measured guarantees:
 
 - text/vision AI failure → AI unavailable, pet continues;
 - database failure → temporary session state + diagnostics;
-- privacy-rule initialization failure → active-app identity is blocked fail-closed;
+- privacy-rule initialization failure → active-app identity and bounds are blocked fail-closed;
+- DWM bounds lookup failure → identity may remain available, bounds become unavailable; no screenshot fallback is attempted;
 - renderer/asset failure → fallback procedural/placeholder presentation;
 - one Windows sensor failure → disable/degrade that sensor, not Pet Brain;
 - runtime command/channel failure → surface `degraded/recovering/error`, do not silently imitate healthy idle state.
