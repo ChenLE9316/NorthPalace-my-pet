@@ -68,7 +68,7 @@
 - [x] Add Memory Browser V1 in the Companion window.
 - [x] Add explicit manual memory create/search/list/update/delete APIs.
 - [x] Add editable memory kind/content/importance controls without requiring the LLM.
-- [ ] Show source-event provenance and activity history in the Memory Browser.
+- [x] Show source-event provenance and activity history in the Memory Browser.
 - [ ] Add Memory Evaluator deciding store/merge/discard for automatic long-term candidates.
 - [ ] Add stronger long-term relationship/personality evolution using history.
 
