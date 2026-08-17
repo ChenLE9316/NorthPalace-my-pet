@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "characterId": "lenvu",
+  "status": "pending_original_source_measurement",
+  "authority": {
+    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
+    "sourceSessionFilename": "ce9a4acd-0710-4d38-9619-912a47ec41de(1).png",
+    "sourceSha256": "e5cf993d91756361d86ef65c557095aa07cfe02f7fbc54f2a15f741c410342db",
+    "sourceWidth": 1536,
+    "sourceHeight": 1024,
+    "referenceManifest": "assets/reference/manifest.json"
+  },
+  "measurementPolicy": {
+    "originalImageOnly": true,
+    "assistantMemoryMayFillMissingValues": false,
+    "generatedCandidateMayFillMissingValues": false,
+    "inferredCoordinatesMayBePromotedWithoutMeasurement": false,
+    "manualOrToolAssistedPixelMeasurementRequired": true
+  },
+  "evidenceRegions": {
+    "frontNeutral": { "x": 35, "y": 15, "width": 220, "height": 510 },
+    "leftProfileNeutral": { "x": 285, "y": 15, "width": 585, "height": 510 },
+    "backNeutral": { "x": 880, "y": 15, "width": 205, "height": 510 },
+    "threeQuarterNeutral": { "x": 1100, "y": 15, "width": 420, "height": 510 },
+    "headFrontCloseup": { "x": 30, "y": 525, "width": 315, "height": 485 },
+    "headProfileCloseup": { "x": 360, "y": 525, "width": 345, "height": 485 },
+    "detailStrip": { "x": 705, "y": 550, "width": 810, "height": 460 }
+  },
+  "measurements": {
+    "frontNeutral": {
+      "visibleBoundsPx": null,
+      "groundContactYPx": null,
+      "earTipRightPx": null,
+      "earTipLeftPx": null,
+      "hornTipRightPx": null,
+      "hornTipLeftPx": null,
+      "rightEyeCenterPx": null,
+      "leftEyeCenterPx": null,
+      "noseCenterPx": null,
+      "chinPx": null,
+      "shoulderRightPx": null,
+      "shoulderLeftPx": null,
+      "frontPawRightContactPx": null,
+      "frontPawLeftContactPx": null
+    },
+    "leftProfileNeutral": {
+      "visibleBoundsPx": null,
+      "groundContactYPx": null,
+      "noseTipPx": null,
+      "visibleEyeCenterPx": null,
+      "headCenterPx": null,
+      "shoulderPx": null,
+      "frontPawContactPx": null,
+      "hipPx": null,
+      "rearPawContactPx": null,
+      "tailBasePx": null,
+      "tailEffectPeakPx": null
+    },
+    "backNeutral": {
+      "visibleBoundsPx": null,
+      "groundContactYPx": null,
+      "spineCenterTopPx": null,
+      "spineCenterMidPx": null,
+      "tailBasePx": null,
+      "rearPawRightContactPx": null,
+      "rearPawLeftContactPx": null
+    },
+    "identityDetails": {
+      "rightEyeCyanSourceVerified": false,
+      "leftEyeVioletSourceVerified": false,
+      "leftHornGoldAccentSourceVerified": false,
+      "foreheadGlyphCenteredSourceVerified": false,
+      "darkSegmentedHornPairSourceVerified": false,
+      "cyanEarCircuitrySourceVerified": false,
+      "slateGrayWhiteFurSourceVerified": false,
+      "cyanLumenCodeSourceVerified": false,
+      "physicalTailBaseSourceVerified": false,
+      "cyanHolographicTailTerminalSourceVerified": false
+    }
+  },
+  "completion": {
+    "allRequiredPixelMeasurementsPresent": false,
+    "identityDetailsVerifiedFromSource": false,
+    "normalizedLandmarksUpdatedFromMeasurements": false,
+    "completed": false
+  }
+}
