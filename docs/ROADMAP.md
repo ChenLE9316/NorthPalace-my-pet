@@ -24,7 +24,10 @@
 ## Phase 1 — Living desktop pet
 
 - [x] Define the Lenvu Character Bible and canonical visual identity rules.
-- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets into a production master.
+- [x] Import the first provenance-tracked high-resolution anatomy reference preview and preserve original-source checksum/resolution metadata.
+- [x] Freeze the Canonical Lenvu production coordinate, anchor, identity and directional-mirroring contract.
+- [x] Freeze canonical front/profile/back target landmarks and QA tolerances for production normalization.
+- [ ] Normalize canonical Lenvu anatomy/scale/anchors from the concept sheets into a production master artwork.
 - [x] Define reference-art vs runtime-asset separation.
 - [x] Define runtime animation manifest and renderer-facing animation resolver.
 - [x] Add PixiJS vector placeholder renderer for state/behavior validation.
