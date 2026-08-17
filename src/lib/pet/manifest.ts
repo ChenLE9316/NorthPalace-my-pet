@@ -2,6 +2,7 @@ import rawManifest from './lenvu.manifest.json';
 
 export type LenvuAnimationId = keyof typeof rawManifest.animations;
 export type LenvuHitZoneId = 'head' | 'body' | 'tail';
+export type LenvuDirectionStrategy = 'directional_assets_or_semantic_remap';
 
 export interface LenvuAnimationProfile {
   fps: number;
@@ -30,11 +31,18 @@ export interface LenvuManifest {
     referenceCanvas: { width: number; height: number };
     anchor: { x: number; y: number };
   };
+  identity: {
+    rightEye: 'cyan';
+    leftEye: 'violet';
+    goldCrescentHorn: 'left';
+    blindHorizontalMirrorAllowed: false;
+  };
   render: {
     nominalWidth: number;
     nominalHeight: number;
     idleFrameBudgetFps: number;
     lowPowerFrameBudgetFps: number;
+    directionStrategy: LenvuDirectionStrategy;
   };
   hitZones: LenvuHitZone[];
   animations: Record<LenvuAnimationId, LenvuAnimationProfile>;
@@ -62,6 +70,17 @@ const allowedHitZones = new Set<LenvuHitZoneId>(['head', 'body', 'tail']);
 function validateManifest(manifest: typeof rawManifest): void {
   if (manifest.schemaVersion !== 1) {
     throw new Error(`Unsupported Lenvu manifest schema: ${manifest.schemaVersion}`);
+  }
+
+  if (manifest.identity.rightEye !== 'cyan'
+    || manifest.identity.leftEye !== 'violet'
+    || manifest.identity.goldCrescentHorn !== 'left'
+    || manifest.identity.blindHorizontalMirrorAllowed !== false) {
+    throw new Error('Lenvu identity-side contract is invalid');
+  }
+
+  if (manifest.render.directionStrategy !== 'directional_assets_or_semantic_remap') {
+    throw new Error(`Unsupported Lenvu direction strategy: ${manifest.render.directionStrategy}`);
   }
 
   for (const id of requiredAnimations) {

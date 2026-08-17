@@ -7,11 +7,18 @@
     "referenceCanvas": { "width": 512, "height": 512 },
     "anchor": { "x": 0.5, "y": 0.86 }
   },
+  "identity": {
+    "rightEye": "cyan",
+    "leftEye": "violet",
+    "goldCrescentHorn": "left",
+    "blindHorizontalMirrorAllowed": false
+  },
   "render": {
     "nominalWidth": 180,
     "nominalHeight": 220,
     "idleFrameBudgetFps": 8,
-    "lowPowerFrameBudgetFps": 4
+    "lowPowerFrameBudgetFps": 4,
+    "directionStrategy": "directional_assets_or_semantic_remap"
   },
   "hitZones": [
     { "id": "head", "shape": "ellipse", "cx": 0.5, "cy": 0.28, "rx": 0.29, "ry": 0.25 },
