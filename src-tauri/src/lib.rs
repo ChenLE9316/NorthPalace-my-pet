@@ -7,7 +7,9 @@ mod runtime;
 use std::time::Duration;
 
 use domain::pet::PetInteraction;
-use persistence::{spawn_autosave, PersistenceBootstrap, PersistenceHandle};
+use persistence::{
+    spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
+};
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
 use tauri::Manager;
 
@@ -72,7 +74,8 @@ fn configure_pet_hit_regions(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let persistence_service = PersistenceService::default();
+    let builder = tauri::Builder::default().manage(persistence_service.clone());
 
     #[cfg(target_os = "windows")]
     let (builder, sensor_hit_test) = {
@@ -117,16 +120,21 @@ pub fn run() {
                     eprintln!("Lenvu initial persistence save failed: {error}");
                 }
             }
+            if let Err(error) = persistence_service.install(persistence.clone()) {
+                eprintln!("Lenvu persistence service install failed: {error}");
+            }
             spawn_autosave(
                 runtime.clone(),
-                persistence.clone(),
+                persistence,
                 PERSISTENCE_AUTOSAVE_INTERVAL,
             );
-            app.manage(persistence);
         }
+
+        spawn_event_journal(runtime.clone(), persistence_service.clone());
 
         #[cfg(target_os = "windows")]
         {
+            platform::windows::spawn_local_time_sensor(runtime.clone());
             platform::windows::spawn_idle_sensor(runtime.clone());
             platform::windows::spawn_active_window_sensor(runtime.clone());
 
@@ -185,7 +193,7 @@ pub fn run() {
         let Some(runtime) = app_handle.try_state::<RuntimeHandle>() else {
             return;
         };
-        let Some(persistence) = app_handle.try_state::<PersistenceHandle>() else {
+        let Some(persistence) = app_handle.try_state::<PersistenceService>() else {
             return;
         };
         let Ok(snapshot) = runtime.snapshot() else {

@@ -1,7 +1,7 @@
 use std::{
     sync::{
-        mpsc::{self, RecvTimeoutError, Sender},
-        Arc, RwLock,
+        mpsc::{self, Receiver, RecvTimeoutError, Sender},
+        Arc, Mutex, RwLock,
     },
     thread,
     time::{Duration, Instant},
@@ -49,6 +49,7 @@ impl PetRuntimeSnapshot {
 pub struct RuntimeHandle {
     event_tx: Sender<DomainEvent>,
     snapshot: Arc<RwLock<PetRuntimeSnapshot>>,
+    event_subscribers: Arc<Mutex<Vec<Sender<DomainEvent>>>>,
 }
 
 impl RuntimeHandle {
@@ -65,6 +66,7 @@ impl RuntimeHandle {
             &brain,
         )));
         let snapshot_writer = Arc::clone(&snapshot);
+        let event_subscribers = Arc::new(Mutex::new(Vec::<Sender<DomainEvent>>::new()));
 
         thread::spawn(move || {
             let mut brain = brain;
@@ -116,13 +118,31 @@ impl RuntimeHandle {
             }
         });
 
-        Self { event_tx, snapshot }
+        Self {
+            event_tx,
+            snapshot,
+            event_subscribers,
+        }
     }
 
     pub fn dispatch(&self, event: DomainEvent) -> Result<(), String> {
         self.event_tx
-            .send(event)
-            .map_err(|_| "pet runtime event channel is unavailable".to_owned())
+            .send(event.clone())
+            .map_err(|_| "pet runtime event channel is unavailable".to_owned())?;
+
+        if let Ok(mut subscribers) = self.event_subscribers.lock() {
+            subscribers.retain(|subscriber| subscriber.send(event.clone()).is_ok());
+        }
+
+        Ok(())
+    }
+
+    pub fn subscribe_events(&self) -> Receiver<DomainEvent> {
+        let (tx, rx) = mpsc::channel();
+        if let Ok(mut subscribers) = self.event_subscribers.lock() {
+            subscribers.push(tx);
+        }
+        rx
     }
 
     pub fn snapshot(&self) -> Result<PetRuntimeSnapshot, String> {
@@ -147,5 +167,19 @@ mod tests {
         let snapshot = runtime.snapshot().expect("runtime snapshot");
         assert_eq!(snapshot.state.bond, 0.66);
         assert_eq!(snapshot.state.facing, Facing::Left);
+    }
+
+    #[test]
+    fn runtime_dispatches_domain_events_to_observers() {
+        let runtime = RuntimeHandle::spawn(Duration::from_secs(60));
+        let events = runtime.subscribe_events();
+        runtime
+            .dispatch(DomainEvent::PetPetted)
+            .expect("dispatch event");
+
+        assert!(matches!(
+            events.recv_timeout(Duration::from_secs(1)),
+            Ok(DomainEvent::PetPetted)
+        ));
     }
 }

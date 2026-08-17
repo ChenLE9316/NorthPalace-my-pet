@@ -4,7 +4,7 @@ NorthPalace-my-pet treats persistence as part of Lenvu's life system, not as a r
 
 ## Current scope
 
-V0.2 stores only values that are meaningful across application restarts:
+The long-lived Pet State still stores only values that make sense across restarts:
 
 - `facing`
 - `energy`
@@ -21,7 +21,7 @@ Transient runtime state is deliberately reset on startup:
 - cognition / AI availability;
 - Windows user-idle timing.
 
-This avoids reopening the application in a stale environmental state such as "still walking", "still focused", or "AI worker ready" when those facts are no longer true.
+The database now also contains separate structures for life history and future memory instead of turning the singleton `pet_state` row into a generic dump.
 
 ## Storage location
 
@@ -35,7 +35,7 @@ The database is never stored inside the Git repository or project workspace duri
 
 ## SQLite policy
 
-The first schema uses `PRAGMA user_version = 1` and a singleton `pet_state` table.
+Schema version is currently `PRAGMA user_version = 2`.
 
 Connection policy:
 
@@ -46,86 +46,148 @@ synchronous = NORMAL
 busy_timeout = 2500 ms
 ```
 
-The Rust application links a bundled SQLite through `rusqlite`, so the Windows target does not need a separate system SQLite installation.
+Rust links bundled SQLite through `rusqlite`, so the Windows target does not need a separate system SQLite installation. The bundled build also gives the project FTS5 support for local memory search.
 
 ## Runtime boundary
 
 Database I/O does not run inside Pet Brain's owner loop.
 
 ```text
-Rust Pet Runtime
-      │
-      │ immutable snapshot
-      ▼
-Autosave sampler
-      │
-      │ state message
-      ▼
-Persistence worker thread
-      │
-      ▼
-SQLite connection
+Domain Events ────────────────┐
+                              │ filtered, low-frequency
+Rust Pet Runtime              ▼
+      │                Event-journal bridge
+      │ snapshot              │
+      ▼                       │
+Autosave sampler              │
+      │                       │
+      └──────────┬────────────┘
+                 ▼
+         Persistence worker
+                 │
+                 ▼
+              SQLite
 ```
 
-The persistence worker owns the SQLite connection. Pet Runtime only publishes snapshots and never waits for a database query/write during ordinary simulation ticks.
+The persistence worker owns the SQLite connection. Pet Runtime publishes immutable snapshots and domain events; ordinary simulation ticks never wait on SQLite.
 
-## Startup
+## Graceful degradation
+
+`PersistenceService` is always available to the application, but it can internally be disabled when the local-data path or database cannot be initialized.
+
+That means:
+
+```text
+SQLite available   -> persistent life + journal + memory infrastructure
+SQLite unavailable -> session-only Lenvu, ordinary Pet Runtime continues
+```
+
+A missing database must never make petting, movement, sleeping, Focus Guard or UI commands fail.
+
+## Startup order
 
 ```text
 resolve app-local-data path
         ↓
 open / migrate SQLite
         ↓
-load persistent fields
+load long-lived Pet State
         ↓
 combine with fresh transient defaults
         ↓
 spawn PetBrainV2
+        ↓
+install PersistenceService
+        ↓
+subscribe journal bridge
+        ↓
+start Windows sensors
 ```
 
-If the database or local-data path is unavailable, startup continues with default session-only state and emits diagnostics. Persistence failure is a degraded capability, not a fatal Pet Runtime failure.
+Starting sensors after persistence initialization prevents the first local-time/presence events from being needlessly lost.
 
-## Autosave
+## Autosave and shutdown
 
-The first implementation samples the runtime every 30 seconds and queues a write only when the persistent subset changed.
+The runtime samples persistent Pet State every 30 seconds and queues a write only when the persistent subset changed.
 
-A fresh database also receives an initial default state. The next persistence iteration should add an explicit final save during graceful application shutdown so the maximum unsaved window is not limited only by the autosave interval.
+On graceful process exit, the application also performs a final `save_and_flush` with a bounded acknowledgement wait. This closes the previous gap where the final interaction could be newer than the most recent autosave.
 
-## Schema V1
+## Schema V2
 
-```sql
-CREATE TABLE pet_state (
-  singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-  facing TEXT NOT NULL CHECK (facing IN ('left', 'right')),
-  energy REAL NOT NULL CHECK (energy >= 0.0 AND energy <= 1.0),
-  curiosity REAL NOT NULL CHECK (curiosity >= 0.0 AND curiosity <= 1.0),
-  bond REAL NOT NULL CHECK (bond >= 0.0 AND bond <= 1.0),
-  sleep_pressure REAL NOT NULL CHECK (sleep_pressure >= 0.0 AND sleep_pressure <= 1.0),
-  updated_at_ms INTEGER NOT NULL
-);
-```
+### `pet_state`
 
-## What comes next
+Singleton long-lived physical/relationship state.
 
-The same database can later grow separate tables for:
+### `activity_journal`
 
-- episodic memory;
-- semantic/user facts;
-- preferences;
-- relationship events/history;
-- bounded activity journal;
-- configuration metadata;
-- FTS5 search indexes.
+Stores only low-frequency events with real life-history value. Current examples include:
 
-Those tables must not turn the singleton `pet_state` row into a generic dumping ground.
+- user returned;
+- petting;
+- play;
+- Focus Guard start/end.
+
+High-frequency/noisy events such as runtime ticks, cursor hover and facing changes are intentionally filtered out.
+
+Retention is bounded by both:
+
+- 30 days;
+- maximum 2,000 journal rows.
+
+Whichever removes old rows first wins.
+
+### `relationship_events`
+
+Stores relationship-relevant history separately from the scalar `bond` value, including an event kind and bond delta. Journal retention may detach the original journal row, but relationship history can remain.
+
+### `memories`
+
+Typed local memory records with four categories:
+
+- episodic;
+- semantic;
+- preference;
+- relationship.
+
+Each memory has content, importance, timestamps and an optional source activity event.
+
+### `memory_fts`
+
+FTS5 external-content index over memory text. Insert/update/delete triggers keep the index synchronized with `memories`.
+
+The first retrieval policy ranks by FTS5/BM25 relevance and then uses memory importance and recency as secondary ordering signals.
+
+### `rhythm_hourly`
+
+Stores a lightweight 24-hour interaction profile. A Windows local-time sensor emits `TimeOfDayChanged` only on startup/hour transition; relationship/focus interactions increment the current hour bucket.
+
+This is deliberately much cheaper and less invasive than continuously sampling desktop activity into the database.
+
+## Memory API boundary
+
+Persistence already exposes worker-backed primitives for:
+
+- queueing a typed `MemoryDraft`;
+- FTS5 searching with a bounded result count and timeout.
+
+Pet Brain does not decide what becomes a long-term memory. A future Memory Evaluator will sit above this storage boundary and decide whether an event/conversation deserves episodic, semantic, preference or relationship storage.
+
+See `docs/MEMORY_SYSTEM.md`.
 
 ## Acceptance tests
 
-The current Rust tests verify:
+Rust tests cover:
 
-- schema creation and `user_version` migration;
-- persistent-state save/load round trip;
-- loaded values are combined with fresh transient defaults;
-- Pet Runtime can start from a supplied persisted state.
+- clean schema creation at V2;
+- V1 -> V2 migration while retaining `pet_state`;
+- persistent Pet State save/load round trip;
+- transient state reset on load;
+- graceful-shutdown save acknowledgement;
+- filtering high-frequency events out of the journal;
+- relationship-event insertion;
+- memory insertion + FTS5 retrieval;
+- hourly rhythm accumulation;
+- Pet Runtime startup from supplied persisted state;
+- runtime domain-event subscription used by the journal bridge.
 
-The feature branch also passes the complete Windows CI after adding bundled SQLite.
+All changes must still pass the complete Windows CI before they are considered part of the validated feature-branch baseline.

@@ -55,20 +55,27 @@
 - [x] Load long-lived values into fresh transient Pet State defaults on startup.
 - [x] Move database writes to a separate persistence worker.
 - [x] Add changed-only 30-second autosave.
+- [x] Add graceful-shutdown final save with bounded acknowledgement wait.
 - [x] Fall back to session-only state if local data / SQLite initialization fails.
-- [x] Pass Windows CI with SQLite migration/state round-trip tests.
-- [ ] Add graceful-shutdown final save.
-- [ ] Add relationship-event history beyond the current `bond` scalar.
-- [ ] Add episodic / semantic / preference / relationship memory tables.
-- [ ] Add FTS5 indexes and memory retrieval policy.
-- [ ] Add time-of-day rhythm persistence where it represents long-lived state.
-- [ ] Add bounded activity/event journal with retention policy.
+- [x] Add an always-present no-op-capable `PersistenceService` boundary.
+- [x] Add runtime Domain Event subscription for low-frequency persistence observers.
+- [x] Add bounded activity/event journal with 30-day / 2,000-row retention.
+- [x] Add relationship-event history beyond the current `bond` scalar.
+- [x] Add typed episodic / semantic / preference / relationship memory storage.
+- [x] Add FTS5 memory index and first BM25/importance/recency retrieval path.
+- [x] Add Windows local-hour sensor independent of the WebView.
+- [x] Add lightweight hourly interaction-rhythm persistence.
+- [ ] Add user-facing Memory Browser/editor.
+- [ ] Add Memory Evaluator deciding store/merge/discard for long-term candidates.
+- [ ] Add explicit memory deletion/update API and provenance UI.
+- [ ] Add stronger long-term relationship/personality evolution using history.
 
 ## Phase 3 — Windows awareness and focus companion
 
 - [x] User idle / return sensor using low-cost Win32 input timing.
 - [x] Active-window app identity sensor without collecting window titles by default.
 - [x] Current monitor / work-area / DPI context.
+- [x] Local time-of-day sensor using Win32 rather than a JavaScript clock.
 - [ ] Window bounds context for observed apps.
 - [x] Focus Guard domain mode and UI control.
 - [ ] Context bubbles and low-noise reminder policy.
@@ -82,6 +89,7 @@
 - [ ] MiniCPM5-1B GGUF benchmark on R3 2200G + 16 GB.
 - [ ] Dynamic context composer.
 - [ ] Structured AI intent contract.
+- [ ] Connect Memory Evaluator/retrieval without making Pet Brain depend on the LLM.
 - [ ] AI load/unload and memory-pressure policy.
 
 ## Phase 5 — Optional visual understanding

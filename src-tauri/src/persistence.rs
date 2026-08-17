@@ -1,7 +1,10 @@
 use std::{
     fs,
     path::Path,
-    sync::mpsc::{self, Sender},
+    sync::{
+        mpsc::{self, Sender},
+        Arc, RwLock,
+    },
     thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -9,17 +12,131 @@ use std::{
 use rusqlite::{params, Connection, OptionalExtension};
 
 use crate::{
-    domain::pet_state::{Facing, PetStateV2},
+    domain::{
+        events::DomainEvent,
+        pet_state::{Facing, PetStateV2},
+    },
     runtime::RuntimeHandle,
 };
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
+const ACTIVITY_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
+const ACTIVITY_MAX_ROWS: i64 = 2_000;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MemoryKind {
+    Episodic,
+    Semantic,
+    Preference,
+    Relationship,
+}
+
+impl MemoryKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Episodic => "episodic",
+            Self::Semantic => "semantic",
+            Self::Preference => "preference",
+            Self::Relationship => "relationship",
+        }
+    }
+
+    fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "episodic" => Some(Self::Episodic),
+            "semantic" => Some(Self::Semantic),
+            "preference" => Some(Self::Preference),
+            "relationship" => Some(Self::Relationship),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MemoryDraft {
+    pub kind: MemoryKind,
+    pub content: String,
+    pub importance: f32,
+    pub source_event_id: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MemorySearchHit {
+    pub id: i64,
+    pub kind: MemoryKind,
+    pub content: String,
+    pub importance: f32,
+    pub created_at_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+struct ActivityRecord {
+    event_type: String,
+    category: String,
+    relationship_kind: Option<String>,
+    bond_delta: f32,
+    counts_as_interaction: bool,
+}
+
+impl ActivityRecord {
+    fn from_domain_event(event: &DomainEvent) -> Option<Self> {
+        match event {
+            DomainEvent::UserReturned => Some(Self {
+                event_type: "user_returned".to_owned(),
+                category: "presence".to_owned(),
+                relationship_kind: Some("reunion".to_owned()),
+                bond_delta: 0.0,
+                counts_as_interaction: true,
+            }),
+            DomainEvent::PetPetted => Some(Self {
+                event_type: "pet_petted".to_owned(),
+                category: "relationship".to_owned(),
+                relationship_kind: Some("affection".to_owned()),
+                bond_delta: 0.01,
+                counts_as_interaction: true,
+            }),
+            DomainEvent::PetPlayRequested => Some(Self {
+                event_type: "pet_play".to_owned(),
+                category: "relationship".to_owned(),
+                relationship_kind: Some("play".to_owned()),
+                bond_delta: 0.005,
+                counts_as_interaction: true,
+            }),
+            DomainEvent::FocusModeStarted => Some(Self {
+                event_type: "focus_started".to_owned(),
+                category: "focus".to_owned(),
+                relationship_kind: None,
+                bond_delta: 0.0,
+                counts_as_interaction: true,
+            }),
+            DomainEvent::FocusModeEnded => Some(Self {
+                event_type: "focus_ended".to_owned(),
+                category: "focus".to_owned(),
+                relationship_kind: None,
+                bond_delta: 0.0,
+                counts_as_interaction: true,
+            }),
+            _ => None,
+        }
+    }
+}
 
 enum PersistenceCommand {
     Save(PetStateV2),
     SaveAndFlush {
         state: PetStateV2,
         ack: mpsc::SyncSender<Result<(), String>>,
+    },
+    RecordActivity(ActivityRecord),
+    ObserveHour {
+        hour: u8,
+        interaction_delta: u32,
+    },
+    StoreMemory(MemoryDraft),
+    SearchMemories {
+        query: String,
+        limit: u32,
+        ack: mpsc::SyncSender<Result<Vec<MemorySearchHit>, String>>,
     },
 }
 
@@ -119,6 +236,28 @@ impl PersistenceBootstrap {
                         );
                         let _ = ack.send(result);
                     }
+                    PersistenceCommand::RecordActivity(activity) => {
+                        if let Err(error) = record_activity(&mut connection, &activity) {
+                            eprintln!("Lenvu activity journal write failed: {error}");
+                        }
+                    }
+                    PersistenceCommand::ObserveHour {
+                        hour,
+                        interaction_delta,
+                    } => {
+                        if let Err(error) = observe_hour(&mut connection, hour, interaction_delta) {
+                            eprintln!("Lenvu rhythm persistence failed: {error}");
+                        }
+                    }
+                    PersistenceCommand::StoreMemory(memory) => {
+                        if let Err(error) = insert_memory(&mut connection, &memory) {
+                            eprintln!("Lenvu memory write failed: {error}");
+                        }
+                    }
+                    PersistenceCommand::SearchMemories { query, limit, ack } => {
+                        let result = search_memories(&connection, &query, limit);
+                        let _ = ack.send(result);
+                    }
                 }
             }
         });
@@ -155,8 +294,107 @@ impl PersistenceHandle {
         Ok(())
     }
 
+    fn queue_activity(&self, activity: ActivityRecord) -> Result<(), String> {
+        self.tx
+            .send(PersistenceCommand::RecordActivity(activity))
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())
+    }
+
+    fn observe_hour(&self, hour: u8, interaction_delta: u32) -> Result<(), String> {
+        self.tx
+            .send(PersistenceCommand::ObserveHour {
+                hour: hour.min(23),
+                interaction_delta,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())
+    }
+
+    pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
+        self.tx
+            .send(PersistenceCommand::StoreMemory(memory))
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())
+    }
+
+    pub fn search_memories(
+        &self,
+        query: impl Into<String>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemorySearchHit>, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::SearchMemories {
+                query: query.into(),
+                limit: limit.clamp(1, 100),
+                ack: ack_tx,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+
+        ack_rx
+            .recv_timeout(timeout)
+            .map_err(|error| format!("memory search acknowledgement failed: {error}"))?
+    }
+
     pub fn had_saved_state(&self) -> bool {
         self.had_saved_state
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct PersistenceService {
+    inner: Arc<RwLock<Option<PersistenceHandle>>>,
+}
+
+impl PersistenceService {
+    pub fn install(&self, handle: PersistenceHandle) -> Result<(), String> {
+        self.inner
+            .write()
+            .map(|mut slot| *slot = Some(handle))
+            .map_err(|_| "persistence service lock is poisoned".to_owned())
+    }
+
+    fn handle(&self) -> Option<PersistenceHandle> {
+        self.inner.read().ok().and_then(|slot| slot.clone())
+    }
+
+    pub fn save_and_flush(&self, state: PetStateV2, timeout: Duration) -> Result<(), String> {
+        let Some(handle) = self.handle() else {
+            return Ok(());
+        };
+        handle.save_and_flush(state, timeout)
+    }
+
+    pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
+        let Some(handle) = self.handle() else {
+            return Ok(());
+        };
+        handle.queue_memory(memory)
+    }
+
+    pub fn search_memories(
+        &self,
+        query: impl Into<String>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemorySearchHit>, String> {
+        let Some(handle) = self.handle() else {
+            return Ok(Vec::new());
+        };
+        handle.search_memories(query, limit, timeout)
+    }
+
+    fn queue_activity(&self, activity: ActivityRecord) -> Result<(), String> {
+        let Some(handle) = self.handle() else {
+            return Ok(());
+        };
+        handle.queue_activity(activity)
+    }
+
+    fn observe_hour(&self, hour: u8, interaction_delta: u32) -> Result<(), String> {
+        let Some(handle) = self.handle() else {
+            return Ok(());
+        };
+        handle.observe_hour(hour, interaction_delta)
     }
 }
 
@@ -182,6 +420,35 @@ pub fn spawn_autosave(
                 break;
             }
             last_queued = Some(persistent);
+        }
+    });
+}
+
+pub fn spawn_event_journal(runtime: RuntimeHandle, persistence: PersistenceService) {
+    let events = runtime.subscribe_events();
+
+    thread::spawn(move || {
+        let mut current_hour: Option<u8> = None;
+
+        while let Ok(event) = events.recv() {
+            if let DomainEvent::TimeOfDayChanged { hour } = &event {
+                let hour = (*hour).min(23);
+                current_hour = Some(hour);
+                let _ = persistence.observe_hour(hour, 0);
+                continue;
+            }
+
+            let Some(activity) = ActivityRecord::from_domain_event(&event) else {
+                continue;
+            };
+            let counts_as_interaction = activity.counts_as_interaction;
+            let _ = persistence.queue_activity(activity);
+
+            if counts_as_interaction {
+                if let Some(hour) = current_hour {
+                    let _ = persistence.observe_hour(hour, 1);
+                }
+            }
         }
     });
 }
@@ -215,10 +482,125 @@ fn migrate(connection: &Connection) -> Result<(), String> {
                    sleep_pressure REAL NOT NULL CHECK (sleep_pressure >= 0.0 AND sleep_pressure <= 1.0),\n\
                    updated_at_ms INTEGER NOT NULL\n\
                  );\n\
-                 PRAGMA user_version = 1;\n\
+                 CREATE TABLE IF NOT EXISTS activity_journal (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   event_type TEXT NOT NULL,\n\
+                   category TEXT NOT NULL,\n\
+                   created_at_ms INTEGER NOT NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_activity_journal_created_at\n\
+                   ON activity_journal(created_at_ms);\n\
+                 CREATE INDEX IF NOT EXISTS idx_activity_journal_category_created_at\n\
+                   ON activity_journal(category, created_at_ms);\n\
+                 CREATE TABLE IF NOT EXISTS relationship_events (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   journal_id INTEGER,\n\
+                   kind TEXT NOT NULL,\n\
+                   bond_delta REAL NOT NULL DEFAULT 0.0,\n\
+                   created_at_ms INTEGER NOT NULL,\n\
+                   FOREIGN KEY(journal_id) REFERENCES activity_journal(id) ON DELETE SET NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_relationship_events_created_at\n\
+                   ON relationship_events(created_at_ms);\n\
+                 CREATE TABLE IF NOT EXISTS memories (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   kind TEXT NOT NULL CHECK (kind IN ('episodic', 'semantic', 'preference', 'relationship')),\n\
+                   content TEXT NOT NULL,\n\
+                   importance REAL NOT NULL CHECK (importance >= 0.0 AND importance <= 1.0),\n\
+                   source_event_id INTEGER,\n\
+                   created_at_ms INTEGER NOT NULL,\n\
+                   updated_at_ms INTEGER NOT NULL,\n\
+                   last_accessed_at_ms INTEGER,\n\
+                   FOREIGN KEY(source_event_id) REFERENCES activity_journal(id) ON DELETE SET NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_memories_kind_updated_at\n\
+                   ON memories(kind, updated_at_ms);\n\
+                 CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(\n\
+                   content,\n\
+                   content='memories',\n\
+                   content_rowid='id',\n\
+                   tokenize='unicode61'\n\
+                 );\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN\n\
+                   INSERT INTO memory_fts(rowid, content) VALUES (new.id, new.content);\n\
+                 END;\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN\n\
+                   INSERT INTO memory_fts(memory_fts, rowid, content) VALUES ('delete', old.id, old.content);\n\
+                 END;\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN\n\
+                   INSERT INTO memory_fts(memory_fts, rowid, content) VALUES ('delete', old.id, old.content);\n\
+                   INSERT INTO memory_fts(rowid, content) VALUES (new.id, new.content);\n\
+                 END;\n\
+                 CREATE TABLE IF NOT EXISTS rhythm_hourly (\n\
+                   hour INTEGER PRIMARY KEY CHECK (hour >= 0 AND hour <= 23),\n\
+                   interaction_count INTEGER NOT NULL DEFAULT 0,\n\
+                   last_seen_at_ms INTEGER NOT NULL\n\
+                 );\n\
+                 PRAGMA user_version = 2;\n\
                  COMMIT;",
             )
             .map_err(|error| format!("failed to create SQLite schema: {error}")),
+        1 => connection
+            .execute_batch(
+                "BEGIN IMMEDIATE;\n\
+                 CREATE TABLE IF NOT EXISTS activity_journal (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   event_type TEXT NOT NULL,\n\
+                   category TEXT NOT NULL,\n\
+                   created_at_ms INTEGER NOT NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_activity_journal_created_at\n\
+                   ON activity_journal(created_at_ms);\n\
+                 CREATE INDEX IF NOT EXISTS idx_activity_journal_category_created_at\n\
+                   ON activity_journal(category, created_at_ms);\n\
+                 CREATE TABLE IF NOT EXISTS relationship_events (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   journal_id INTEGER,\n\
+                   kind TEXT NOT NULL,\n\
+                   bond_delta REAL NOT NULL DEFAULT 0.0,\n\
+                   created_at_ms INTEGER NOT NULL,\n\
+                   FOREIGN KEY(journal_id) REFERENCES activity_journal(id) ON DELETE SET NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_relationship_events_created_at\n\
+                   ON relationship_events(created_at_ms);\n\
+                 CREATE TABLE IF NOT EXISTS memories (\n\
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,\n\
+                   kind TEXT NOT NULL CHECK (kind IN ('episodic', 'semantic', 'preference', 'relationship')),\n\
+                   content TEXT NOT NULL,\n\
+                   importance REAL NOT NULL CHECK (importance >= 0.0 AND importance <= 1.0),\n\
+                   source_event_id INTEGER,\n\
+                   created_at_ms INTEGER NOT NULL,\n\
+                   updated_at_ms INTEGER NOT NULL,\n\
+                   last_accessed_at_ms INTEGER,\n\
+                   FOREIGN KEY(source_event_id) REFERENCES activity_journal(id) ON DELETE SET NULL\n\
+                 );\n\
+                 CREATE INDEX IF NOT EXISTS idx_memories_kind_updated_at\n\
+                   ON memories(kind, updated_at_ms);\n\
+                 CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(\n\
+                   content,\n\
+                   content='memories',\n\
+                   content_rowid='id',\n\
+                   tokenize='unicode61'\n\
+                 );\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_ai AFTER INSERT ON memories BEGIN\n\
+                   INSERT INTO memory_fts(rowid, content) VALUES (new.id, new.content);\n\
+                 END;\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_ad AFTER DELETE ON memories BEGIN\n\
+                   INSERT INTO memory_fts(memory_fts, rowid, content) VALUES ('delete', old.id, old.content);\n\
+                 END;\n\
+                 CREATE TRIGGER IF NOT EXISTS memories_au AFTER UPDATE ON memories BEGIN\n\
+                   INSERT INTO memory_fts(memory_fts, rowid, content) VALUES ('delete', old.id, old.content);\n\
+                   INSERT INTO memory_fts(rowid, content) VALUES (new.id, new.content);\n\
+                 END;\n\
+                 CREATE TABLE IF NOT EXISTS rhythm_hourly (\n\
+                   hour INTEGER PRIMARY KEY CHECK (hour >= 0 AND hour <= 23),\n\
+                   interaction_count INTEGER NOT NULL DEFAULT 0,\n\
+                   last_seen_at_ms INTEGER NOT NULL\n\
+                 );\n\
+                 PRAGMA user_version = 2;\n\
+                 COMMIT;",
+            )
+            .map_err(|error| format!("failed to migrate SQLite schema v1 -> v2: {error}")),
         SCHEMA_VERSION => Ok(()),
         other => Err(format!(
             "unsupported SQLite schema version {other}; expected {SCHEMA_VERSION}"
@@ -259,11 +641,7 @@ fn save_pet_state(
         Facing::Left => "left",
         Facing::Right => "right",
     };
-    let updated_at_ms = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(i64::MAX as u128) as i64;
+    let updated_at_ms = now_ms();
 
     connection
         .execute(
@@ -288,6 +666,151 @@ fn save_pet_state(
         )
         .map(|_| ())
         .map_err(|error| format!("failed to save pet state: {error}"))
+}
+
+fn record_activity(connection: &mut Connection, activity: &ActivityRecord) -> Result<(), String> {
+    let created_at_ms = now_ms();
+    let transaction = connection
+        .transaction()
+        .map_err(|error| format!("failed to begin activity transaction: {error}"))?;
+
+    transaction
+        .execute(
+            "INSERT INTO activity_journal (event_type, category, created_at_ms)\n\
+             VALUES (?1, ?2, ?3)",
+            params![activity.event_type, activity.category, created_at_ms],
+        )
+        .map_err(|error| format!("failed to insert activity journal row: {error}"))?;
+
+    let journal_id = transaction.last_insert_rowid();
+    if let Some(kind) = &activity.relationship_kind {
+        transaction
+            .execute(
+                "INSERT INTO relationship_events (journal_id, kind, bond_delta, created_at_ms)\n\
+                 VALUES (?1, ?2, ?3, ?4)",
+                params![journal_id, kind, activity.bond_delta, created_at_ms],
+            )
+            .map_err(|error| format!("failed to insert relationship event: {error}"))?;
+    }
+
+    let cutoff_ms = created_at_ms.saturating_sub(ACTIVITY_RETENTION_MS);
+    transaction
+        .execute(
+            "DELETE FROM activity_journal WHERE created_at_ms < ?1",
+            params![cutoff_ms],
+        )
+        .map_err(|error| format!("failed to prune expired activity rows: {error}"))?;
+    transaction
+        .execute(
+            "DELETE FROM activity_journal\n\
+             WHERE id IN (\n\
+               SELECT id FROM activity_journal\n\
+               ORDER BY id DESC\n\
+               LIMIT -1 OFFSET ?1\n\
+             )",
+            params![ACTIVITY_MAX_ROWS],
+        )
+        .map_err(|error| format!("failed to enforce activity row cap: {error}"))?;
+
+    transaction
+        .commit()
+        .map_err(|error| format!("failed to commit activity transaction: {error}"))
+}
+
+fn observe_hour(
+    connection: &mut Connection,
+    hour: u8,
+    interaction_delta: u32,
+) -> Result<(), String> {
+    connection
+        .execute(
+            "INSERT INTO rhythm_hourly (hour, interaction_count, last_seen_at_ms)\n\
+             VALUES (?1, ?2, ?3)\n\
+             ON CONFLICT(hour) DO UPDATE SET\n\
+               interaction_count = rhythm_hourly.interaction_count + excluded.interaction_count,\n\
+               last_seen_at_ms = excluded.last_seen_at_ms",
+            params![hour.min(23), interaction_delta, now_ms()],
+        )
+        .map(|_| ())
+        .map_err(|error| format!("failed to update hourly rhythm: {error}"))
+}
+
+fn insert_memory(connection: &mut Connection, memory: &MemoryDraft) -> Result<i64, String> {
+    let now = now_ms();
+    connection
+        .execute(
+            "INSERT INTO memories (\n\
+               kind, content, importance, source_event_id, created_at_ms, updated_at_ms\n\
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            params![
+                memory.kind.as_str(),
+                memory.content,
+                memory.importance.clamp(0.0, 1.0),
+                memory.source_event_id,
+                now
+            ],
+        )
+        .map_err(|error| format!("failed to insert memory: {error}"))?;
+    Ok(connection.last_insert_rowid())
+}
+
+fn search_memories(
+    connection: &Connection,
+    query: &str,
+    limit: u32,
+) -> Result<Vec<MemorySearchHit>, String> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let mut statement = connection
+        .prepare(
+            "SELECT m.id, m.kind, m.content, m.importance, m.created_at_ms\n\
+             FROM memory_fts\n\
+             JOIN memories m ON m.id = memory_fts.rowid\n\
+             WHERE memory_fts MATCH ?1\n\
+             ORDER BY bm25(memory_fts), m.importance DESC, m.updated_at_ms DESC\n\
+             LIMIT ?2",
+        )
+        .map_err(|error| format!("failed to prepare memory search: {error}"))?;
+
+    let rows = statement
+        .query_map(params![query, limit.clamp(1, 100)], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, f32>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        })
+        .map_err(|error| format!("failed to execute memory search: {error}"))?;
+
+    let mut hits = Vec::new();
+    for row in rows {
+        let (id, kind, content, importance, created_at_ms) =
+            row.map_err(|error| format!("failed to read memory search row: {error}"))?;
+        let Some(kind) = MemoryKind::from_str(&kind) else {
+            continue;
+        };
+        hits.push(MemorySearchHit {
+            id,
+            kind,
+            content,
+            importance,
+            created_at_ms,
+        });
+    }
+    Ok(hits)
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(i64::MAX as u128) as i64
 }
 
 #[cfg(test)]
@@ -350,5 +873,83 @@ mod tests {
         persistence
             .save_and_flush(state, Duration::from_secs(1))
             .expect("final save acknowledgement");
+    }
+
+    #[test]
+    fn journal_ignores_high_frequency_events() {
+        assert!(ActivityRecord::from_domain_event(&DomainEvent::CursorEnteredPet).is_none());
+        assert!(ActivityRecord::from_domain_event(&DomainEvent::PetFacingChanged {
+            facing: Facing::Left,
+        })
+        .is_none());
+        assert!(ActivityRecord::from_domain_event(&DomainEvent::PetPetted).is_some());
+    }
+
+    #[test]
+    fn v2_schema_supports_relationship_memory_fts_and_rhythm() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite");
+        let bootstrap = PersistenceBootstrap::from_connection(connection).expect("bootstrap");
+        let mut connection = bootstrap.connection;
+
+        let activity = ActivityRecord::from_domain_event(&DomainEvent::PetPetted)
+            .expect("relationship activity");
+        record_activity(&mut connection, &activity).expect("record activity");
+
+        let relationship_count: i64 = connection
+            .query_row("SELECT COUNT(*) FROM relationship_events", [], |row| row.get(0))
+            .expect("relationship count");
+        assert_eq!(relationship_count, 1);
+
+        let memory = MemoryDraft {
+            kind: MemoryKind::Episodic,
+            content: "The user enjoyed petting Lenvu during a quiet break".to_owned(),
+            importance: 0.8,
+            source_event_id: None,
+        };
+        insert_memory(&mut connection, &memory).expect("insert memory");
+        let hits = search_memories(&connection, "petting", 10).expect("search memory");
+        assert_eq!(hits.len(), 1);
+        assert_eq!(hits[0].kind, MemoryKind::Episodic);
+
+        observe_hour(&mut connection, 10, 1).expect("observe hour");
+        observe_hour(&mut connection, 10, 2).expect("observe hour again");
+        let interactions: i64 = connection
+            .query_row(
+                "SELECT interaction_count FROM rhythm_hourly WHERE hour = 10",
+                [],
+                |row| row.get(0),
+            )
+            .expect("rhythm row");
+        assert_eq!(interactions, 3);
+    }
+
+    #[test]
+    fn migration_from_v1_keeps_pet_state_and_adds_v2_tables() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite");
+        connection
+            .execute_batch(
+                "CREATE TABLE pet_state (\n\
+                   singleton INTEGER PRIMARY KEY CHECK (singleton = 1),\n\
+                   facing TEXT NOT NULL,\n\
+                   energy REAL NOT NULL,\n\
+                   curiosity REAL NOT NULL,\n\
+                   bond REAL NOT NULL,\n\
+                   sleep_pressure REAL NOT NULL,\n\
+                   updated_at_ms INTEGER NOT NULL\n\
+                 );\n\
+                 INSERT INTO pet_state VALUES (1, 'left', 0.7, 0.6, 0.5, 0.4, 1);\n\
+                 PRAGMA user_version = 1;",
+            )
+            .expect("seed v1 schema");
+
+        let bootstrap = PersistenceBootstrap::from_connection(connection).expect("migrate v1");
+        assert_eq!(bootstrap.initial_state().facing, Facing::Left);
+        assert_eq!(bootstrap.initial_state().bond, 0.5);
+
+        let version: i64 = bootstrap
+            .connection
+            .query_row("PRAGMA user_version", [], |row| row.get(0))
+            .expect("schema version");
+        assert_eq!(version, SCHEMA_VERSION);
     }
 }

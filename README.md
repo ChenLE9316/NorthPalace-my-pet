@@ -6,7 +6,7 @@ NorthPalace-my-pet is a lightweight desktop-pet and local AI companion designed 
 
 ![NorthPalace-my-pet system overview](docs/assets/lenvu-system-overview.webp)
 
-> Current development status: **V0.2 — living desktop pet + first Persistent Life layer**. The feature branch passes Windows CI across Svelte/PixiJS, Rust/Tauri and bundled SQLite persistence tests.
+> Current development status: **V0.2 — living desktop pet + Persistent Life V2 foundation**. The feature branch is validated by Windows CI across Svelte/PixiJS, Rust/Tauri and bundled SQLite/FTS5 tests.
 
 ## Product principles
 
@@ -29,7 +29,7 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   |
 |   +-- Rust Pet Runtime
 |   |   +-- monotonic 250 ms runtime clock
-|   |   +-- Domain Event channel
+|   |   +-- Domain Event channel + low-frequency observers
 |   |   +-- PetBrainV2
 |   |   |   +-- parallel Pet State
 |   |   |   `-- Behavior Intent
@@ -38,15 +38,20 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   +-- Windows adapters/controllers
 |   |   +-- idle / user-return sensor
 |   |   +-- foreground-app identity sensor
+|   |   +-- local-hour sensor
 |   |   +-- monitor / DPI / work-area context
 |   |   +-- selective native cursor passthrough
 |   |   `-- native pet-window motion controller
 |   |
-|   +-- Persistence
+|   +-- Persistent Life
 |   |   +-- app-local-data / lenvu.sqlite3
-|   |   +-- schema migrations
+|   |   +-- schema V2 migrations
 |   |   +-- separate DB-owning worker
-|   |   `-- changed-only autosave
+|   |   +-- changed-only autosave + graceful final flush
+|   |   +-- bounded activity journal
+|   |   +-- relationship history
+|   |   +-- typed memories + FTS5
+|   |   `-- hourly interaction rhythm
 |   |
 |   `-- WebView windows
 |       +-- pet       -> transparent / always-on-top / PixiJS
@@ -57,9 +62,6 @@ Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
 |   +-- semantic animation resolver
 |   +-- facing-aware semantic hit zones
 |   `-- PixiJS low-power renderer
-|
-+-- Local memory [next]
-|   `-- SQLite + FTS5 tables for episodic/semantic/preference/relationship memory
 |
 `-- Optional AI Workers [planned]
     +-- Text: llama.cpp -> MiniCPM5-1B GGUF
@@ -76,6 +78,7 @@ Lenvu already has a fully offline path for:
 - Focus Guard mode;
 - Windows user idle/return awareness;
 - foreground-application identity awareness without collecting titles by default;
+- local time-of-day awareness without a WebView timer;
 - short-lived Behavior Intents that survive multiple runtime ticks;
 - deterministic ambient exploration without calling an LLM;
 - `walk` / `run` locomotion that moves the native pet window;
@@ -84,7 +87,8 @@ Lenvu already has a fully offline path for:
 - domain-level facing state synchronized with the renderer;
 - facing-aware head/body/tail interaction regions;
 - native transparent click-through outside Lenvu while retaining cursor re-entry into interactive regions;
-- SQLite-backed persistence of facing, energy, curiosity, bond and sleep pressure across restarts.
+- SQLite-backed persistence of facing, energy, curiosity, bond and sleep pressure across restarts;
+- relationship history, bounded meaningful-event journaling and a local interaction rhythm profile.
 
 Transient environment-dependent state is intentionally **not** restored from SQLite. A new session starts with fresh locomotion/posture/mode/cognition/user-idle state, then applies the saved long-lived values.
 
@@ -98,13 +102,30 @@ The current Lenvu render is deliberately a lightweight procedural placeholder. P
 4. **Companion window** — independent status and interaction surface; hiding it does not stop Pet Runtime.
 5. **Deep management** — model/privacy/memory/performance/settings surfaces are planned separately.
 
-## Persistence policy
+## Persistent Life and memory
 
-The first Persistent Life schema deliberately stays small. `lenvu.sqlite3` lives under the application's local-data directory, and SQLite owns only long-lived values. Database writes happen on a separate persistence worker; ordinary Pet Brain ticks never wait on SQLite.
+`lenvu.sqlite3` lives under the application's local-data directory. Database work happens on a separate persistence worker; ordinary Pet Brain ticks never wait on SQLite.
 
-If persistence cannot initialize, Lenvu continues with session-only state and diagnostics rather than failing application startup.
+Schema V2 separates:
 
-See `docs/PERSISTENCE.md`.
+```text
+pet_state
+activity_journal
+relationship_events
+memories
+memory_fts
+rhythm_hourly
+```
+
+The activity journal deliberately ignores noisy/high-frequency events and is capped at **30 days / 2,000 rows**. Long-term memory supports four explicit kinds: episodic, semantic, preference and relationship.
+
+FTS5 provides the first retrieval path using BM25 text relevance with memory importance and recency as secondary signals. This avoids adding a vector database before real usage demonstrates a need for one.
+
+Storage and judgement are separate: a future Memory Evaluator will decide whether candidates should be stored, merged or discarded. Pet Brain itself never queries SQLite on every tick.
+
+If persistence cannot initialize, Lenvu continues with session-only state rather than failing application startup.
+
+See `docs/PERSISTENCE.md` and `docs/MEMORY_SYSTEM.md`.
 
 ## Vision policy
 
@@ -133,16 +154,20 @@ NorthPalace-my-pet/
 
 ## Validation status
 
-The feature branch has passed clean Windows CI after the persistence integration:
+The feature branch must pass clean Windows CI after each foundation-level change:
 
 - frontend dependency installation;
 - Svelte + PixiJS production build;
 - stable Rust setup;
 - Rust/Tauri compilation;
 - Pet Runtime/domain/platform unit tests;
-- bundled SQLite schema, migration and state round-trip tests.
+- bundled SQLite schema and migration tests;
+- persistent-state round trips;
+- journal filtering / relationship history;
+- FTS5 memory insertion and retrieval;
+- hourly rhythm persistence.
 
-This proves the feature-branch source compiles in a clean GitHub Windows runner. It does **not** replace the required executable/performance validation on the actual Ryzen 3 2200G + Vega 8 target machine.
+CI proves the feature-branch source compiles in a clean GitHub Windows runner. It does **not** replace executable/performance validation on the actual Ryzen 3 2200G + Vega 8 target machine.
 
 ## Next milestones
 
@@ -150,8 +175,8 @@ This proves the feature-branch source compiles in a clean GitHub Windows runner.
 - replace the procedural character with a production PixiJS sprite/atlas graph;
 - add drag/pick-up and monitor/DPI change observation;
 - define a deliberate multi-monitor movement policy;
-- extend the same SQLite database into typed memory tables and bounded event history;
-- add graceful-shutdown final persistence before depending on autosave alone;
+- build the user-facing Memory Browser/editor and Memory Evaluator;
+- add low-noise context bubbles and privacy exclusions;
 - benchmark the real target machine before committing to MiniCPM5-1B runtime/context defaults.
 
 ## Living design documents
@@ -161,6 +186,7 @@ This proves the feature-branch source compiles in a clean GitHub Windows runner.
 - `docs/UI_UX.md`
 - `docs/PET_BRAIN.md`
 - `docs/PERSISTENCE.md`
+- `docs/MEMORY_SYSTEM.md`
 - `docs/CHARACTER_BIBLE.md`
 - `docs/ASSET_PIPELINE.md`
 - `docs/DESKTOP_WINDOW.md`
