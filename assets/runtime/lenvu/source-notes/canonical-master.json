@@ -3,21 +3,21 @@
   "characterId": "lenvu",
   "status": "contract_frozen_master_art_pending",
   "authority": {
-    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "document": "docs/CANONICAL_LENVU.md",
+    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
-    "readmeOverview": "docs/assets/lenvu-system-overview.webp",
     "referenceManifest": "assets/reference/manifest.json",
-    "candidateMetadata": "assets/runtime/lenvu/source-notes/master-candidate.json",
-    "sourcePriority": [
-      "original_high_resolution_character_sheets",
-      "original_readme_system_overview",
-      "consistent_original_reference_sheets",
-      "character_bible",
-      "production_normalization_contracts",
-      "generated_review_candidates"
-    ]
+    "sourceMeasurement": "assets/runtime/lenvu/source-notes/source-measurement.json",
+    "candidateMetadata": "assets/runtime/lenvu/source-notes/master-candidate.json"
   },
+  "sourcePriority": [
+    "original_high_resolution_character_sheets",
+    "original_readme_system_overview",
+    "consistent_original_reference_sheets",
+    "character_bible",
+    "production_normalization_contracts",
+    "generated_review_candidates"
+  ],
   "canvas": {
     "authoringWidth": 1024,
     "authoringHeight": 1024,
@@ -44,17 +44,18 @@
     "speciesSilhouette": "tall_lean_long_legged_canine_dragon_digital",
     "baseFurPalette": "cool_slate_blue_gray_and_white",
     "muzzle": "elongated_canine",
+    "ears": "tall_triangular_with_cyan_digital_circuit_structures",
+    "horns": "two_dark_segmented_ridged_horns",
     "rightEye": "cyan",
     "leftEye": "violet",
     "goldCrescentHorn": "left",
-    "foreheadGlyph": "centered_white",
-    "hornPair": "dark_segmented_swept_back",
-    "earInterior": "cyan_digital_circuit",
-    "tail": "physical_fluffy_base_with_cyan_holographic_terminal",
+    "foreheadGlyph": "centered",
+    "lumenCode": "cyan_structural_routes_on_ears_spine_flank_legs_and_paws",
+    "tail": "physical_fluffy_slate_white_base_transitioning_to_cyan_holographic_terminal",
     "blindHorizontalMirrorAllowed": false,
+    "mirrorPolicy": "mirror geometry/base layers only and restore semantic identity layers, or author explicit left/right variants",
     "chibiOrCatLikeRedesignAllowed": false,
-    "generatedCandidateMayRedefineIdentity": false,
-    "mirrorPolicy": "mirror geometry/base layers only and restore semantic identity layers, or author explicit left/right variants"
+    "generatedCandidateMayRedefineIdentity": false
   },
   "render": {
     "nominalDesktopWidthLogicalPx": 180,
