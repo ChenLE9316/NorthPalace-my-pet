@@ -81,7 +81,7 @@
 - [x] Local time-of-day sensor using Win32 rather than a JavaScript clock.
 - [ ] Window bounds context for observed apps.
 - [x] Focus Guard domain mode and UI control.
-- [ ] Context bubbles and low-noise reminder policy.
+- [x] Context bubbles and low-noise reminder policy.
 - [ ] Per-app privacy exclusions.
 - [ ] Screen Context Broker using structured Windows signals first.
 
