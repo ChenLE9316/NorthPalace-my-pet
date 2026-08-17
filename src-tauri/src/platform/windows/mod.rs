@@ -1,3 +1,4 @@
+mod accessibility;
 mod active_window;
 mod clock;
 mod cursor_hit_test;

@@ -28,9 +28,10 @@ struct Rect {
     bottom: i32,
 }
 
-struct ForegroundApp {
+pub(super) struct ForegroundApp {
     window: Hwnd,
-    app_id: String,
+    pub(super) process_id: u32,
+    pub(super) app_id: String,
 }
 
 #[link(name = "user32")]
@@ -73,7 +74,7 @@ impl Drop for OwnedHandle {
     }
 }
 
-fn foreground_app() -> Option<ForegroundApp> {
+pub(super) fn foreground_app() -> Option<ForegroundApp> {
     let window = unsafe { GetForegroundWindow() };
     if window.is_null() {
         return None;
@@ -109,7 +110,11 @@ fn foreground_app() -> Option<ForegroundApp> {
         .map(str::to_owned)
         .filter(|name| !name.is_empty())?;
 
-    Some(ForegroundApp { window, app_id })
+    Some(ForegroundApp {
+        window,
+        process_id,
+        app_id,
+    })
 }
 
 fn visible_window_bounds(window: Hwnd) -> Option<WindowBounds> {
@@ -148,6 +153,8 @@ pub fn spawn_active_window_sensor(
     privacy: PrivacyPolicyService,
     screen_context: ScreenContextBroker,
 ) {
+    super::accessibility::spawn_accessibility_sensor(privacy.clone(), screen_context.clone());
+
     thread::spawn(move || {
         let mut last_app_id: Option<String> = None;
         let mut last_blocked = false;

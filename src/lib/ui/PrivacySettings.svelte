@@ -3,6 +3,7 @@
   import {
     fallbackScreenContext,
     getScreenContext,
+    type AccessibilityContext,
     type ScreenContextSnapshot,
   } from '../context/runtime';
   import {
@@ -89,8 +90,8 @@
     try {
       rules = await setAccessibilityContextEnabled(requested);
       message = rules.accessibilityContextEnabled
-        ? '已授權 bounded accessibility context。現階段 collector 尚未啟用，不會因此開始讀取 accessibility metadata。'
-        : '已關閉 accessibility context 授權。';
+        ? '已啟用 bounded accessibility context；只讀結構化 focused-control metadata，不讀 Name、Value、HelpText 或 raw text。'
+        : '已關閉 accessibility context；collector 會回到未初始化／不讀取狀態。';
     } catch (error) {
       message = error instanceof Error ? error.message : String(error);
       await refreshAfterFailure();
@@ -121,6 +122,26 @@
 
   function boundsLabel() {
     const bounds = context.activeWindowBounds;
+    if (!bounds) return 'not exposed';
+    return `${bounds.width}×${bounds.height} @ ${bounds.x}, ${bounds.y}`;
+  }
+
+  function accessibilityLabel() {
+    switch (context.accessibilityState) {
+      case 'available': return 'Available';
+      case 'unavailable': return 'Unavailable';
+      case 'privacy_blocked': return 'Privacy blocked';
+      default: return 'Disabled';
+    }
+  }
+
+  function boolLabel(value: boolean | null) {
+    if (value === null) return 'unknown';
+    return value ? 'yes' : 'no';
+  }
+
+  function accessibilityBoundsLabel(value: AccessibilityContext) {
+    const bounds = value.bounds;
     if (!bounds) return 'not exposed';
     return `${bounds.width}×${bounds.height} @ ${bounds.x}, ${bounds.y}`;
   }
@@ -160,7 +181,7 @@
     <article class="privacy-capability">
       <div>
         <strong>Accessibility context</strong>
-        <span>只授權未來的 bounded structured metadata；不包含 screenshot、screen pixels、window title 或 raw text dump。</span>
+        <span>僅讀取 focused control 的 bounded structural metadata；不包含 screenshot、pixels、window title、Name、Value、HelpText 或 accessibility tree dump。</span>
       </div>
       <label class="capability-toggle">
         <input
@@ -169,9 +190,9 @@
           disabled={busy || rules.failClosed}
           onchange={(event) => void toggleAccessibilityContext(event)}
         />
-        <span>{rules.accessibilityContextEnabled ? '已授權' : '未授權'}</span>
+        <span>{rules.accessibilityContextEnabled ? '已啟用' : '未啟用'}</span>
       </label>
-      <p>目前 collector 尚未實作；開啟此能力只保存明確 opt-in，不會立即開始收集 accessibility metadata。</p>
+      <p>預設關閉。只有開啟後才會初始化 Windows UI Automation；per-app exclusion 永遠優先。</p>
     </article>
 
     <div class="context-state" aria-label="Structured Screen Context status">
@@ -183,8 +204,25 @@
         <div><dt>Window bounds</dt><dd>{boundsLabel()}</dd></div>
         <div><dt>User idle</dt><dd>{Math.round(context.userIdleMs / 1000)} s</dd></div>
         <div><dt>Local hour</dt><dd>{context.localHour}:00</dd></div>
+        <div><dt>Accessibility</dt><dd>{accessibilityLabel()}</dd></div>
       </dl>
-      <p>這裡只顯示目前 Broker 已允許的結構化訊號。被排除的 app 不會顯示 identity 或 bounds。</p>
+
+      {#if context.accessibility}
+        <div class="accessibility-facts">
+          <span>Focused control</span>
+          <dl>
+            <div><dt>Control type ID</dt><dd>{context.accessibility.controlTypeId ?? 'unknown'}</dd></div>
+            <div><dt>Enabled</dt><dd>{boolLabel(context.accessibility.isEnabled)}</dd></div>
+            <div><dt>Focusable</dt><dd>{boolLabel(context.accessibility.isKeyboardFocusable)}</dd></div>
+            <div><dt>Focused</dt><dd>{boolLabel(context.accessibility.hasKeyboardFocus)}</dd></div>
+            <div><dt>Offscreen</dt><dd>{boolLabel(context.accessibility.isOffscreen)}</dd></div>
+            <div><dt>Password</dt><dd>{boolLabel(context.accessibility.isPassword)}</dd></div>
+            <div><dt>Element bounds</dt><dd>{accessibilityBoundsLabel(context.accessibility)}</dd></div>
+          </dl>
+        </div>
+      {/if}
+
+      <p>這裡只顯示目前 Broker 已允許的結構化訊號。被排除的 app 不會顯示 identity、bounds 或 accessibility metadata。</p>
     </div>
 
     <div class="privacy-add-wrap">
@@ -346,27 +384,43 @@
     margin: 0;
   }
 
-  .context-state > div:first-child {
+  .context-state > div:first-child,
+  .accessibility-facts > span {
     display: flex;
     justify-content: space-between;
     gap: 10px;
   }
 
-  .context-state dl {
+  .context-state dl,
+  .accessibility-facts dl {
     display: grid;
     gap: 4px;
     margin: 2px 0;
   }
 
-  .context-state dl div {
+  .context-state dl div,
+  .accessibility-facts dl div {
     display: flex;
     justify-content: space-between;
     gap: 10px;
     font-size: 10px;
   }
 
-  .context-state dt { color: #6f93a6; }
-  .context-state dd { margin: 0; color: #a7eaff; text-align: right; overflow-wrap: anywhere; }
+  .context-state dt,
+  .accessibility-facts dt { color: #6f93a6; }
+  .context-state dd,
+  .accessibility-facts dd { margin: 0; color: #a7eaff; text-align: right; overflow-wrap: anywhere; }
+
+  .accessibility-facts {
+    display: grid;
+    gap: 5px;
+    padding-top: 7px;
+    border-top: 1px solid rgba(106, 217, 255, .10);
+  }
+
+  .accessibility-facts > span {
+    color: #8fcddd;
+  }
 
   .privacy-add-wrap { margin-top: 2px; }
 
