@@ -139,7 +139,8 @@ button, input, textarea, select { font: inherit; }
 .section-heading button:disabled,
 .memory-panel button:disabled { opacity: .45; cursor: default; }
 
-.memory-panel {
+.memory-panel,
+.activity-panel {
   display: grid;
   gap: 10px;
   margin-top: 16px;
@@ -200,10 +201,29 @@ button, input, textarea, select { font: inherit; }
 .memory-card { display: grid; gap: 8px; }
 .memory-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .memory-card-meta span { min-width: 0; text-align: right; font-size: 10px; color: #7699aa; overflow-wrap: anywhere; }
+.memory-provenance { margin: -2px 0 0; font-size: 10px; color: #78a9bd; line-height: 1.35; }
 .memory-card-actions { margin-top: 0; }
 .memory-card-actions .danger { border-color: rgba(255, 129, 150, .28); background: rgba(120, 35, 55, .22); color: #ffc1cb; }
 .memory-status { margin: 0; padding: 7px 9px; border-radius: 9px; background: rgba(87, 203, 242, .07); color: #9fe8fb; font-size: 11px; line-height: 1.4; }
 .memory-empty { padding: 12px 10px; border: 1px dashed rgba(106, 217, 255, .16); border-radius: 10px; color: #7699aa; font-size: 11px; text-align: center; }
+
+.activity-list { display: grid; gap: 7px; }
+.activity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(106, 217, 255, .12);
+  border-radius: 11px;
+  background: rgba(77, 187, 229, .045);
+}
+.activity-row > div:first-child { display: grid; gap: 3px; min-width: 0; }
+.activity-row strong { font-size: 12px; color: #dff8ff; }
+.activity-row span { font-size: 10px; color: #789bac; overflow-wrap: anywhere; }
+.activity-meta { display: grid; justify-items: end; gap: 3px; flex: 0 0 auto; text-align: right; }
+.activity-meta b { font-size: 10px; color: #83e7c1; font-weight: 600; }
+.activity-meta time { font-size: 9px; color: #6f91a1; }
 
 .concept-card { margin-top: 13px; overflow: hidden; border-radius: 13px; background: rgba(255,255,255,.04); }
 .concept-card img { width: 100%; display: block; opacity: .86; }
