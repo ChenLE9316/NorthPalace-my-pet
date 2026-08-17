@@ -41,6 +41,10 @@ impl BehaviorIntent {
         }
     }
 
+    pub fn ambient_sit() -> Self {
+        Self::new(BehaviorKind::AmbientIdle, 5, 8_000, true, "sit")
+    }
+
     pub fn explore() -> Self {
         Self::new(BehaviorKind::Explore, 10, 6_500, true, "walk")
     }
