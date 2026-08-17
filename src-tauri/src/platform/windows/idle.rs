@@ -3,6 +3,7 @@ use std::{thread, time::Duration};
 use crate::{
     domain::events::DomainEvent,
     runtime::RuntimeHandle,
+    screen_context::ScreenContextBroker,
 };
 
 #[repr(C)]
@@ -36,7 +37,10 @@ fn system_idle_ms() -> Option<u64> {
     Some(now.wrapping_sub(info.dw_time) as u64)
 }
 
-pub fn spawn_idle_sensor(runtime: RuntimeHandle) {
+pub fn spawn_idle_sensor(
+    runtime: RuntimeHandle,
+    screen_context: ScreenContextBroker,
+) {
     thread::spawn(move || {
         let mut previous_idle_ms = 0_u64;
 
@@ -45,6 +49,8 @@ pub fn spawn_idle_sensor(runtime: RuntimeHandle) {
                 thread::sleep(Duration::from_secs(2));
                 continue;
             };
+
+            screen_context.observe_user_idle(idle_ms);
 
             if previous_idle_ms >= 10_000 && idle_ms <= 1_500 {
                 if runtime.dispatch(DomainEvent::UserReturned).is_err() {
