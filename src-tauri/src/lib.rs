@@ -157,6 +157,14 @@ fn privacy_remove_excluded_app(
 }
 
 #[tauri::command]
+fn privacy_set_accessibility_context_enabled(
+    enabled: bool,
+    privacy: tauri::State<'_, PrivacyPolicyService>,
+) -> Result<PrivacyRulesSnapshot, String> {
+    privacy.set_accessibility_context_enabled(enabled)
+}
+
+#[tauri::command]
 fn screen_context_get(
     screen_context: tauri::State<'_, ScreenContextBroker>,
 ) -> ScreenContextSnapshot {
@@ -470,6 +478,7 @@ pub fn run() {
         privacy_get,
         privacy_add_excluded_app,
         privacy_remove_excluded_app,
+        privacy_set_accessibility_context_enabled,
         screen_context_get,
         startup_get,
         startup_set,
@@ -493,6 +502,7 @@ pub fn run() {
         privacy_get,
         privacy_add_excluded_app,
         privacy_remove_excluded_app,
+        privacy_set_accessibility_context_enabled,
         screen_context_get,
         startup_get,
         startup_set,
