@@ -41,7 +41,8 @@
 - [x] Expose facing direction through Pet State and renderer.
 - [x] Add deterministic offline ambient explore/wander behavior selection.
 - [x] Replace deterministic explore timing with weighted personality/curiosity behavior selection.
-- [ ] Multi-monitor autonomous movement policy.
+- [x] Add safe autonomous multi-monitor exploration across genuinely adjacent horizontal displays.
+- [x] Keep non-Explore interactions on the current display and reject disconnected/vertical monitor teleporting.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
 - [x] Add drag/pick-up gesture with a domain-level `held` posture and native pet-window dragging.
