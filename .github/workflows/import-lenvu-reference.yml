@@ -1,0 +1,102 @@
+name: One-shot Lenvu reference import
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.asset-import/**'
+      - '.github/workflows/import-lenvu-reference.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  import-reference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct and verify anatomy reference
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import base64, hashlib, json, shutil
+
+          chunk_dir = Path('.asset-import/anatomy')
+          chunks = sorted(chunk_dir.glob('part-*.b64'))
+          if len(chunks) != 5:
+              raise SystemExit(f'expected 5 anatomy chunks, found {len(chunks)}')
+
+          encoded = ''.join(path.read_text(encoding='utf-8').strip() for path in chunks)
+          data = base64.b64decode(encoded, validate=True)
+          expected_sha256 = '3f1d277a169b85dc3192e7b72cc048824eb23c2b0955334b7f3bfa2e71aa8094'
+          actual_sha256 = hashlib.sha256(data).hexdigest()
+          if actual_sha256 != expected_sha256:
+              raise SystemExit(f'anatomy checksum mismatch: {actual_sha256}')
+          if len(data) != 26666:
+              raise SystemExit(f'anatomy size mismatch: {len(data)}')
+          if data[:4] != b'RIFF' or data[8:12] != b'WEBP':
+              raise SystemExit('reconstructed file is not a WebP RIFF container')
+
+          target = Path('assets/reference/anatomy/lenvu-anatomy-reference.webp')
+          target.parent.mkdir(parents=True, exist_ok=True)
+          target.write_bytes(data)
+
+          manifest = {
+              'schemaVersion': 1,
+              'scope': 'reference-only',
+              'runtimeAsset': False,
+              'assets': [
+                  {
+                      'id': 'lenvu-anatomy-reference',
+                      'path': str(target).replace('\\', '/'),
+                      'category': 'anatomy',
+                      'width': 1536,
+                      'height': 1024,
+                      'format': 'webp',
+                      'bytes': len(data),
+                      'sha256': actual_sha256,
+                      'sourceSessionFilename': 'ce9a4acd-0710-4d38-9619-912a47ec41de(1).png',
+                      'sourceWidth': 1536,
+                      'sourceHeight': 1024,
+                      'sourceMode': 'RGBA',
+                      'sourceBytes': 3140000,
+                      'sourceSha256': 'e5cf993d91756361d86ef65c557095aa07cfe02f7fbc54f2a15f741c410342db',
+                      'derivative': {
+                          'purpose': 'transport-optimized high-resolution reference preview',
+                          'encoder': 'Pillow 12.3.0 WebP',
+                          'quality': 1,
+                          'method': 6
+                      },
+                      'notes': 'Reference sheet only. Never use directly as a production sprite frame or canonical runtime texture.'
+                  }
+              ]
+          }
+          Path('assets/reference').mkdir(parents=True, exist_ok=True)
+          Path('assets/reference/manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          Path('assets/reference/README.md').write_text(
+              '# Lenvu Reference Library\n\n'
+              'This directory contains **reference-only** character material. It is not the runtime sprite library.\n\n'
+              'The committed WebP keeps the original 1536×1024 canvas but is a transport-optimized preview. '
+              'The original source filename, dimensions and SHA-256 are preserved in `manifest.json` so provenance remains explicit.\n\n'
+              'Production animation must be derived from a canonical master with fixed anatomy, anchors, pivots and identity markings.\n',
+              encoding='utf-8'
+          )
+
+          shutil.rmtree('.asset-import')
+          Path('.github/workflows/import-lenvu-reference.yml').unlink()
+          PY
+
+      - name: Commit verified reference asset and remove importer
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'assets: import verified Lenvu anatomy reference'
+          git push origin HEAD:main
