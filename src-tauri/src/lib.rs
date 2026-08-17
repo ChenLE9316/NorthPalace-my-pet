@@ -1,4 +1,5 @@
 mod domain;
+mod memory_admin;
 mod persistence;
 #[cfg(target_os = "windows")]
 mod platform;
@@ -7,6 +8,7 @@ mod runtime;
 use std::time::Duration;
 
 use domain::pet::PetInteraction;
+use memory_admin::{MemoryAdminService, MemoryInput, MemoryKind, MemoryRecord};
 use persistence::{
     spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
 };
@@ -16,6 +18,7 @@ use tauri::Manager;
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
+const MEMORY_LIST_LIMIT: u32 = 50;
 
 #[tauri::command]
 fn get_pet_snapshot(runtime: tauri::State<'_, RuntimeHandle>) -> Result<PetRuntimeSnapshot, String> {
@@ -28,6 +31,49 @@ fn pet_interact(
     runtime: tauri::State<'_, RuntimeHandle>,
 ) -> Result<(), String> {
     runtime.dispatch(kind.into_event())
+}
+
+#[tauri::command]
+fn memory_list(
+    kind: Option<MemoryKind>,
+    limit: Option<u32>,
+    memory: tauri::State<'_, MemoryAdminService>,
+) -> Result<Vec<MemoryRecord>, String> {
+    memory.list(kind, limit.unwrap_or(MEMORY_LIST_LIMIT))
+}
+
+#[tauri::command]
+fn memory_search(
+    query: String,
+    limit: Option<u32>,
+    memory: tauri::State<'_, MemoryAdminService>,
+) -> Result<Vec<MemoryRecord>, String> {
+    memory.search(&query, limit.unwrap_or(MEMORY_LIST_LIMIT))
+}
+
+#[tauri::command]
+fn memory_create(
+    input: MemoryInput,
+    memory: tauri::State<'_, MemoryAdminService>,
+) -> Result<i64, String> {
+    memory.create(input)
+}
+
+#[tauri::command]
+fn memory_update(
+    id: i64,
+    input: MemoryInput,
+    memory: tauri::State<'_, MemoryAdminService>,
+) -> Result<(), String> {
+    memory.update(id, input)
+}
+
+#[tauri::command]
+fn memory_delete(
+    id: i64,
+    memory: tauri::State<'_, MemoryAdminService>,
+) -> Result<(), String> {
+    memory.delete(id)
 }
 
 #[tauri::command]
@@ -75,7 +121,10 @@ fn configure_pet_hit_regions(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let persistence_service = PersistenceService::default();
-    let builder = tauri::Builder::default().manage(persistence_service.clone());
+    let memory_admin_service = MemoryAdminService::default();
+    let builder = tauri::Builder::default()
+        .manage(persistence_service.clone())
+        .manage(memory_admin_service.clone());
 
     #[cfg(target_os = "windows")]
     let (builder, sensor_hit_test) = {
@@ -89,7 +138,12 @@ pub fn run() {
             Ok(data_dir) => {
                 let database_path = data_dir.join("lenvu.sqlite3");
                 match PersistenceBootstrap::open(&database_path) {
-                    Ok(bootstrap) => Some(bootstrap),
+                    Ok(bootstrap) => {
+                        if let Err(error) = memory_admin_service.install(database_path) {
+                            eprintln!("Lenvu Memory Browser unavailable: {error}");
+                        }
+                        Some(bootstrap)
+                    }
                     Err(error) => {
                         eprintln!(
                             "Lenvu persistence unavailable; continuing session-only: {error}"
@@ -167,6 +221,11 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_pet_snapshot,
         pet_interact,
+        memory_list,
+        memory_search,
+        memory_create,
+        memory_update,
+        memory_delete,
         toggle_companion_window,
         hide_companion_window,
         get_display_context,
@@ -177,6 +236,11 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_pet_snapshot,
         pet_interact,
+        memory_list,
+        memory_search,
+        memory_create,
+        memory_update,
+        memory_delete,
         toggle_companion_window,
         hide_companion_window
     ]);

@@ -53,7 +53,7 @@
 - [x] Add schema versioning/migration with `PRAGMA user_version`.
 - [x] Store core long-lived pet state: facing, energy, curiosity, bond and sleep pressure.
 - [x] Load long-lived values into fresh transient Pet State defaults on startup.
-- [x] Move database writes to a separate persistence worker.
+- [x] Move continuous database writes to a separate persistence worker.
 - [x] Add changed-only 30-second autosave.
 - [x] Add graceful-shutdown final save with bounded acknowledgement wait.
 - [x] Fall back to session-only state if local data / SQLite initialization fails.
@@ -65,9 +65,11 @@
 - [x] Add FTS5 memory index and first BM25/importance/recency retrieval path.
 - [x] Add Windows local-hour sensor independent of the WebView.
 - [x] Add lightweight hourly interaction-rhythm persistence.
-- [ ] Add user-facing Memory Browser/editor.
-- [ ] Add Memory Evaluator deciding store/merge/discard for long-term candidates.
-- [ ] Add explicit memory deletion/update API and provenance UI.
+- [x] Add Memory Browser V1 in the Companion window.
+- [x] Add explicit manual memory create/search/list/update/delete APIs.
+- [x] Add editable memory kind/content/importance controls without requiring the LLM.
+- [ ] Show source-event provenance and activity history in the Memory Browser.
+- [ ] Add Memory Evaluator deciding store/merge/discard for automatic long-term candidates.
 - [ ] Add stronger long-term relationship/personality evolution using history.
 
 ## Phase 3 — Windows awareness and focus companion
@@ -105,7 +107,7 @@
 ## Phase 6 — Companion depth
 
 - [ ] Conversation panel.
-- [ ] Memory browser/editor.
+- [x] Memory browser/editor V1.
 - [ ] Personality and bond evolution.
 - [ ] Long-term behavior adaptation.
 - [ ] Optional voice layer.
@@ -127,4 +129,4 @@
 
 ## Definition of success
 
-Unload MiniCPM5-1B completely. Lenvu should still feel alive and useful: movement, sleep/wake, petting, attention, focus behavior, persistence and ordinary desktop interaction must continue without an LLM or a vision model.
+Unload MiniCPM5-1B completely. Lenvu should still feel alive and useful: movement, sleep/wake, petting, attention, focus behavior, persistence, inspectable memory and ordinary desktop interaction must continue without an LLM or a vision model.
