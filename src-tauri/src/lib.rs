@@ -1,4 +1,5 @@
 mod domain;
+mod history_admin;
 mod memory_admin;
 mod persistence;
 #[cfg(target_os = "windows")]
@@ -8,6 +9,7 @@ mod runtime;
 use std::time::Duration;
 
 use domain::pet::PetInteraction;
+use history_admin::{ActivityHistoryRecord, HistoryAdminService};
 use memory_admin::{MemoryAdminService, MemoryInput, MemoryKind, MemoryRecord};
 use persistence::{
     spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
@@ -19,6 +21,7 @@ const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
 const MEMORY_LIST_LIMIT: u32 = 50;
+const ACTIVITY_LIST_LIMIT: u32 = 40;
 
 #[tauri::command]
 fn get_pet_snapshot(runtime: tauri::State<'_, RuntimeHandle>) -> Result<PetRuntimeSnapshot, String> {
@@ -77,6 +80,22 @@ fn memory_delete(
 }
 
 #[tauri::command]
+fn activity_list(
+    limit: Option<u32>,
+    history: tauri::State<'_, HistoryAdminService>,
+) -> Result<Vec<ActivityHistoryRecord>, String> {
+    history.list(limit.unwrap_or(ACTIVITY_LIST_LIMIT))
+}
+
+#[tauri::command]
+fn activity_get(
+    id: i64,
+    history: tauri::State<'_, HistoryAdminService>,
+) -> Result<Option<ActivityHistoryRecord>, String> {
+    history.get(id)
+}
+
+#[tauri::command]
 fn toggle_companion_window(app: tauri::AppHandle) -> Result<bool, String> {
     let window = app
         .get_webview_window("companion")
@@ -122,9 +141,11 @@ fn configure_pet_hit_regions(
 pub fn run() {
     let persistence_service = PersistenceService::default();
     let memory_admin_service = MemoryAdminService::default();
+    let history_admin_service = HistoryAdminService::default();
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
-        .manage(memory_admin_service.clone());
+        .manage(memory_admin_service.clone())
+        .manage(history_admin_service.clone());
 
     #[cfg(target_os = "windows")]
     let (builder, sensor_hit_test) = {
@@ -139,8 +160,11 @@ pub fn run() {
                 let database_path = data_dir.join("lenvu.sqlite3");
                 match PersistenceBootstrap::open(&database_path) {
                     Ok(bootstrap) => {
-                        if let Err(error) = memory_admin_service.install(database_path) {
+                        if let Err(error) = memory_admin_service.install(database_path.clone()) {
                             eprintln!("Lenvu Memory Browser unavailable: {error}");
+                        }
+                        if let Err(error) = history_admin_service.install(database_path) {
+                            eprintln!("Lenvu Activity History unavailable: {error}");
                         }
                         Some(bootstrap)
                     }
@@ -226,6 +250,8 @@ pub fn run() {
         memory_create,
         memory_update,
         memory_delete,
+        activity_list,
+        activity_get,
         toggle_companion_window,
         hide_companion_window,
         get_display_context,
@@ -241,6 +267,8 @@ pub fn run() {
         memory_create,
         memory_update,
         memory_delete,
+        activity_list,
+        activity_get,
         toggle_companion_window,
         hide_companion_window
     ]);
