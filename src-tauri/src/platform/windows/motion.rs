@@ -4,12 +4,18 @@ use std::{
 };
 
 use crate::{
-    domain::{events::DomainEvent, pet_state::{Facing, Locomotion}},
+    domain::{
+        behavior::BehaviorKind,
+        events::DomainEvent,
+        pet_state::{Facing, Locomotion},
+    },
     runtime::RuntimeHandle,
 };
 
 const MOTION_TICK: Duration = Duration::from_millis(40);
 const EDGE_MARGIN_PHYSICAL_PX: i32 = 8;
+const MONITOR_EDGE_GAP_TOLERANCE_PX: i32 = 16;
+const MIN_MONITOR_VERTICAL_OVERLAP_PX: i32 = 64;
 const WALK_LOGICAL_PX_PER_SEC: f64 = 55.0;
 const RUN_LOGICAL_PX_PER_SEC: f64 = 110.0;
 
@@ -42,6 +48,32 @@ impl HorizontalDirection {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct RectI32 {
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+}
+
+impl RectI32 {
+    fn right(self) -> i32 {
+        self.x
+            .saturating_add(self.width.min(i32::MAX as u32) as i32)
+    }
+
+    fn bottom(self) -> i32 {
+        self.y
+            .saturating_add(self.height.min(i32::MAX as u32) as i32)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MonitorGeometry {
+    full: RectI32,
+    work: RectI32,
+}
+
 #[derive(Debug, Clone, Copy)]
 struct HorizontalBounds {
     min_x: i32,
@@ -57,30 +89,123 @@ fn motion_speed_logical_px_per_sec(locomotion: Locomotion) -> Option<f64> {
     }
 }
 
-fn calculate_bounds(
-    work_x: i32,
-    work_y: i32,
-    work_width: u32,
-    work_height: u32,
-    window_width: u32,
-    window_height: u32,
-) -> HorizontalBounds {
-    let min_x = work_x.saturating_add(EDGE_MARGIN_PHYSICAL_PX);
-    let work_right = work_x.saturating_add(work_width.min(i32::MAX as u32) as i32);
-    let work_bottom = work_y.saturating_add(work_height.min(i32::MAX as u32) as i32);
+fn allows_monitor_transition(behavior: Option<BehaviorKind>) -> bool {
+    matches!(behavior, Some(BehaviorKind::Explore))
+}
+
+fn monitor_geometry(monitor: &tauri::window::Monitor) -> MonitorGeometry {
+    let position = monitor.position();
+    let size = monitor.size();
+    let work = monitor.work_area();
+
+    MonitorGeometry {
+        full: RectI32 {
+            x: position.x,
+            y: position.y,
+            width: size.width,
+            height: size.height,
+        },
+        work: RectI32 {
+            x: work.position.x,
+            y: work.position.y,
+            width: work.size.width,
+            height: work.size.height,
+        },
+    }
+}
+
+fn calculate_bounds(work: RectI32, window_width: u32, window_height: u32) -> HorizontalBounds {
+    let min_x = work.x.saturating_add(EDGE_MARGIN_PHYSICAL_PX);
     let window_width = window_width.min(i32::MAX as u32) as i32;
     let window_height = window_height.min(i32::MAX as u32) as i32;
 
-    let max_x = work_right
+    let max_x = work
+        .right()
         .saturating_sub(window_width)
         .saturating_sub(EDGE_MARGIN_PHYSICAL_PX)
         .max(min_x);
-    let ground_y = work_bottom
+    let ground_y = work
+        .bottom()
         .saturating_sub(window_height)
         .saturating_sub(EDGE_MARGIN_PHYSICAL_PX)
-        .max(work_y);
+        .max(work.y);
 
-    HorizontalBounds { min_x, max_x, ground_y }
+    HorizontalBounds {
+        min_x,
+        max_x,
+        ground_y,
+    }
+}
+
+fn vertical_overlap(a: RectI32, b: RectI32) -> i32 {
+    a.bottom()
+        .min(b.bottom())
+        .saturating_sub(a.y.max(b.y))
+        .max(0)
+}
+
+fn horizontal_gap(
+    current: MonitorGeometry,
+    candidate: MonitorGeometry,
+    direction: HorizontalDirection,
+) -> Option<i32> {
+    let gap = match direction {
+        HorizontalDirection::Right => {
+            if candidate.full.x < current.full.right() {
+                return None;
+            }
+            candidate.full.x.saturating_sub(current.full.right())
+        }
+        HorizontalDirection::Left => {
+            if candidate.full.right() > current.full.x {
+                return None;
+            }
+            current.full.x.saturating_sub(candidate.full.right())
+        }
+    };
+
+    (gap <= MONITOR_EDGE_GAP_TOLERANCE_PX).then_some(gap)
+}
+
+fn find_adjacent_monitor(
+    current: MonitorGeometry,
+    monitors: impl IntoIterator<Item = MonitorGeometry>,
+    direction: HorizontalDirection,
+) -> Option<MonitorGeometry> {
+    monitors
+        .into_iter()
+        .filter(|candidate| *candidate != current)
+        .filter_map(|candidate| {
+            let gap = horizontal_gap(current, candidate, direction)?;
+            let overlap = vertical_overlap(current.full, candidate.full);
+            if overlap < MIN_MONITOR_VERTICAL_OVERLAP_PX {
+                return None;
+            }
+            Some((candidate, gap, overlap))
+        })
+        .min_by(|left, right| {
+            left.1
+                .cmp(&right.1)
+                .then_with(|| right.2.cmp(&left.2))
+        })
+        .map(|(candidate, _, _)| candidate)
+}
+
+fn projected_x(
+    current_x: f64,
+    direction: HorizontalDirection,
+    speed_physical_px_per_sec: f64,
+    delta_seconds: f64,
+) -> f64 {
+    current_x
+        + direction.sign() * speed_physical_px_per_sec.max(0.0) * delta_seconds.max(0.0)
+}
+
+fn reaches_edge(projected: f64, direction: HorizontalDirection, bounds: HorizontalBounds) -> bool {
+    match direction {
+        HorizontalDirection::Left => projected <= bounds.min_x as f64,
+        HorizontalDirection::Right => projected >= bounds.max_x as f64,
+    }
 }
 
 fn advance_x(
@@ -90,8 +215,12 @@ fn advance_x(
     delta_seconds: f64,
     bounds: HorizontalBounds,
 ) -> (f64, HorizontalDirection) {
-    let mut next = current_x
-        + direction.sign() * speed_physical_px_per_sec.max(0.0) * delta_seconds.max(0.0);
+    let mut next = projected_x(
+        current_x,
+        direction,
+        speed_physical_px_per_sec,
+        delta_seconds,
+    );
     let mut next_direction = direction;
 
     if next <= bounds.min_x as f64 {
@@ -113,10 +242,7 @@ fn publish_facing(runtime: &RuntimeHandle, direction: HorizontalDirection) -> bo
         .is_ok()
 }
 
-pub fn spawn_pet_motion_controller(
-    window: tauri::WebviewWindow,
-    runtime: RuntimeHandle,
-) {
+pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: RuntimeHandle) {
     thread::spawn(move || {
         let mut direction = HorizontalDirection::Right;
         let mut published_direction: Option<HorizontalDirection> = None;
@@ -133,7 +259,8 @@ pub fn spawn_pet_motion_controller(
                 continue;
             };
 
-            let Some(speed_logical) = motion_speed_logical_px_per_sec(snapshot.state.locomotion) else {
+            let Some(speed_logical) = motion_speed_logical_px_per_sec(snapshot.state.locomotion)
+            else {
                 fractional_x = None;
                 thread::sleep(MOTION_TICK);
                 continue;
@@ -161,24 +288,61 @@ pub fn spawn_pet_motion_controller(
                 continue;
             };
 
-            let work = monitor.work_area();
+            let current_monitor = monitor_geometry(&monitor);
             let bounds = calculate_bounds(
-                work.position.x,
-                work.position.y,
-                work.size.width,
-                work.size.height,
+                current_monitor.work,
                 window_size.width,
                 window_size.height,
             );
-
             let current_x = fractional_x.unwrap_or(window_position.x as f64);
             let speed_physical = speed_logical * scale_factor.max(0.5);
+            let delta_seconds = delta_seconds.min(0.25);
+            let projected = projected_x(current_x, direction, speed_physical, delta_seconds);
+
+            if reaches_edge(projected, direction, bounds)
+                && allows_monitor_transition(snapshot.behavior.as_ref().map(|behavior| behavior.kind))
+            {
+                let adjacent = window.available_monitors().ok().and_then(|monitors| {
+                    find_adjacent_monitor(
+                        current_monitor,
+                        monitors.iter().map(monitor_geometry),
+                        direction,
+                    )
+                });
+
+                if let Some(target_monitor) = adjacent {
+                    let target_bounds = calculate_bounds(
+                        target_monitor.work,
+                        window_size.width,
+                        window_size.height,
+                    );
+                    let target_x = match direction {
+                        HorizontalDirection::Left => target_bounds.max_x,
+                        HorizontalDirection::Right => target_bounds.min_x,
+                    };
+                    fractional_x = Some(target_x as f64);
+
+                    if window
+                        .set_position(tauri::PhysicalPosition::new(
+                            target_x,
+                            target_bounds.ground_y,
+                        ))
+                        .is_err()
+                    {
+                        break;
+                    }
+
+                    thread::sleep(MOTION_TICK);
+                    continue;
+                }
+            }
+
             let previous_direction = direction;
             let (next_x, next_direction) = advance_x(
                 current_x,
                 direction,
                 speed_physical,
-                delta_seconds.min(0.25),
+                delta_seconds,
                 bounds,
             );
             direction = next_direction;
@@ -210,16 +374,42 @@ pub fn spawn_pet_motion_controller(
 mod tests {
     use super::*;
 
+    fn monitor(x: i32, y: i32, width: u32, height: u32) -> MonitorGeometry {
+        MonitorGeometry {
+            full: RectI32 {
+                x,
+                y,
+                width,
+                height,
+            },
+            work: RectI32 {
+                x,
+                y,
+                width,
+                height: height.saturating_sub(40),
+            },
+        }
+    }
+
     #[test]
     fn work_area_clamps_pet_inside_edges() {
-        let bounds = calculate_bounds(0, 0, 1920, 1040, 360, 320);
+        let bounds = calculate_bounds(
+            RectI32 {
+                x: 0,
+                y: 0,
+                width: 1920,
+                height: 1040,
+            },
+            360,
+            320,
+        );
         assert_eq!(bounds.min_x, 8);
         assert_eq!(bounds.max_x, 1552);
         assert_eq!(bounds.ground_y, 712);
     }
 
     #[test]
-    fn motion_reverses_at_right_edge() {
+    fn motion_reverses_at_right_edge_without_transition() {
         let bounds = HorizontalBounds {
             min_x: 0,
             max_x: 100,
@@ -229,6 +419,50 @@ mod tests {
         assert_eq!(x, 100.0);
         assert_eq!(direction, HorizontalDirection::Left);
         assert_eq!(direction.facing(), Facing::Left);
+    }
+
+    #[test]
+    fn adjacent_horizontal_monitor_is_selected() {
+        let current = monitor(0, 0, 1920, 1080);
+        let right = monitor(1920, 100, 2560, 1440);
+        let found = find_adjacent_monitor(
+            current,
+            [current, right],
+            HorizontalDirection::Right,
+        );
+        assert_eq!(found, Some(right));
+    }
+
+    #[test]
+    fn vertically_stacked_monitor_is_not_a_horizontal_neighbor() {
+        let current = monitor(0, 0, 1920, 1080);
+        let above = monitor(0, -1080, 1920, 1080);
+        let found = find_adjacent_monitor(
+            current,
+            [current, above],
+            HorizontalDirection::Right,
+        );
+        assert_eq!(found, None);
+    }
+
+    #[test]
+    fn disconnected_monitor_gap_prevents_autonomous_teleport() {
+        let current = monitor(0, 0, 1920, 1080);
+        let distant = monitor(2000, 0, 1920, 1080);
+        let found = find_adjacent_monitor(
+            current,
+            [current, distant],
+            HorizontalDirection::Right,
+        );
+        assert_eq!(found, None);
+    }
+
+    #[test]
+    fn only_ambient_explore_can_cross_monitors() {
+        assert!(allows_monitor_transition(Some(BehaviorKind::Explore)));
+        assert!(!allows_monitor_transition(Some(BehaviorKind::Play)));
+        assert!(!allows_monitor_transition(Some(BehaviorKind::FocusGuard)));
+        assert!(!allows_monitor_transition(None));
     }
 
     #[test]
