@@ -32,7 +32,7 @@
 - [ ] Replace placeholder with production sprite/atlas animation graph.
 - [x] Split the lightweight `pet` overlay from the independent `companion` window.
 - [x] Add current monitor / DPI / work-area display context contract.
-- [ ] Add monitor/DPI change observation.
+- [x] Add window-moved / scale-factor observation and debounced display-context refresh.
 - [x] Define normalized semantic pet hit zones.
 - [x] Implement native selective transparent hit testing / click-through with native cursor re-entry.
 - [x] Mirror semantic/native hit regions when Lenvu changes facing direction.
@@ -44,7 +44,7 @@
 - [ ] Multi-monitor autonomous movement policy.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
-- [ ] Drag/pick-up interaction.
+- [x] Add drag/pick-up gesture with a domain-level `held` posture and native pet-window dragging.
 - [ ] Tray control and startup policy.
 
 ## Phase 2 — Persistent life
@@ -75,6 +75,7 @@
 - [x] User idle / return sensor using low-cost Win32 input timing.
 - [x] Active-window app identity sensor without collecting window titles by default.
 - [x] Current monitor / work-area / DPI context.
+- [x] Observe pet-window movement and DPI scale-factor changes.
 - [x] Local time-of-day sensor using Win32 rather than a JavaScript clock.
 - [ ] Window bounds context for observed apps.
 - [x] Focus Guard domain mode and UI control.

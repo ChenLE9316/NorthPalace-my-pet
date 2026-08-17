@@ -46,6 +46,7 @@ const requiredAnimations = [
   'sit',
   'rest',
   'sleep',
+  'held',
   'wake',
   'pet_receive',
   'play',

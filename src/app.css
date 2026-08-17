@@ -26,9 +26,12 @@ button { font: inherit; }
   border: 0;
   background: transparent;
   color: inherit;
-  cursor: pointer;
+  cursor: grab;
   padding: 0;
+  touch-action: none;
 }
+
+.pet:active { cursor: grabbing; }
 
 .pet-canvas {
   position: absolute;

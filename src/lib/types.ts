@@ -1,6 +1,6 @@
 export type Locomotion = 'stationary' | 'walk' | 'run' | 'jump';
 export type Facing = 'left' | 'right';
-export type Posture = 'stand' | 'sit' | 'lie' | 'sleep';
+export type Posture = 'stand' | 'sit' | 'lie' | 'sleep' | 'held';
 export type Attention = 'idle' | 'user' | 'cursor' | 'window' | 'object';
 export type Emotion = 'calm' | 'curious' | 'happy' | 'shy' | 'concerned' | 'sleepy' | 'focused';
 export type PetMode = 'ambient' | 'focus_guard' | 'do_not_disturb' | 'play';
@@ -56,6 +56,8 @@ export type PetInteraction =
   | 'touch'
   | 'pet'
   | 'play'
+  | 'pick_up'
+  | 'drop'
   | 'focus_start'
   | 'focus_stop'
   | 'user_returned';

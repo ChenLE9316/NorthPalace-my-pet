@@ -53,6 +53,10 @@ impl PetBrainV2 {
                 self.state.emotion = Emotion::Happy;
                 self.state.locomotion = Locomotion::Stationary;
 
+                if self.state.posture == Posture::Held {
+                    return;
+                }
+
                 if self.state.posture == Posture::Sleep || self.state.posture == Posture::Lie {
                     self.state.posture = Posture::Stand;
                     self.start_behavior(BehaviorIntent::wake());
@@ -79,11 +83,16 @@ impl PetBrainV2 {
                 self.wake_for_interaction();
                 self.state.attention = Attention::User;
                 self.state.emotion = Emotion::Happy;
-                self.state.posture = Posture::Sit;
+                if self.state.posture != Posture::Held {
+                    self.state.posture = Posture::Sit;
+                }
                 self.state.bond = (self.state.bond + 0.01).clamp(0.0, 1.0);
                 self.start_behavior(BehaviorIntent::receive_pet());
             }
             DomainEvent::PetPlayRequested => {
+                if self.state.posture == Posture::Held {
+                    return;
+                }
                 self.wake_for_interaction();
                 self.state.mode = PetMode::Play;
                 self.state.attention = Attention::User;
@@ -94,21 +103,52 @@ impl PetBrainV2 {
                 self.state.bond = (self.state.bond + 0.005).clamp(0.0, 1.0);
                 self.start_behavior(BehaviorIntent::play());
             }
+            DomainEvent::PetPickedUp => {
+                self.state.user_idle_ms = 0;
+                self.ambient_elapsed_ms = 0;
+                self.behavior = None;
+                self.state.locomotion = Locomotion::Stationary;
+                self.state.posture = Posture::Held;
+                self.state.attention = Attention::User;
+                self.state.emotion = Emotion::Curious;
+            }
+            DomainEvent::PetDropped => {
+                if self.state.posture != Posture::Held {
+                    return;
+                }
+                self.ambient_elapsed_ms = 0;
+                self.state.locomotion = Locomotion::Stationary;
+                if self.state.mode == PetMode::FocusGuard {
+                    self.state.posture = Posture::Sit;
+                    self.state.attention = Attention::Window;
+                    self.state.emotion = Emotion::Focused;
+                    self.start_behavior(BehaviorIntent::focus_guard());
+                } else {
+                    self.state.posture = Posture::Stand;
+                    self.state.attention = Attention::User;
+                    self.state.emotion = Emotion::Calm;
+                    self.start_behavior(BehaviorIntent::observe_user());
+                }
+            }
             DomainEvent::FocusModeStarted => {
                 self.ambient_elapsed_ms = 0;
                 self.state.mode = PetMode::FocusGuard;
                 self.state.attention = Attention::Window;
                 self.state.emotion = Emotion::Focused;
-                self.state.posture = Posture::Sit;
                 self.state.locomotion = Locomotion::Stationary;
-                self.start_behavior(BehaviorIntent::focus_guard());
+                if self.state.posture != Posture::Held {
+                    self.state.posture = Posture::Sit;
+                    self.start_behavior(BehaviorIntent::focus_guard());
+                }
             }
             DomainEvent::FocusModeEnded => {
                 self.ambient_elapsed_ms = 0;
                 self.state.mode = PetMode::Ambient;
                 self.state.emotion = Emotion::Calm;
                 self.state.attention = Attention::User;
-                self.state.posture = Posture::Sit;
+                if self.state.posture != Posture::Held {
+                    self.state.posture = Posture::Sit;
+                }
                 if matches!(
                     self.behavior.as_ref().map(|b| b.kind),
                     Some(BehaviorKind::FocusGuard)
@@ -124,6 +164,7 @@ impl PetBrainV2 {
             DomainEvent::NotificationReceived => {
                 if self.state.mode != PetMode::DoNotDisturb
                     && self.state.posture != Posture::Sleep
+                    && self.state.posture != Posture::Held
                 {
                     self.state.attention = Attention::Window;
                     self.state.emotion = Emotion::Curious;
@@ -148,7 +189,10 @@ impl PetBrainV2 {
         let decision_delta_ms = delta_ms.min(5_000);
         let hours = physiological_delta_ms as f32 / 3_600_000.0;
 
-        if self.state.mode == PetMode::Ambient && self.state.posture != Posture::Sleep {
+        if self.state.mode == PetMode::Ambient
+            && self.state.posture != Posture::Sleep
+            && self.state.posture != Posture::Held
+        {
             self.ambient_elapsed_ms = self.ambient_elapsed_ms.saturating_add(decision_delta_ms);
         }
 
@@ -244,7 +288,7 @@ impl PetBrainV2 {
     }
 
     fn apply_ambient_policy(&mut self) {
-        if self.behavior.is_some() {
+        if self.behavior.is_some() || self.state.posture == Posture::Held {
             return;
         }
 
@@ -416,5 +460,40 @@ mod tests {
             brain.behavior().map(|b| b.kind),
             Some(BehaviorKind::Explore)
         );
+    }
+
+    #[test]
+    fn picked_up_posture_survives_runtime_ticks() {
+        let mut brain = PetBrainV2::default();
+        brain.handle_event(DomainEvent::PetPickedUp);
+        brain.handle_event(DomainEvent::Tick { delta_ms: 60_000 });
+
+        assert_eq!(brain.state().posture, Posture::Held);
+        assert_eq!(brain.state().locomotion, Locomotion::Stationary);
+        assert_eq!(brain.state().attention, Attention::User);
+    }
+
+    #[test]
+    fn dropping_returns_to_stable_ambient_posture() {
+        let mut brain = PetBrainV2::default();
+        brain.handle_event(DomainEvent::PetPickedUp);
+        brain.handle_event(DomainEvent::PetDropped);
+
+        assert_eq!(brain.state().posture, Posture::Stand);
+        assert_eq!(brain.state().locomotion, Locomotion::Stationary);
+        assert_eq!(brain.state().mode, PetMode::Ambient);
+    }
+
+    #[test]
+    fn focus_guard_is_restored_after_drop() {
+        let mut brain = PetBrainV2::default();
+        brain.handle_event(DomainEvent::PetPickedUp);
+        brain.handle_event(DomainEvent::FocusModeStarted);
+        assert_eq!(brain.state().posture, Posture::Held);
+
+        brain.handle_event(DomainEvent::PetDropped);
+        assert_eq!(brain.state().mode, PetMode::FocusGuard);
+        assert_eq!(brain.state().posture, Posture::Sit);
+        assert_eq!(brain.state().emotion, Emotion::Focused);
     }
 }

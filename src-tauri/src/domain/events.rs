@@ -13,6 +13,8 @@ pub enum DomainEvent {
     PetTouched,
     PetPetted,
     PetPlayRequested,
+    PetPickedUp,
+    PetDropped,
     FocusModeStarted,
     FocusModeEnded,
     ActiveWindowChanged { app_id: String },

@@ -98,7 +98,7 @@ export class PetRenderer {
   update(snapshot: PetRuntimeSnapshot) {
     this.snapshot = snapshot;
     this.animation = resolveAnimation(snapshot);
-    this.focusRing.visible = snapshot.state.mode === 'focus_guard';
+    this.focusRing.visible = snapshot.state.mode === 'focus_guard' && snapshot.state.posture !== 'held';
 
     const profile = animationProfile(this.animation);
     const lowPower = snapshot.behavior === null && (snapshot.state.posture === 'sleep' || snapshot.state.posture === 'lie');
@@ -122,6 +122,11 @@ export class PetRenderer {
       case 'sit':
         this.root.rotation = 0;
         this.poseScaleX = 0.96;
+        this.poseScaleY = 0.94;
+        break;
+      case 'held':
+        this.root.rotation = 0.04;
+        this.poseScaleX = 0.91;
         this.poseScaleY = 0.94;
         break;
       default:
@@ -175,6 +180,9 @@ export class PetRenderer {
     } else if (this.animation === 'sleep') {
       bob = Math.sin(elapsed * 1.2) * profile.bodyBob;
       sway = -0.12;
+    } else if (this.animation === 'held') {
+      bob = Math.sin(elapsed * 3.2) * profile.bodyBob;
+      sway = Math.sin(elapsed * 2.4) * profile.sway + 0.04;
     } else if (this.animation === 'jump') {
       bob = -Math.abs(Math.sin(elapsed * 4.5)) * profile.bodyBob;
     }

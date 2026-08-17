@@ -23,6 +23,7 @@ pub enum Posture {
     Sit,
     Lie,
     Sleep,
+    Held,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]

@@ -24,6 +24,7 @@
     "sit": { "fps": 8, "loop": true, "lowPowerFps": 4, "bodyBob": 1.0, "sway": 0.008, "asset": null },
     "rest": { "fps": 6, "loop": true, "lowPowerFps": 3, "bodyBob": 0.7, "sway": 0.004, "asset": null },
     "sleep": { "fps": 5, "loop": true, "lowPowerFps": 2, "bodyBob": 0.55, "sway": 0.0, "asset": null },
+    "held": { "fps": 10, "loop": true, "lowPowerFps": 6, "bodyBob": 2.8, "sway": 0.02, "asset": null },
     "wake": { "fps": 12, "loop": false, "lowPowerFps": 8, "bodyBob": 2.6, "sway": 0.02, "asset": null },
     "pet_receive": { "fps": 12, "loop": true, "lowPowerFps": 8, "bodyBob": 2.4, "sway": 0.018, "asset": null },
     "play": { "fps": 16, "loop": true, "lowPowerFps": 10, "bodyBob": 7.5, "sway": 0.08, "asset": null },

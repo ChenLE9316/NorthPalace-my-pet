@@ -15,6 +15,7 @@ export function resolveAnimation(snapshot: PetRuntimeSnapshot): LenvuAnimationId
     return behaviorAnimation;
   }
 
+  if (snapshot.state.posture === 'held') return 'held';
   if (snapshot.state.mode === 'focus_guard') return 'focus_guard';
   if (snapshot.state.cognition === 'thinking') return 'thinking';
 

@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 
 export interface PhysicalPoint {
   x: number;
@@ -73,4 +74,23 @@ export async function configurePetHitRegions(regions: CursorHitRegion[]): Promis
     // behavior on unsupported/dev environments.
     console.debug('Native pet hit testing is unavailable', error);
   }
+}
+
+export async function startPetWindowDrag(): Promise<void> {
+  await getCurrentWindow().startDragging();
+}
+
+/**
+ * Observe pet-window movement and scale-factor transitions without leaking platform geometry
+ * into Pet Brain. The caller owns debouncing because native window dragging can emit many moves.
+ */
+export async function observePetDisplayChanges(onChange: () => void): Promise<() => void> {
+  const window = getCurrentWindow();
+  const unlistenMoved = await window.onMoved(() => onChange());
+  const unlistenScaleChanged = await window.onScaleChanged(() => onChange());
+
+  return () => {
+    unlistenMoved();
+    unlistenScaleChanged();
+  };
 }
