@@ -1,7 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "characterId": "lenvu",
-  "status": "target_authoring_landmarks_frozen",
+  "status": "provisional_normalization_targets_pending_source_measurement",
+  "authority": {
+    "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
+    "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
+    "referenceManifest": "assets/reference/manifest.json"
+  },
   "coordinateSpace": {
     "normalized": true,
     "origin": "top_left",
@@ -10,9 +15,14 @@
     "groundY": 0.86
   },
   "provenance": {
-    "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
-    "referenceManifest": "assets/reference/manifest.json",
-    "note": "These are production target landmarks inferred from the anatomy reference and Character Bible, not claims of exact pixel tracing from concept art."
+    "measurementStatus": "inferred_not_pixel_traced",
+    "coordinatesAreIdentityAuthority": false,
+    "note": "These coordinates are provisional production-normalization targets inferred from the original anatomy evidence. They are not source-image facts and must be revised if measured source-faithful normalization requires it."
+  },
+  "revisionPolicy": {
+    "sourceVisualEvidenceOverridesCoordinates": true,
+    "candidateArtworkMayNotRedefineCoordinatesOrIdentity": true,
+    "measureAgainstOriginalHighResolutionSourceBeforeMasterApproval": true
   },
   "tolerances": {
     "groundContact": 0.005,
@@ -21,39 +31,130 @@
     "silhouette": 0.025
   },
   "frontNeutral": {
-    "root": { "x": 0.50, "y": 0.86 },
-    "earTipRight": { "x": 0.31, "y": 0.07 },
-    "earTipLeft": { "x": 0.69, "y": 0.07 },
-    "hornTipRight": { "x": 0.44, "y": 0.13 },
-    "hornTipLeft": { "x": 0.56, "y": 0.13 },
-    "rightEye": { "x": 0.42, "y": 0.29, "color": "cyan" },
-    "leftEye": { "x": 0.58, "y": 0.29, "color": "violet" },
-    "nose": { "x": 0.50, "y": 0.36 },
-    "chin": { "x": 0.50, "y": 0.41 },
-    "shoulderRight": { "x": 0.38, "y": 0.46 },
-    "shoulderLeft": { "x": 0.62, "y": 0.46 },
-    "frontPawRight": { "x": 0.40, "y": 0.86 },
-    "frontPawLeft": { "x": 0.60, "y": 0.86 }
+    "root": {
+      "x": 0.5,
+      "y": 0.86
+    },
+    "earTipRight": {
+      "x": 0.31,
+      "y": 0.07
+    },
+    "earTipLeft": {
+      "x": 0.69,
+      "y": 0.07
+    },
+    "hornTipRight": {
+      "x": 0.44,
+      "y": 0.13
+    },
+    "hornTipLeft": {
+      "x": 0.56,
+      "y": 0.13
+    },
+    "rightEye": {
+      "x": 0.42,
+      "y": 0.29,
+      "color": "cyan"
+    },
+    "leftEye": {
+      "x": 0.58,
+      "y": 0.29,
+      "color": "violet"
+    },
+    "nose": {
+      "x": 0.5,
+      "y": 0.36
+    },
+    "chin": {
+      "x": 0.5,
+      "y": 0.41
+    },
+    "shoulderRight": {
+      "x": 0.38,
+      "y": 0.46
+    },
+    "shoulderLeft": {
+      "x": 0.62,
+      "y": 0.46
+    },
+    "frontPawRight": {
+      "x": 0.4,
+      "y": 0.86
+    },
+    "frontPawLeft": {
+      "x": 0.6,
+      "y": 0.86
+    }
   },
   "leftProfileNeutral": {
-    "root": { "x": 0.50, "y": 0.86 },
-    "nose": { "x": 0.18, "y": 0.34 },
-    "visibleEye": { "x": 0.29, "y": 0.29, "semanticSide": "right", "color": "cyan" },
-    "head": { "x": 0.32, "y": 0.29 },
-    "shoulder": { "x": 0.39, "y": 0.44 },
-    "frontPaw": { "x": 0.38, "y": 0.86 },
-    "hip": { "x": 0.66, "y": 0.55 },
-    "rearPaw": { "x": 0.70, "y": 0.86 },
-    "tailBase": { "x": 0.70, "y": 0.50 },
-    "tailEffectPeak": { "x": 0.84, "y": 0.27 }
+    "root": {
+      "x": 0.5,
+      "y": 0.86
+    },
+    "nose": {
+      "x": 0.18,
+      "y": 0.34
+    },
+    "visibleEye": {
+      "x": 0.29,
+      "y": 0.29,
+      "semanticSide": "right",
+      "color": "cyan"
+    },
+    "head": {
+      "x": 0.32,
+      "y": 0.29
+    },
+    "shoulder": {
+      "x": 0.39,
+      "y": 0.44
+    },
+    "frontPaw": {
+      "x": 0.38,
+      "y": 0.86
+    },
+    "hip": {
+      "x": 0.66,
+      "y": 0.55
+    },
+    "rearPaw": {
+      "x": 0.7,
+      "y": 0.86
+    },
+    "tailBase": {
+      "x": 0.7,
+      "y": 0.5
+    },
+    "tailEffectPeak": {
+      "x": 0.84,
+      "y": 0.27
+    }
   },
   "backNeutral": {
-    "root": { "x": 0.50, "y": 0.86 },
-    "spineCenterTop": { "x": 0.50, "y": 0.17 },
-    "spineCenterMid": { "x": 0.50, "y": 0.49 },
-    "tailBase": { "x": 0.50, "y": 0.58 },
-    "rearPawRight": { "x": 0.40, "y": 0.86 },
-    "rearPawLeft": { "x": 0.60, "y": 0.86 }
+    "root": {
+      "x": 0.5,
+      "y": 0.86
+    },
+    "spineCenterTop": {
+      "x": 0.5,
+      "y": 0.17
+    },
+    "spineCenterMid": {
+      "x": 0.5,
+      "y": 0.49
+    },
+    "tailBase": {
+      "x": 0.5,
+      "y": 0.58
+    },
+    "rearPawRight": {
+      "x": 0.4,
+      "y": 0.86
+    },
+    "rearPawLeft": {
+      "x": 0.6,
+      "y": 0.86
+    }
   },
   "identityConstraints": {
     "rightEye": "cyan",
@@ -63,13 +164,51 @@
     "foreheadGlyph": "centered"
   },
   "sourceEvidenceRegions": {
-    "sourceCanvas": { "width": 1536, "height": 1024 },
-    "frontNeutral": { "x": 35, "y": 15, "width": 220, "height": 510 },
-    "leftProfileNeutral": { "x": 285, "y": 15, "width": 585, "height": 510 },
-    "backNeutral": { "x": 880, "y": 15, "width": 205, "height": 510 },
-    "threeQuarterNeutral": { "x": 1100, "y": 15, "width": 420, "height": 510 },
-    "headFrontCloseup": { "x": 30, "y": 525, "width": 315, "height": 485 },
-    "headProfileCloseup": { "x": 360, "y": 525, "width": 345, "height": 485 },
-    "detailStrip": { "x": 705, "y": 550, "width": 810, "height": 460 }
+    "sourceCanvas": {
+      "width": 1536,
+      "height": 1024
+    },
+    "frontNeutral": {
+      "x": 35,
+      "y": 15,
+      "width": 220,
+      "height": 510
+    },
+    "leftProfileNeutral": {
+      "x": 285,
+      "y": 15,
+      "width": 585,
+      "height": 510
+    },
+    "backNeutral": {
+      "x": 880,
+      "y": 15,
+      "width": 205,
+      "height": 510
+    },
+    "threeQuarterNeutral": {
+      "x": 1100,
+      "y": 15,
+      "width": 420,
+      "height": 510
+    },
+    "headFrontCloseup": {
+      "x": 30,
+      "y": 525,
+      "width": 315,
+      "height": 485
+    },
+    "headProfileCloseup": {
+      "x": 360,
+      "y": 525,
+      "width": 345,
+      "height": 485
+    },
+    "detailStrip": {
+      "x": 705,
+      "y": 550,
+      "width": 810,
+      "height": 460
+    }
   }
 }
