@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { PetInteraction } from '../types';
+  import { resolveBubbleCue, type BubbleCue } from '../pet/bubble';
   import { lenvuManifest, type LenvuHitZoneId } from '../pet/manifest';
   import { fallbackSnapshot, getPetSnapshot, interact } from '../pet/runtime';
   import { PetRenderer } from '../pet/renderer';
@@ -15,6 +16,7 @@
 
   const DRAG_THRESHOLD_PX = 8;
   const DISPLAY_REFRESH_DEBOUNCE_MS = 80;
+  const BUBBLE_REPEAT_COOLDOWN_MS = 12_000;
 
   interface PendingPointerGesture {
     pointerId: number;
@@ -27,20 +29,48 @@
   let animation = 'idle';
   let snapshotTimer: number | undefined;
   let displayRefreshTimer: number | undefined;
+  let bubbleTimer: number | undefined;
   let petCanvas: HTMLDivElement;
   let panelHandle: HTMLButtonElement;
   let renderer: PetRenderer | null = null;
   let pendingPointer: PendingPointerGesture | null = null;
+  let bubbleCue: BubbleCue | null = null;
+  let hasRuntimeSnapshot = false;
+  const lastBubbleShownAt = new Map<string, number>();
 
   async function refresh() {
     const previousFacing = snapshot.state.facing;
-    snapshot = await getPetSnapshot();
+    const nextSnapshot = await getPetSnapshot();
+    const previousForCue = hasRuntimeSnapshot
+      ? snapshot
+      : { ...nextSnapshot, health: 'ready' as const };
+
+    hasRuntimeSnapshot = true;
+    const cue = resolveBubbleCue(previousForCue, nextSnapshot);
+    snapshot = nextSnapshot;
     renderer?.update(snapshot);
     animation = renderer?.currentAnimation() ?? animation;
+
+    if (cue) showBubble(cue);
 
     if (snapshot.state.facing !== previousFacing) {
       window.requestAnimationFrame(configureNativeHitTest);
     }
+  }
+
+  function showBubble(cue: BubbleCue) {
+    const now = Date.now();
+    const lastShownAt = lastBubbleShownAt.get(cue.key) ?? 0;
+    const cooldown = cue.priority >= 90 ? 2_500 : BUBBLE_REPEAT_COOLDOWN_MS;
+    if (now - lastShownAt < cooldown) return;
+    if (bubbleCue && bubbleCue.priority > cue.priority) return;
+
+    lastBubbleShownAt.set(cue.key, now);
+    bubbleCue = cue;
+    window.clearTimeout(bubbleTimer);
+    bubbleTimer = window.setTimeout(() => {
+      if (bubbleCue?.key === cue.key) bubbleCue = null;
+    }, cue.durationMs);
   }
 
   async function send(kind: PetInteraction) {
@@ -116,19 +146,6 @@
     const target = event.currentTarget as HTMLButtonElement;
     if (target.hasPointerCapture(event.pointerId)) {
       target.releasePointerCapture(event.pointerId);
-    }
-  }
-
-  function bubbleText() {
-    if (snapshot.health !== 'ready') return 'Pet Runtime 正在恢復。';
-    if (snapshot.state.posture === 'held') return '欸？被抱起來了。';
-    if (snapshot.state.mode === 'focus_guard') return 'Focus Guard 已啟動。';
-    switch (snapshot.behavior?.kind) {
-      case 'receive_pet': return '嗯……再摸一下。';
-      case 'play': return '一起玩。';
-      case 'wake': return '我醒了。';
-      case 'sleep': return '晚點叫我……';
-      default: return '嗯，我在。';
     }
   }
 
@@ -218,6 +235,7 @@
       pendingPointer = null;
       window.clearInterval(snapshotTimer);
       window.clearTimeout(displayRefreshTimer);
+      window.clearTimeout(bubbleTimer);
       window.cancelAnimationFrame(hitTestFrame);
       stopDisplayObservation?.();
       renderer?.destroy();
@@ -248,9 +266,12 @@
 
   <div
     class="bubble"
-    class:visible={snapshot.state.posture === 'held' || snapshot.state.emotion === 'happy' || snapshot.state.mode === 'focus_guard' || snapshot.health !== 'ready'}
+    class:visible={bubbleCue !== null}
+    class:focus-tone={bubbleCue?.tone === 'focus'}
+    class:warning-tone={bubbleCue?.tone === 'warning'}
+    aria-live="polite"
   >
-    {bubbleText()}
+    {bubbleCue?.text ?? ''}
   </div>
 
   <button
