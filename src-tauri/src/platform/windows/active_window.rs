@@ -10,6 +10,7 @@ use crate::{
     domain::events::DomainEvent,
     privacy::PrivacyPolicyService,
     runtime::RuntimeHandle,
+    screen_context::ScreenContextBroker,
 };
 
 type Hwnd = *mut c_void;
@@ -89,23 +90,40 @@ fn foreground_app_id() -> Option<String> {
 pub fn spawn_active_window_sensor(
     runtime: RuntimeHandle,
     privacy: PrivacyPolicyService,
+    screen_context: ScreenContextBroker,
 ) {
     thread::spawn(move || {
         let mut last_app_id: Option<String> = None;
+        let mut last_blocked = false;
 
         loop {
             let app_id = foreground_app_id();
-            if app_id != last_app_id {
-                if let Some(app_id) = app_id.clone() {
-                    if !privacy.is_app_excluded(&app_id)
-                        && runtime
+            let blocked = app_id
+                .as_deref()
+                .map(|app_id| privacy.is_app_excluded(app_id))
+                .unwrap_or(false);
+
+            if app_id != last_app_id || blocked != last_blocked {
+                match app_id.clone() {
+                    Some(app_id) if blocked => {
+                        screen_context.observe_active_app_blocked();
+                    }
+                    Some(app_id) => {
+                        screen_context.observe_active_app(app_id.clone());
+                        if runtime
                             .dispatch(DomainEvent::ActiveWindowChanged { app_id })
                             .is_err()
-                    {
-                        break;
+                        {
+                            break;
+                        }
+                    }
+                    None => {
+                        screen_context.clear_active_app();
                     }
                 }
+
                 last_app_id = app_id;
+                last_blocked = blocked;
             }
 
             thread::sleep(Duration::from_secs(1));
