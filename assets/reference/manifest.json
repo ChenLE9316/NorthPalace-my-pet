@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "scope": "reference-only",
   "runtimeAsset": false,
+  "visualAuthority": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
   "assets": [
     {
       "id": "lenvu-anatomy-reference",
@@ -10,21 +11,23 @@
       "width": 1536,
       "height": 1024,
       "format": "webp",
-      "bytes": 26666,
-      "sha256": "3f1d277a169b85dc3192e7b72cc048824eb23c2b0955334b7f3bfa2e71aa8094",
+      "bytes": 185566,
+      "sha256": "bb6e61a0614353563bf703877344c9fc7ed388bf53a574441f6c5c56d9efbab6",
       "sourceSessionFilename": "ce9a4acd-0710-4d38-9619-912a47ec41de(1).png",
       "sourceWidth": 1536,
       "sourceHeight": 1024,
       "sourceMode": "RGBA",
-      "sourceBytes": 3140000,
+      "sourceBytes": 3137429,
       "sourceSha256": "e5cf993d91756361d86ef65c557095aa07cfe02f7fbc54f2a15f741c410342db",
       "derivative": {
-        "purpose": "transport-optimized high-resolution reference preview",
-        "encoder": "Pillow 12.3.0 WebP",
-        "quality": 1,
-        "method": 6
+        "purpose": "source-faithful high-resolution repository reference for visual QA and canonical normalization",
+        "encoder": "Pillow WebP",
+        "quality": 85,
+        "method": 6,
+        "canvasPreserved": true,
+        "runtimeAsset": false
       },
-      "notes": "Reference sheet only. Never use directly as a production sprite frame or canonical runtime texture."
+      "notes": "Primary image evidence for anatomy normalization. Reference only; never cut directly into production sprite frames. Generated candidates may not override this source identity."
     }
   ]
 }
