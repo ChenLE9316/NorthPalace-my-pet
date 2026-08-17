@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "scope": "reference-only",
+  "runtimeAsset": false,
+  "assets": [
+    {
+      "id": "lenvu-anatomy-reference",
+      "path": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
+      "category": "anatomy",
+      "width": 1536,
+      "height": 1024,
+      "format": "webp",
+      "bytes": 26666,
+      "sha256": "3f1d277a169b85dc3192e7b72cc048824eb23c2b0955334b7f3bfa2e71aa8094",
+      "sourceSessionFilename": "ce9a4acd-0710-4d38-9619-912a47ec41de(1).png",
+      "sourceWidth": 1536,
+      "sourceHeight": 1024,
+      "sourceMode": "RGBA",
+      "sourceBytes": 3140000,
+      "sourceSha256": "e5cf993d91756361d86ef65c557095aa07cfe02f7fbc54f2a15f741c410342db",
+      "derivative": {
+        "purpose": "transport-optimized high-resolution reference preview",
+        "encoder": "Pillow 12.3.0 WebP",
+        "quality": 1,
+        "method": 6
+      },
+      "notes": "Reference sheet only. Never use directly as a production sprite frame or canonical runtime texture."
+    }
+  ]
+}

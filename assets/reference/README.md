@@ -1,16 +1,7 @@
-# Lenvu Reference Art
+# Lenvu Reference Library
 
-This directory is for source/reference material only: anatomy sheets, expressions, movement studies, interaction concepts, abilities and UI concept boards.
+This directory contains **reference-only** character material. It is not the runtime sprite library.
 
-Reference files are not loaded by the desktop runtime. Preserve provenance, original resolution and notes when adding them.
+The committed WebP keeps the original 1536×1024 canvas but is a transport-optimized preview. The original source filename, dimensions and SHA-256 are preserved in `manifest.json` so provenance remains explicit.
 
-Suggested subdirectories:
-
-- `anatomy/`
-- `expressions/`
-- `movement/`
-- `behavior/`
-- `abilities/`
-- `ui-concepts/`
-
-See `docs/CHARACTER_BIBLE.md` and `docs/ASSET_PIPELINE.md`.
+Production animation must be derived from a canonical master with fixed anatomy, anchors, pivots and identity markings.
