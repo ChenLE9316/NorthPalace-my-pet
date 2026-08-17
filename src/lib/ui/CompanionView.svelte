@@ -27,6 +27,7 @@
     hideCompanionWindow,
     type DisplayContext,
   } from '../window/runtime';
+  import PrivacySettings from './PrivacySettings.svelte';
 
   type CompanionSection = 'home' | 'memory' | 'activity' | 'settings';
 
@@ -557,6 +558,8 @@
           <div class="settings-note">
             這個開關只控制是否跟隨 Windows 登入啟動。Lenvu 啟動後仍先維持桌寵 Overlay 與 Tray；Companion 視窗不會因開機自啟而主動跳出。
           </div>
+
+          <PrivacySettings />
         </section>
       </section>
     {/if}
