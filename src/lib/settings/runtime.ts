@@ -7,6 +7,7 @@ export interface StartupStatus {
 
 export interface PrivacyRulesSnapshot {
   excludedApps: string[];
+  accessibilityContextEnabled: boolean;
   failClosed: boolean;
 }
 
@@ -17,6 +18,7 @@ export const fallbackStartupStatus: StartupStatus = {
 
 export const fallbackPrivacyRules: PrivacyRulesSnapshot = {
   excludedApps: [],
+  accessibilityContextEnabled: false,
   failClosed: true,
 };
 
@@ -38,4 +40,10 @@ export async function addPrivacyExcludedApp(appId: string): Promise<PrivacyRules
 
 export async function removePrivacyExcludedApp(appId: string): Promise<PrivacyRulesSnapshot> {
   return invoke<PrivacyRulesSnapshot>('privacy_remove_excluded_app', { appId });
+}
+
+export async function setAccessibilityContextEnabled(
+  enabled: boolean,
+): Promise<PrivacyRulesSnapshot> {
+  return invoke<PrivacyRulesSnapshot>('privacy_set_accessibility_context_enabled', { enabled });
 }
