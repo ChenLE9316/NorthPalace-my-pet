@@ -45,7 +45,8 @@
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
 - [x] Add drag/pick-up gesture with a domain-level `held` posture and native pet-window dragging.
-- [ ] Tray control and startup policy.
+- [x] Add native system-tray controls for Companion, pet visibility and quit.
+- [ ] Add explicit Windows startup / launch-at-login policy.
 
 ## Phase 2 — Persistent life
 
@@ -106,6 +107,7 @@
 
 ## Phase 6 — Companion depth
 
+- [x] Split Companion V2 into lazy-loaded Home / Memory / Activity tabs.
 - [ ] Conversation panel.
 - [x] Memory browser/editor V1.
 - [ ] Personality and bond evolution.
