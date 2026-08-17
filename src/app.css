@@ -131,7 +131,7 @@ button, input, textarea, select { font: inherit; }
 
 .companion-tabs {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 5px;
   margin-top: 12px;
   padding: 4px;
@@ -143,10 +143,10 @@ button, input, textarea, select { font: inherit; }
   min-width: 0;
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 7px 6px;
+  padding: 7px 5px;
   background: transparent;
   color: #789eb0;
-  font-size: 11px;
+  font-size: 10px;
   cursor: pointer;
   transition: background .16s ease, border-color .16s ease, color .16s ease;
 }
@@ -186,7 +186,8 @@ button, input, textarea, select { font: inherit; }
 .memory-panel button:disabled { opacity: .45; cursor: default; }
 
 .memory-panel,
-.activity-panel {
+.activity-panel,
+.settings-panel {
   display: grid;
   gap: 10px;
   margin-top: 0;
@@ -199,7 +200,8 @@ button, input, textarea, select { font: inherit; }
 .section-heading button { padding: 6px 9px; font-size: 11px; }
 
 .memory-create,
-.memory-card {
+.memory-card,
+.setting-card {
   padding: 10px;
   border: 1px solid rgba(106, 217, 255, .14);
   border-radius: 13px;
@@ -269,6 +271,39 @@ button, input, textarea, select { font: inherit; }
 .activity-meta { display: grid; justify-items: end; gap: 3px; flex: 0 0 auto; text-align: right; }
 .activity-meta b { font-size: 10px; color: #83e7c1; font-weight: 600; }
 .activity-meta time { font-size: 9px; color: #6f91a1; }
+
+.setting-card {
+  display: grid;
+  gap: 12px;
+}
+.setting-copy { display: grid; gap: 4px; }
+.setting-copy strong { font-size: 12px; color: #e4f8ff; }
+.setting-copy span,
+.settings-note,
+.setting-state { font-size: 10px; color: #7fa2b3; line-height: 1.5; }
+.setting-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(106, 217, 255, .10);
+  color: #a8dce9;
+  font-size: 11px;
+}
+.setting-toggle input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  cursor: pointer;
+}
+.setting-toggle input:disabled { cursor: default; opacity: .45; }
+.settings-note {
+  padding: 9px 10px;
+  border: 1px dashed rgba(106, 217, 255, .14);
+  border-radius: 10px;
+  background: rgba(43, 117, 148, .035);
+}
 
 .concept-card { margin-top: 2px; overflow: hidden; border-radius: 13px; background: rgba(255,255,255,.04); }
 .concept-card img { width: 100%; display: block; opacity: .86; }
