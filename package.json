@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "validate:assets": "node scripts/validate-lenvu-assets.mjs",
+    "build": "npm run validate:assets && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
