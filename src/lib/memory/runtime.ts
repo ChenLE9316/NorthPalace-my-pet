@@ -15,6 +15,15 @@ export interface MemoryRecord extends MemoryInput {
   sourceEventId: number | null;
 }
 
+export interface ActivityHistoryRecord {
+  id: number;
+  eventType: string;
+  category: string;
+  createdAtMs: number;
+  relationshipKind: string | null;
+  bondDelta: number | null;
+}
+
 export async function listMemories(kind: MemoryKind | null = null, limit = 50): Promise<MemoryRecord[]> {
   return invoke<MemoryRecord[]>('memory_list', { kind, limit });
 }
@@ -33,4 +42,12 @@ export async function updateMemory(id: number, input: MemoryInput): Promise<void
 
 export async function deleteMemory(id: number): Promise<void> {
   await invoke('memory_delete', { id });
+}
+
+export async function listActivity(limit = 40): Promise<ActivityHistoryRecord[]> {
+  return invoke<ActivityHistoryRecord[]>('activity_list', { limit });
+}
+
+export async function getActivity(id: number): Promise<ActivityHistoryRecord | null> {
+  return invoke<ActivityHistoryRecord | null>('activity_get', { id });
 }
