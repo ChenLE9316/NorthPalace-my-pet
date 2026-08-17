@@ -55,21 +55,31 @@ Future AI thinking/speaking and actionable reminders can use the same cue bounda
 
 ### Level 4 — Companion window
 
-The Companion is not 'the app'; it is a deeper view of the companion. It is now a separate Tauri window from the transparent pet overlay, so closing/hiding it does not stop Lenvu's Rust Pet Runtime or PixiJS pet layer.
+The Companion is not “the app”; it is a deeper view of the companion. It is a separate Tauri window from the transparent pet overlay, so closing/hiding it does not stop Lenvu's Rust Pet Runtime or PixiJS pet layer.
 
-Current sections:
+Companion V2 now uses a persistent status summary plus three explicit tabs:
 
-- runtime/pet status — energy, curiosity, bond, sleep pressure;
-- state — posture, attention, emotion, cognition;
-- interact — pet/play/Focus Guard actions;
-- memory — local long-term memory browser/editor with search, type and importance controls;
-- renderer/debug context — animation id, sequence and DPI/display information.
+```text
+Companion
+├─ Home
+│  ├─ direct pet actions
+│  ├─ posture / attention / emotion / cognition
+│  ├─ renderer/runtime context
+│  └─ concept / product identity
+├─ Memory
+│  ├─ local FTS5 search
+│  ├─ manual remember
+│  ├─ edit / forget
+│  └─ source-event provenance
+└─ Activity
+   ├─ meaningful low-frequency events
+   ├─ relationship context
+   └─ bond delta / timestamp
+```
 
-Planned sections:
+`Memory` and `Activity` are lazy-loaded the first time their tabs are opened. Home does not pre-read both SQLite management views on every Companion launch. A pet/play/focus interaction marks Activity as stale; it refreshes immediately only when the Activity tab is currently visible, otherwise it reloads on the next visit.
 
-- conversation — optional AI dialogue;
-- activity — what Lenvu has noticed and done;
-- memory provenance — why/where a long-term memory came from.
+This tab boundary is also the reserved extension point for future `Chat` and `Settings` without turning Companion into a single unbounded scrolling page.
 
 ### Level 5 — Deep management
 
@@ -115,17 +125,32 @@ Special
 └─ OfflineBrain
 ```
 
-## Window model
+## Window and tray model
 
 Implemented now:
 
 1. `pet` — transparent, always-on-top, taskbar-hidden desktop-pet overlay; PixiJS renderer + compact Context Bubble + Companion handle.
-2. `companion` — independently show/hide-able managed window for status, memory and deeper interaction. Native close is converted into hide so it can reopen without restarting Pet Runtime.
+2. `companion` — independently show/hide-able managed window for Home, Memory and Activity. Native close is converted into hide so it can reopen without restarting Pet Runtime.
+3. native system tray — persistent shell control while the pet is running.
 
-Planned:
+Tray V1 behavior:
 
-3. `settings` — normal managed application window.
-4. `debug` — development-only event/state inspector.
+```text
+left click tray
+└─ show + focus Companion
+
+tray menu
+├─ Open Lenvu Companion
+├─ Show / Hide Lenvu
+└─ Quit NorthPalace-my-pet
+```
+
+The tray is owned by the Rust/Tauri shell, not a new background service. A true Windows launch-at-login/startup preference remains a separate feature and should be explicit/user-controlled.
+
+Planned windows:
+
+4. `settings` — normal managed application window.
+5. `debug` — development-only event/state inspector.
 
 The pet window must remain lightweight when deeper UI is closed.
 
