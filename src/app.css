@@ -118,13 +118,59 @@ button, input, textarea, select { font: inherit; }
 .companion-panel header div { display: grid; gap: 2px; }
 .companion-panel header span { font-size: 11px; color: #82a7bc; }
 .companion-panel header button { border: 0; background: transparent; color: #9ccde0; font-size: 20px; cursor: pointer; }
+.companion-header { padding-bottom: 2px; }
 
 .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .status-grid article { padding: 10px; border-radius: 12px; background: rgba(77, 187, 229, .08); display: grid; gap: 5px; }
 .status-grid span { font-size: 11px; color: #86a9ba; }
 .status-grid b { color: #86eaff; overflow-wrap: anywhere; }
+.status-grid--summary article { min-height: 58px; }
+.status-grid--technical article { background: rgba(77, 187, 229, .045); }
+.status-grid--technical span { color: #6f93a6; }
+.status-grid--technical b { color: #9ac9da; font-size: 11px; }
 
-.actions { display: flex; gap: 7px; margin-top: 12px; flex-wrap: wrap; }
+.companion-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+  margin-top: 12px;
+  padding: 4px;
+  border: 1px solid rgba(106, 217, 255, .13);
+  border-radius: 12px;
+  background: rgba(3, 11, 21, .58);
+}
+.companion-tabs button {
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px 6px;
+  background: transparent;
+  color: #789eb0;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.companion-tabs button:hover {
+  color: #ccefff;
+  background: rgba(69, 185, 226, .07);
+}
+.companion-tabs button.active,
+.companion-tabs button[aria-selected="true"] {
+  border-color: rgba(102, 220, 255, .22);
+  background: rgba(49, 151, 190, .18);
+  color: #a5efff;
+}
+
+.companion-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  min-height: 260px;
+}
+.home-section { align-content: start; }
+.section-heading--compact { padding-bottom: 2px; }
+
+.actions { display: flex; gap: 7px; margin-top: 2px; flex-wrap: wrap; }
 .actions button,
 .section-heading button,
 .memory-panel button {
@@ -143,9 +189,8 @@ button, input, textarea, select { font: inherit; }
 .activity-panel {
   display: grid;
   gap: 10px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(106, 217, 255, .18);
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .section-heading { display: flex; align-items: start; justify-content: space-between; gap: 10px; }
@@ -225,7 +270,7 @@ button, input, textarea, select { font: inherit; }
 .activity-meta b { font-size: 10px; color: #83e7c1; font-weight: 600; }
 .activity-meta time { font-size: 9px; color: #6f91a1; }
 
-.concept-card { margin-top: 13px; overflow: hidden; border-radius: 13px; background: rgba(255,255,255,.04); }
+.concept-card { margin-top: 2px; overflow: hidden; border-radius: 13px; background: rgba(255,255,255,.04); }
 .concept-card img { width: 100%; display: block; opacity: .86; }
 .concept-card div { padding: 10px; }
 .concept-card p { margin: 4px 0 0; color: #9bb7c6; font-size: 12px; line-height: 1.5; }
