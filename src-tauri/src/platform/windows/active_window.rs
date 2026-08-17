@@ -10,13 +10,28 @@ use crate::{
     domain::events::DomainEvent,
     privacy::PrivacyPolicyService,
     runtime::RuntimeHandle,
-    screen_context::ScreenContextBroker,
+    screen_context::{ScreenContextBroker, WindowBounds},
 };
 
 type Hwnd = *mut c_void;
 type Handle = *mut c_void;
 
 const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x1000;
+const DWMWA_EXTENDED_FRAME_BOUNDS: u32 = 9;
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct Rect {
+    left: i32,
+    top: i32,
+    right: i32,
+    bottom: i32,
+}
+
+struct ForegroundApp {
+    window: Hwnd,
+    app_id: String,
+}
 
 #[link(name = "user32")]
 unsafe extern "system" {
@@ -36,6 +51,16 @@ unsafe extern "system" {
     fn CloseHandle(object: Handle) -> i32;
 }
 
+#[link(name = "dwmapi")]
+unsafe extern "system" {
+    fn DwmGetWindowAttribute(
+        window: Hwnd,
+        attribute: u32,
+        value: *mut c_void,
+        value_size: u32,
+    ) -> i32;
+}
+
 struct OwnedHandle(Handle);
 
 impl Drop for OwnedHandle {
@@ -48,7 +73,7 @@ impl Drop for OwnedHandle {
     }
 }
 
-fn foreground_app_id() -> Option<String> {
+fn foreground_app() -> Option<ForegroundApp> {
     let window = unsafe { GetForegroundWindow() };
     if window.is_null() {
         return None;
@@ -84,7 +109,38 @@ fn foreground_app_id() -> Option<String> {
         .map(str::to_owned)
         .filter(|name| !name.is_empty())?;
 
-    Some(app_id)
+    Some(ForegroundApp { window, app_id })
+}
+
+fn visible_window_bounds(window: Hwnd) -> Option<WindowBounds> {
+    let mut rect = Rect::default();
+    let result = unsafe {
+        DwmGetWindowAttribute(
+            window,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            (&mut rect as *mut Rect).cast::<c_void>(),
+            std::mem::size_of::<Rect>() as u32,
+        )
+    };
+    if result < 0 {
+        return None;
+    }
+    bounds_from_rect(rect)
+}
+
+fn bounds_from_rect(rect: Rect) -> Option<WindowBounds> {
+    let width = rect.right.checked_sub(rect.left)?;
+    let height = rect.bottom.checked_sub(rect.top)?;
+    if width <= 0 || height <= 0 {
+        return None;
+    }
+
+    Some(WindowBounds {
+        x: rect.left,
+        y: rect.top,
+        width: width as u32,
+        height: height as u32,
+    })
 }
 
 pub fn spawn_active_window_sensor(
@@ -95,24 +151,40 @@ pub fn spawn_active_window_sensor(
     thread::spawn(move || {
         let mut last_app_id: Option<String> = None;
         let mut last_blocked = false;
+        let mut last_bounds: Option<WindowBounds> = None;
 
         loop {
-            let app_id = foreground_app_id();
+            let foreground = foreground_app();
+            let app_id = foreground.as_ref().map(|app| app.app_id.clone());
             let blocked = app_id
                 .as_deref()
                 .map(|app_id| privacy.is_app_excluded(app_id))
                 .unwrap_or(false);
 
-            if app_id != last_app_id || blocked != last_blocked {
+            // Window geometry is a privacy-controlled capability. Never ask DWM for
+            // bounds until the process app id has passed the exclusion gate.
+            let bounds = if blocked {
+                None
+            } else {
+                foreground
+                    .as_ref()
+                    .and_then(|app| visible_window_bounds(app.window))
+            };
+
+            let identity_changed = app_id != last_app_id || blocked != last_blocked;
+            let context_changed = identity_changed || bounds != last_bounds;
+
+            if context_changed {
                 match app_id.clone() {
-                    Some(app_id) if blocked => {
+                    Some(_) if blocked => {
                         screen_context.observe_active_app_blocked();
                     }
                     Some(app_id) => {
-                        screen_context.observe_active_app(app_id.clone());
-                        if runtime
-                            .dispatch(DomainEvent::ActiveWindowChanged { app_id })
-                            .is_err()
+                        screen_context.observe_active_app(app_id.clone(), bounds);
+                        if identity_changed
+                            && runtime
+                                .dispatch(DomainEvent::ActiveWindowChanged { app_id })
+                                .is_err()
                         {
                             break;
                         }
@@ -124,6 +196,7 @@ pub fn spawn_active_window_sensor(
 
                 last_app_id = app_id;
                 last_blocked = blocked;
+                last_bounds = bounds;
             }
 
             thread::sleep(Duration::from_secs(1));
@@ -139,5 +212,31 @@ mod tests {
     fn null_path_helper_is_not_used() {
         let value: *mut c_void = ptr::null_mut();
         assert!(value.is_null());
+    }
+
+    #[test]
+    fn rect_to_bounds_preserves_negative_monitor_coordinates() {
+        let bounds = bounds_from_rect(Rect {
+            left: -1920,
+            top: 100,
+            right: 0,
+            bottom: 1180,
+        })
+        .expect("valid bounds");
+        assert_eq!(bounds.x, -1920);
+        assert_eq!(bounds.y, 100);
+        assert_eq!(bounds.width, 1920);
+        assert_eq!(bounds.height, 1080);
+    }
+
+    #[test]
+    fn invalid_rect_is_not_exposed_as_context() {
+        assert!(bounds_from_rect(Rect {
+            left: 10,
+            top: 10,
+            right: 10,
+            bottom: 20,
+        })
+        .is_none());
     }
 }
