@@ -91,6 +91,25 @@ equal(master.identity.blindHorizontalMirrorAllowed, runtime.identity.blindHorizo
 equal(master.identity.chibiOrCatLikeRedesignAllowed, false, 'chibi/cat redesign policy');
 equal(master.identity.generatedCandidateMayRedefineIdentity, false, 'generated candidate identity policy');
 
+// Landmarks are engineering normalization targets, never character-identity authority.
+equal(landmarks.authority.visualGroundTruth, paths.visualGroundTruth, 'landmark visual-ground-truth path');
+equal(landmarks.authority.primaryReference, master.authority.primaryReference, 'landmark primary-reference path');
+equal(landmarks.authority.referenceManifest, paths.references, 'landmark reference-manifest path');
+equal(landmarks.provenance.measurementStatus, 'inferred_not_pixel_traced', 'landmark measurement status');
+equal(landmarks.provenance.coordinatesAreIdentityAuthority, false, 'landmark identity-authority policy');
+equal(landmarks.revisionPolicy.sourceVisualEvidenceOverridesCoordinates, true, 'source-over-coordinate policy');
+equal(landmarks.revisionPolicy.candidateArtworkMayNotRedefineCoordinatesOrIdentity, true, 'candidate landmark-authority policy');
+equal(landmarks.revisionPolicy.measureAgainstOriginalHighResolutionSourceBeforeMasterApproval, true, 'source-measurement approval policy');
+
+const landmarkNeedsSourceMeasurement = landmarks.provenance.measurementStatus !== 'measured_from_original_high_resolution_source';
+if (candidate.review.approved && landmarkNeedsSourceMeasurement) {
+  fail('approved canonical master requires landmarks measured from the original high-resolution source');
+}
+
+if (master.runtimeAssetReady && landmarkNeedsSourceMeasurement) {
+  fail('runtimeAssetReady=true requires source-measured production landmarks');
+}
+
 equal(master.canvas.runtimeCellWidth, runtime.character.referenceCanvas.width, 'runtime cell width');
 equal(master.canvas.runtimeCellHeight, runtime.character.referenceCanvas.height, 'runtime cell height');
 approx(master.anchors.root.x, runtime.character.anchor.x, 'root anchor x');
@@ -171,5 +190,6 @@ if (master.runtimeAssetReady && !candidate.review.approved) {
 
 console.log(
   `[Lenvu asset contract] OK — ${Object.keys(runtime.animations).length} animation profiles, `
-  + `${references.assets.length} reference asset(s), candidate=${candidate.status}, productionReady=${master.runtimeAssetReady}`,
+  + `${references.assets.length} reference asset(s), landmarks=${landmarks.provenance.measurementStatus}, `
+  + `candidate=${candidate.status}, productionReady=${master.runtimeAssetReady}`,
 );
