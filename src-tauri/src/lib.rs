@@ -15,6 +15,7 @@ use persistence::{
     spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
 };
 use runtime::{PetRuntimeSnapshot, RuntimeHandle};
+use serde::Serialize;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -26,6 +27,13 @@ const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
 const MEMORY_LIST_LIMIT: u32 = 50;
 const ACTIVITY_LIST_LIMIT: u32 = 40;
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct StartupStatus {
+    supported: bool,
+    enabled: bool,
+}
 
 fn show_companion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(window) = app.get_webview_window("companion") {
@@ -124,6 +132,72 @@ fn activity_get(
 }
 
 #[tauri::command]
+fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+
+        let enabled = app
+            .autolaunch()
+            .is_enabled()
+            .map_err(|error| format!("failed to read Windows startup registration: {error}"))?;
+        return Ok(StartupStatus {
+            supported: true,
+            enabled,
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        Ok(StartupStatus {
+            supported: false,
+            enabled: false,
+        })
+    }
+}
+
+#[tauri::command]
+fn startup_set(enabled: bool, app: tauri::AppHandle) -> Result<StartupStatus, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use tauri_plugin_autostart::ManagerExt;
+
+        let manager = app.autolaunch();
+        if enabled {
+            manager
+                .enable()
+                .map_err(|error| format!("failed to enable Windows startup: {error}"))?;
+        } else {
+            manager
+                .disable()
+                .map_err(|error| format!("failed to disable Windows startup: {error}"))?;
+        }
+
+        let actual = manager
+            .is_enabled()
+            .map_err(|error| format!("failed to verify Windows startup registration: {error}"))?;
+        return Ok(StartupStatus {
+            supported: true,
+            enabled: actual,
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app;
+        if enabled {
+            Err("Windows startup registration is unavailable on this platform".to_owned())
+        } else {
+            Ok(StartupStatus {
+                supported: false,
+                enabled: false,
+            })
+        }
+    }
+}
+
+#[tauri::command]
 fn toggle_companion_window(app: tauri::AppHandle) -> Result<bool, String> {
     let window = app
         .get_webview_window("companion")
@@ -174,6 +248,12 @@ pub fn run() {
         .manage(persistence_service.clone())
         .manage(memory_admin_service.clone())
         .manage(history_admin_service.clone());
+
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_autostart::init(
+        tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+        None,
+    ));
 
     #[cfg(target_os = "windows")]
     let (builder, sensor_hit_test) = {
@@ -329,6 +409,8 @@ pub fn run() {
         memory_delete,
         activity_list,
         activity_get,
+        startup_get,
+        startup_set,
         toggle_companion_window,
         hide_companion_window,
         get_display_context,
@@ -346,6 +428,8 @@ pub fn run() {
         memory_delete,
         activity_list,
         activity_get,
+        startup_get,
+        startup_set,
         toggle_companion_window,
         hide_companion_window
     ]);
