@@ -40,7 +40,7 @@
 - [x] Synchronize `walk` / `run` locomotion with native pet-window repositioning.
 - [x] Expose facing direction through Pet State and renderer.
 - [x] Add deterministic offline ambient explore/wander behavior selection.
-- [ ] Replace deterministic explore timing with weighted personality/curiosity behavior selection.
+- [x] Replace deterministic explore timing with weighted personality/curiosity behavior selection.
 - [ ] Multi-monitor autonomous movement policy.
 - [x] Idle/rest/sleep policy can consume Windows idle state through Behavior Intents.
 - [x] Hover enter/leave, touch, pet and play event loop.
