@@ -27,39 +27,15 @@ Ambient behavior is intentionally quiet. Weighted personality decisions such as 
 
 These actions must feel instant and must not call the LLM.
 
-#### Semantic hit zones
-
-The interaction contract defines forgiving normalized `head`, `body` and `tail` regions in `src/lib/pet/lenvu.manifest.json`. They are mapped into native window coordinates and used by the Windows cursor-passthrough controller. Production frame-aligned masks can replace/augment these regions later without changing Pet Brain commands.
-
 ### Level 3 — Context Bubble
 
-The Context Bubble V1 is a low-noise presentation policy rather than a permanent state label.
+The Context Bubble V1 is a low-noise presentation policy rather than a permanent state label. Meaningful interactions or system/focus transitions can produce short cues; ordinary ambient stay/observe/sit/explore behavior remains silent.
 
-It can appear for meaningful transitions such as:
-
-- being picked up;
-- receiving affection or play;
-- Focus Guard start/end;
-- sleep/wake transitions;
-- Pet Runtime degradation/recovery.
-
-Ordinary ambient stay/observe/sit/explore behavior remains silent. Bubble cues have priority, short display TTL and repeat cooldown, so lower-priority chatter cannot continuously replace an important runtime/focus message.
-
-Current tones:
-
-- `soft` — ordinary companion reaction;
-- `focus` — Focus Guard/system-attention state;
-- `warning` — degraded/recovering/error runtime state.
-
-The bubble remains pointer-transparent and automatically disappears. Its JavaScript timer controls presentation lifetime only; it does not advance or own Pet Brain simulation time.
-
-Future AI thinking/speaking and actionable reminders can use the same cue boundary, but must obey the same low-noise policy.
+The bubble is pointer-transparent and its presentation timer never owns Pet Brain simulation time.
 
 ### Level 4 — Companion window
 
-The Companion is not "the app"; it is a deeper view of the companion. It is a separate Tauri window from the transparent pet overlay, so closing/hiding it does not stop Lenvu's Rust Pet Runtime or PixiJS pet layer.
-
-The current navigation is:
+The Companion is a deeper view of Lenvu, not the creature itself. It is a separate Tauri window from the transparent pet overlay.
 
 ```text
 Companion
@@ -69,175 +45,77 @@ Companion
 └─ Settings
 ```
 
-The tabs are deliberately lazy where deeper management I/O is involved.
+Memory, Activity and deeper Settings I/O are lazy/on-demand where practical.
 
 #### Home
 
-Home stays lightweight and shows:
-
-- energy / curiosity / bond / sleep pressure summary;
-- pet/play/Focus Guard controls;
-- posture / attention / emotion / cognition;
-- renderer/runtime diagnostics such as animation id, sequence and DPI/display context.
+Home keeps ordinary interaction lightweight: pet/play/Focus Guard actions, life-state summary, posture/attention/emotion/cognition and renderer/runtime diagnostics.
 
 #### Memory
 
-Memory is loaded when opened and provides:
-
-- recent local long-term memories;
-- FTS5 search;
-- kind filtering;
-- explicit “remember this” creation;
-- content/kind/importance editing;
-- source-event provenance;
-- explicit delete / forget.
-
-It does not require MiniCPM5-1B to be loaded.
+Memory provides local long-term memory CRUD/search/provenance without requiring MiniCPM5-1B.
 
 #### Activity
 
-Activity is loaded when opened and shows only bounded low-frequency meaningful events already written by the persistence layer, such as reunion, affection, play and Focus Guard transitions.
-
-It is explicitly **not** a foreground-app history, cursor log or screen-history surface.
+Activity shows bounded meaningful relationship/focus events. It is not foreground-app, cursor or screen history.
 
 #### Settings
 
-Settings is mounted/read only when opened.
+Current Settings controls include:
 
-Current controls:
+1. **Windows 開機啟動** — opt-in, OS registration is source of truth.
+2. **App Privacy Exclusions** — local fail-closed deny list applied before context crosses the sensor boundary.
+3. **Accessibility context** — off by default; when enabled, initializes the bounded Windows UI Automation collector only for non-excluded apps.
+4. **Structured Screen Context status** — while Settings is mounted, shows the current broker state rather than building a history.
 
-1. **Windows 開機啟動**
-   - off by default;
-   - opt-in only;
-   - reads the actual OS launch-at-login registration;
-   - enable/disable is performed by the Rust shell through the official Tauri autostart integration;
-   - the checkbox is never treated as source of truth before the backend confirms the actual state.
-
-2. **App Privacy Exclusions**
-   - user manually enters a process app-id such as `discord` or `keepassxc`;
-   - case and a trailing `.exe` are normalized;
-   - the UI does not automatically build a list of recently observed applications;
-   - rules are local and removable;
-   - an excluded app is blocked before active-app identity reaches Domain Events or Screen Context Broker;
-   - fail-closed state is shown explicitly rather than presented as an empty rule list.
-
-3. **Accessibility context capability**
-   - off by default;
-   - explicit opt-in is persisted in the same local privacy policy as app exclusions;
-   - the same app deny list always wins over this capability;
-   - granting the capability does not itself start collection;
-   - the current collector is deliberately still unimplemented;
-   - the contract excludes screenshots, screen pixels, window-title capture and raw accessibility-text dumps.
-
-4. **Structured Screen Context status**
-   - visible only while the Settings surface is mounted;
-   - shows the Broker's current `available / privacy_blocked / unknown` state;
-   - shows active app identity only when the privacy gate allows it;
-   - shows privacy-approved window bounds, user-idle duration and local hour;
-   - does not create foreground-app history.
-
-The Settings UX should always explain what a control changes. Privacy controls are capability boundaries, not cosmetic switches.
+Accessibility UI is intentionally explicit about what is and is not collected. V1 may display only structural focused-control facts: control-type ID, enabled/focusable/focused/offscreen/password flags and geometry. It never displays element names, values, help text or an accessibility-tree dump because V1 never reads them.
 
 ### Level 5 — Deep management
 
-The current Settings tab can grow to include model/runtime, memory, performance, display, animation quality and debug controls. If it becomes too dense, those surfaces may move into a dedicated managed Settings window without changing the underlying Rust services.
-
-## Interaction state families
-
-```text
-Ambient
-├─ Idle
-├─ Observe
-├─ Walk
-├─ Sit
-├─ Rest
-└─ Sleep
-
-Direct
-├─ Hover
-├─ Touch
-├─ Pet
-├─ PickUp / Drag / Drop
-└─ Play
-
-Awareness
-├─ UserReturned
-├─ UserIdle
-├─ ActiveWindowChanged
-├─ TimeOfDay
-└─ StructuredContext
-
-AI
-├─ Listening
-├─ Thinking
-├─ Speaking
-├─ Remembering
-└─ Suggesting
-
-Special
-├─ FocusGuard
-├─ DoNotDisturb
-├─ LowEnergy
-├─ Sleep
-└─ OfflineBrain
-```
+Model/runtime, performance, display, animation and debug controls can grow here or later move to a dedicated managed Settings window without changing Rust services.
 
 ## Privacy-aware awareness UX
 
-Lenvu's awareness must be useful without feeling invasive.
-
-Current structured awareness uses process app identity, privacy-approved visible window bounds, user idle state and local hour. The Screen Context Broker contains no pixels, screenshot history or window-title history.
-
 ```text
-Windows sensor
+Windows sensors
     ↓
-Privacy gate
-    ├─ blocked → identity/bounds discarded; broker marked privacy_blocked
-    └─ allowed → structured context only
+PrivacyPolicyService
+    ├─ excluded/fail-closed → identity, bounds, accessibility discarded
+    └─ allowed
+          ↓
+ScreenContextBroker
+    ├─ active app identity
+    ├─ visible window bounds
+    ├─ idle + local hour
+    └─ focused-control structural metadata [explicit opt-in]
 ```
 
-When the current foreground application is added to the deny list, the normal one-second active-window sensor tick re-evaluates privacy and clears the broker's previous app identity and bounds. The user does not have to switch windows for the new rule to take effect.
+The accessibility worker runs at low frequency and does not initialize UI Automation while permission is off. It validates the focused element against the current foreground process. Switching apps invalidates previous accessibility data; stale results for a previous app are ignored.
 
-The accessibility capability is now explicit and opt-in, but the bounded collector remains a separate implementation step. Window-title and future capture capabilities must also remain separately permissioned. All of them must reuse the same exclusion service instead of inventing independent privacy lists.
+No structured-context surface creates foreground-app or accessibility history by default.
 
 ## Window model
 
-Implemented now:
-
-1. `pet` — transparent, always-on-top, taskbar-hidden desktop-pet overlay; PixiJS renderer + compact Context Bubble + Companion handle.
-2. `companion` — independently show/hide-able managed window for Home / Memory / Activity / Settings. Native close is converted into hide so it can reopen without restarting Pet Runtime.
+1. `pet` — transparent, always-on-top, taskbar-hidden Lenvu overlay.
+2. `companion` — Home / Memory / Activity / Settings, independently show/hide-able.
 3. native system tray — open Companion, show/hide Lenvu, explicit quit.
-
-The pet window must remain lightweight when deeper UI is closed.
 
 ## Launch-at-login UX
 
-Enabling Windows startup must not turn launch into an interruption. On login, Lenvu should restore the normal desktop-pet/tray presence while the Companion window remains hidden until the user requests it.
-
-Launch-at-login registration is an OS setting. It is not duplicated as a second boolean in SQLite.
+Enabling Windows startup restores the normal pet/tray presence after login; it must not automatically pop the Companion window in front of the user.
 
 ## Desktop movement UX
 
-`walk` and `run` locomotion drive actual native pet-window horizontal movement. The controller:
-
-- stays within the current monitor work area;
-- keeps Lenvu above the taskbar/work-area boundary;
-- reverses at horizontal edges;
-- converts logical movement speed through the current DPI scale factor;
-- deliberately avoids autonomous monitor crossing until multi-monitor policy is designed.
-
-Jump currently remains an in-character renderer action instead of moving the native window vertically. This prevents a premature physics/window-position coupling.
+`walk`/`run` can move the native pet window inside the current monitor work area, with edge reversal and DPI-aware speed. Autonomous cross-monitor travel remains a separate policy item.
 
 ## Visual language
 
-- deep blue/near-black UI surfaces;
+- deep blue/near-black surfaces;
 - cyan Lumen-Code highlights;
-- restrained violet for emotional/AI accents;
+- restrained violet emotional/AI accents;
 - gold only for Lenvu's horn-ring identity details;
-- translucent holographic rings for focus/protection/system states;
-- muted warm warning tone only for runtime degradation/error or privacy fail-closed warnings;
-- avoid constant glow/particles when idle to protect Vega 8 resources;
-- use animation-specific low-power frame budgets for rest/sleep states.
+- restrained effects and low-power FPS budgets for the Vega 8 target;
+- warm warning accents only for meaningful runtime/privacy degradation.
 
 Reference board: `docs/assets/lenvu-system-overview.webp`.
 Character rules: `docs/CHARACTER_BIBLE.md`.

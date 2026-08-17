@@ -89,7 +89,8 @@
 - [x] Add structured Screen Context Broker V1 for active app / bounds / idle / local hour, with no pixels or screenshots.
 - [x] Define opt-in structured accessibility-context capability behind the same privacy gate.
 - [x] Expose the accessibility capability and current structured-context status in Settings.
-- [ ] Implement bounded accessibility metadata only after the capability contract is approved by tests/UI.
+- [x] Implement bounded accessibility metadata with a low-frequency, privacy-gated Windows UI Automation worker.
+- [x] Keep accessibility context free of element names, values, help text, window titles and tree enumeration.
 
 ## Phase 4 — Local AI brain
 
