@@ -62,11 +62,23 @@ button, input, textarea, select { font: inherit; }
   border-radius: 14px 14px 14px 4px;
   background: rgba(7, 17, 31, .88);
   backdrop-filter: blur(14px);
-  transition: .18s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22);
+  transition: opacity .18s ease, transform .18s ease, border-color .18s ease, background .18s ease;
   font-size: 12px;
   line-height: 1.45;
 }
 .bubble.visible { opacity: 1; transform: none; }
+.bubble.focus-tone {
+  border-color: rgba(98, 229, 255, .58);
+  background: rgba(5, 28, 42, .92);
+  box-shadow: 0 10px 34px rgba(46, 197, 235, .12);
+}
+.bubble.warning-tone {
+  border-color: rgba(255, 168, 178, .46);
+  background: rgba(37, 16, 27, .92);
+  color: #ffe8ed;
+  box-shadow: 0 10px 34px rgba(154, 49, 76, .14);
+}
 
 .companion-stage {
   width: 100%;
