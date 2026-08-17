@@ -39,7 +39,7 @@ Relationship history  Memory Evaluator [planned]
                       ▲
                       │
               Memory Browser V1
-              manual CRUD/search
+          CRUD / search / provenance
 ```
 
 ## Typed long-term memory
@@ -107,7 +107,7 @@ A vector database is not justified until real use demonstrates that lexical + me
 
 ## Memory Browser V1 — implemented
 
-The Companion window now exposes explicit local memory management:
+The Companion window exposes explicit local memory management:
 
 ```text
 Memory
@@ -118,6 +118,7 @@ Memory
 ├─ edit content
 ├─ edit kind
 ├─ edit importance
+├─ source-event provenance
 └─ delete / forget
 ```
 
@@ -132,7 +133,7 @@ Manual memory management is deliberately independent of AI. If MiniCPM5-1B is un
 
 ### I/O boundary
 
-Continuous runtime persistence still belongs to the dedicated persistence worker. User-explicit Memory Browser CRUD instead opens short-lived SQLite admin connections only when a management action occurs.
+Continuous runtime persistence still belongs to the dedicated persistence worker. User-explicit Memory Browser CRUD and Activity History reads open short-lived SQLite admin connections only when a management action occurs.
 
 ```text
 Pet Runtime snapshots/events
@@ -147,7 +148,42 @@ long-lived connection       short-lived admin connection
 
 This keeps SQLite management calls outside the Pet Brain owner loop while allowing direct UI operations. `busy_timeout` is used so occasional writer overlap degrades into a bounded wait rather than uncontrolled blocking.
 
-The next Memory Browser depth item is **provenance**: showing the source journal/relationship event where one exists, plus a separate Activity History view.
+## Activity History and provenance — implemented
+
+The Companion window now exposes a bounded Activity History based on the journal that persistence already stores. It does **not** introduce a new telemetry stream.
+
+Current journal-visible events are intentionally low frequency:
+
+```text
+user_returned
+pet_petted
+pet_play
+focus_started
+focus_ended
+```
+
+Where a journal row also created a relationship event, the UI can show relationship context such as `reunion`, `affection` or `play`, together with the associated bond delta.
+
+Long-term memories already have an optional `source_event_id`. The UI resolves this ID back to the journal when present:
+
+```text
+memory
+  ├─ source_event_id = null
+  │      └─ provenance: manually created / explicit
+  │
+  └─ source_event_id = journal row
+         ↓
+   Activity History
+         ├─ event type
+         ├─ category
+         ├─ relationship kind
+         ├─ bond delta
+         └─ timestamp
+```
+
+This means a future Memory Evaluator can produce explainable automatic memories without changing the storage model. If an old journal row is removed by retention, the foreign key uses `ON DELETE SET NULL`, so long-term memory survives while stale provenance is safely detached.
+
+Activity History remains bounded by the persistence retention policy (currently 30 days / 2,000 rows) and excludes high-frequency cursor/runtime/window noise.
 
 ## Memory Evaluator [planned]
 
@@ -211,5 +247,6 @@ Memory persistence defaults to the minimum data needed for companion continuity:
 - screenshots are never placed in memory automatically;
 - raw clipboard contents are not memory inputs by default;
 - app identity should not become long-term preference data without a clear reason;
+- Activity History only exposes the already-filtered low-frequency journal;
 - long-term memories are user-inspectable and editable;
-- disabling AI does not disable basic memory management.
+- disabling AI does not disable basic memory/history management.
