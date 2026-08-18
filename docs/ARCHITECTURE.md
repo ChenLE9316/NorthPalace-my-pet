@@ -34,6 +34,7 @@ NorthPalace-my-pet.exe
 ├─ Rust application composition
 │  ├─ lib.rs       → builder + command registration + adapter wiring + shutdown
 │  ├─ bootstrap.rs → local-data / privacy / persistence / Pet Runtime bootstrap
+│  ├─ worker.rs    → cancellation / named worker registry / health / bounded join
 │  ├─ shell.rs     → tray-native shell behavior
 │  └─ commands.rs  → Tauri application command boundary
 ├─ pet WebView       → transparent / always-on-top / PixiJS
@@ -51,15 +52,17 @@ Rust owns semantic simulation time. `RuntimeHandle` exposes one `DomainEvent` in
 
 The Tauri bootstrap installs one snapshot observer that emits `pet-runtime-snapshot` to the WebViews. Each WebView performs one command-based cold-start read, then follows pushed snapshots instead of maintaining its own periodic snapshot timer. Direct interactions may still request one explicit refresh as a bounded fallback; there is no background frontend snapshot polling loop.
 
-Runtime health is intentionally truthful:
+The production Pet Runtime is a named managed worker (`pet-runtime`). Its 250 ms semantic clock remains owned by the runtime itself; supervision only supplies cancellation, health and shutdown ownership and does not move semantic timing into a generic scheduler.
+
+Runtime health remains a domain/runtime contract:
 
 ```text
 ready     normal runtime loop
 degraded  event input channel disconnected; final semantic snapshot retained
-error     Pet Runtime thread panicked; last published snapshot retained
+error     Pet Runtime loop failed/panicked; last published snapshot retained
 ```
 
-There is no speculative `recovering` state. Restart/recovery semantics belong with a future real worker supervisor.
+Worker health is a separate infrastructure contract. There is still no speculative runtime `recovering` state because no worker-specific restart policy has been implemented.
 
 ## 5. Pet state, behavior and personality
 
@@ -71,6 +74,8 @@ Short actions use `BehaviorIntent` priority, remaining lifetime, interruption po
 
 Current Windows modules include idle/return, local hour, foreground executable identity + privacy-approved DWM bounds, display/DPI/work area, optional bounded UI Automation metadata, selective cursor passthrough and native pet-window motion/drag.
 
+The long-running Windows adapters are registered as named supervised workers. Their previous `thread::sleep` loops use cancellation-aware waits so application shutdown does not wait for a 30-second clock poll, a 2-second accessibility poll or a high-frequency motion/cursor loop to wake naturally.
+
 Movement seeds direction from domain `facing`, respects work areas, reverses at edges and only allows autonomous monitor transitions for `Explore` across genuinely adjacent horizontal displays.
 
 ## 7. Privacy boundary
@@ -79,7 +84,7 @@ Movement seeds direction from domain `facing`, respects work areas, reverses at 
 
 Rules live in `privacy-rules.json`, separate from memory/history. Updates use a flushed temporary file followed by Windows replace-existing/write-through replacement; in-memory policy mutations roll back when persistence fails.
 
-Windows UI Automation is separately opt-in. It exposes only bounded structural metadata for the focused control and never reads Name, Value, HelpText, raw text or tree dumps. Disabling the capability drops its COM/UIA reader, and transient initialization failures retry after a bounded backoff.
+Windows UI Automation is separately opt-in. It exposes only bounded structural metadata for the focused control and never reads Name, Value, HelpText, raw text or tree dumps. Disabling the capability drops its COM/UIA reader, and transient initialization failures retry after a bounded backoff. Application cancellation also releases the reader through normal worker teardown.
 
 ## 8. Screen Context Broker and freshness
 
@@ -119,6 +124,8 @@ Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank rendere
 
 SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
 
+The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`. On application exit, the final pet-state flush occurs before cancellation. After cancellation, channel-owning persistence workers drain already queued commands/events until a bounded quiet receive timeout before returning, reducing tail-event loss while still allowing a bounded process shutdown.
+
 Memory category and transport contracts have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
 
 ## 11. UI boundary
@@ -131,15 +138,59 @@ Runtime state synchronization is event-driven: both WebViews listen to the Rust-
 
 ## 12. Application composition boundary
 
-`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and bounded final persistence flush. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, while native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
+`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior, final persistence flush and bounded worker shutdown. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
 
-`bootstrap.rs` also owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. The Pet Runtime remains unaware of WebView labels and Tauri event types.
+`bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. The Pet Runtime remains unaware of WebView labels and Tauri event types.
 
-This split keeps future worker supervision from being bolted into one oversized startup function and gives the next consolidation step a stable place for a lifecycle supervisor.
+The supervisor itself is Tauri-managed application state. `worker_status_get` exposes a small structured health snapshot for future deep-management/debug surfaces without pushing worker administration into the ambient pet UI.
 
 ## 13. Worker lifecycle
 
-Current background threads are mostly detached. Before MiniCPM/vision workers are added, introduce common cancellation, shutdown, join/restart and health reporting. Runtime `recovering` should only be introduced with that real mechanism.
+`WorkerSupervisor` is the common lifecycle boundary for long-running in-process workers. It owns one shared cancellation token, a named worker registry, per-worker health/error state and join handles.
+
+Current production-managed workers include:
+
+```text
+pet-runtime
+persistence-db
+persistence-autosave
+persistence-event-journal
+windows-local-time
+windows-idle
+windows-active-window
+windows-accessibility
+windows-cursor-passthrough
+windows-pet-motion
+```
+
+Worker health is explicit:
+
+```text
+starting
+running
+stopped
+error
+panicked
+detached
+```
+
+Blocking loops must either use `CancellationToken::wait_timeout` or a bounded channel receive timeout and re-check cancellation. Shutdown ordering is deliberate:
+
+```text
+snapshot current Pet State
+        ↓
+final persistence save + acknowledgement
+        ↓
+global cancellation
+        ↓
+channel workers drain already queued tail work
+        ↓
+bounded join (3 s application deadline)
+        ↓
+unfinished workers marked detached + named in stderr
+```
+
+The supervisor catches unexpected worker panics and records them. It does **not** apply a generic automatic-restart loop. SQLite ownership, COM/UI Automation, WebView controllers and future external model processes have different idempotency and resource-recreation requirements; restart must therefore be an explicit worker-specific policy. Runtime `recovering` should only exist when such a real policy is implemented.
 
 ## 14. Local AI policy
 
@@ -150,6 +201,8 @@ northpalace-my-pet.exe → local IPC → northpalace-llm-worker.exe → llama.cp
 ```
 
 No hover, petting, walking, sleeping, basic animation or focus reaction may require an LLM call. Future context composition must check structured-context freshness before using observations.
+
+Future external AI workers should reuse the lifecycle semantics established here—named ownership, health, bounded stop/join and explicit restart policy—without making ordinary Pet Runtime behavior depend on them.
 
 ## 15. Vision policy
 
