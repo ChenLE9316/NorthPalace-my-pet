@@ -16,9 +16,9 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Root-local runtime ignore is anchored so `assets/runtime/` remains available for production assets.
 - [x] CI rejects tracked local databases, model weights, `.env`, privacy rules, logs and private key containers.
 - [x] Add manual Windows NSIS bundle workflow and upload build artifacts for inspection.
-- [x] Manual bundle workflow resolves and uploads clean-runner npm/Cargo lockfile candidates before bundling.
+- [x] Generate and verify npm/Cargo lockfiles on a clean Windows runner, then commit them to `main`.
+- [x] Switch normal Windows CI and bundle dependency resolution to committed locks (`npm ci` / Cargo `--locked` verification).
 - [ ] Observe the first successful manual Windows bundle run.
-- [ ] Review and commit runner-generated `package-lock.json` / `Cargo.lock`, then switch normal CI to locked installs.
 - [ ] Clean executable/bundle run on target Windows machine.
 - [ ] RAM / idle CPU / GPU baseline on Ryzen 3 2200G + Vega 8.
 
@@ -87,7 +87,8 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Split `src-tauri/src/lib.rs` composition root into bootstrap / shell / command boundaries.
 - [x] Common worker lifecycle/supervision with named health, ordered producer/runtime cancellation, accepted-event drain, frozen final snapshot, journal barrier and bounded join.
 - [x] Replace growth of independent frontend polling loops with bounded shared subscription/event strategy.
-- [ ] Commit verified dependency lockfiles and change normal CI to `npm ci` / Cargo `--locked`.
+- [x] Commit verified dependency lockfiles and change normal CI to `npm ci` / Cargo `--locked`.
+- [ ] Record a clean Windows validation evidence run for frontend build + Rust fmt/Clippy/tests under committed locks.
 - [ ] Svelte-specific diagnostic gate after TypeScript 7 toolchain compatibility is fixed and locked.
 
 Generic automatic restart is intentionally not a shared lifecycle primitive. Restart must be worker-specific and prove resource-safe/idempotent before a worker gains a `recovering` state.
@@ -116,7 +117,7 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 ## Before public release
 
 - [ ] Code license and separate Lenvu artwork license.
-- [ ] Commit verified `package-lock.json` + `Cargo.lock` from clean-runner dependency resolution.
+- [x] Commit verified `package-lock.json` + `Cargo.lock` from clean-runner dependency resolution.
 - [x] Add `SECURITY.md` with pre-release vulnerability/privacy reporting guidance.
 - [x] Configure a restrictive production CSP for local bundle resources and Tauri IPC; keep Vite development CSP explicitly disabled.
 - [ ] Verify the production CSP in the first successful Windows bundle/run.
