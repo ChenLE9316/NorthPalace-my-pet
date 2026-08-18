@@ -67,7 +67,7 @@ pub enum CognitionState {
     Remembering,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PetStateV2 {
     pub locomotion: Locomotion,
