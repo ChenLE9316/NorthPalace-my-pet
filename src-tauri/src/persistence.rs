@@ -23,7 +23,8 @@ use crate::{
 const SCHEMA_VERSION: i64 = 2;
 const ACTIVITY_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 const ACTIVITY_MAX_ROWS: i64 = 2_000;
-const WORKER_RECV_POLL: Duration = Duration::from_millis(100);
+const JOURNAL_RECV_POLL: Duration = Duration::from_millis(100);
+const PERSISTENCE_RECV_POLL: Duration = Duration::from_millis(250);
 
 #[derive(Debug, Clone, PartialEq)]
 struct ActivityRecord {
@@ -181,7 +182,7 @@ impl PersistenceBootstrap {
             let mut connection = connection;
 
             loop {
-                let command = match rx.recv_timeout(WORKER_RECV_POLL) {
+                let command = match rx.recv_timeout(PERSISTENCE_RECV_POLL) {
                     Ok(command) => command,
                     Err(RecvTimeoutError::Timeout) if token.is_cancelled() => break,
                     Err(RecvTimeoutError::Timeout) => continue,
@@ -407,7 +408,7 @@ pub fn spawn_event_journal(
         let mut current_hour: Option<u8> = None;
 
         loop {
-            let event = match events.recv_timeout(WORKER_RECV_POLL) {
+            let event = match events.recv_timeout(JOURNAL_RECV_POLL) {
                 Ok(event) => event,
                 Err(RecvTimeoutError::Timeout) if token.is_cancelled() => break,
                 Err(RecvTimeoutError::Timeout) => continue,
