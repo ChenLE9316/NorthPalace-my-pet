@@ -54,6 +54,8 @@ The Tauri bootstrap installs one snapshot observer that emits `pet-runtime-snaps
 
 The production Pet Runtime is a named managed worker (`pet-runtime`). Its 250 ms semantic clock remains owned by the runtime itself; supervision only supplies cancellation, health and shutdown ownership and does not move semantic timing into a generic scheduler.
 
+`RuntimeHandle` also owns an input gate used only for ordered shutdown. Normal `dispatch()` holds a read guard through both the runtime-channel send and domain-event subscriber sends. `close_event_input()` takes the write guard and flips the gate closed, which means it waits for in-flight accepted dispatches to finish and prevents any later WebView or adapter dispatch from entering the final drain window.
+
 Runtime health remains a domain/runtime contract:
 
 ```text
@@ -126,7 +128,7 @@ SQLite is bundled through `rusqlite`. Current structures cover pet state, bounde
 
 The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`, but they belong to different shutdown phases. Autosave is a producer; Pet Runtime has its own runtime phase; the event journal is the journal phase; the DB owner is the persistence phase.
 
-Application exit no longer relies on quiet-time ordering. Platform sensors/controllers and autosave producers are cancelled and joined first so no upstream worker continues generating runtime or persistence work. Pet Runtime is then cancelled in its own phase; before returning, it drains every already accepted event remaining in its input queue and publishes that final semantic snapshot. Only after the runtime join barrier completes does the application read the frozen snapshot.
+Application exit no longer relies on quiet-time ordering. Platform sensors/controllers and autosave producers are cancelled and joined first so no supervised upstream worker continues generating runtime or persistence work. The application then closes the Pet Runtime input gate; that operation waits for any in-flight dispatch to finish its runtime-channel and journal-subscriber sends and rejects every later dispatch. Pet Runtime is then cancelled in its own phase; before returning, it drains every already accepted event remaining in its input queue and publishes that final semantic snapshot. Only after the runtime join barrier completes does the application read the frozen snapshot.
 
 The journal phase is cancelled and joined next, allowing its already accepted domain events to reach the still-running persistence worker. After that barrier, the frozen Pet State is sent through `SaveAndFlush`; because the final save command is queued after all journal sends have completed, its acknowledgement also proves that earlier queued persistence work has been processed. The DB phase is cancelled and joined last.
 
@@ -203,7 +205,7 @@ Shutdown ordering is deliberate:
 ```text
 cancel + join producers
         ↓
-no upstream sensor/controller/autosave producers remain
+close Runtime input gate; wait for in-flight dispatches
         ↓
 cancel runtime; drain accepted runtime events; join runtime
         ↓
