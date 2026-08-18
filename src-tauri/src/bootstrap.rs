@@ -3,8 +3,6 @@ use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
 
 use crate::{
-    history_admin::HistoryAdminService,
-    memory_admin::MemoryAdminService,
     persistence::{
         spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
     },
@@ -24,8 +22,6 @@ const PET_RUNTIME_SNAPSHOT_EVENT: &str = "pet-runtime-snapshot";
 pub(crate) fn initialize_runtime<R: tauri::Runtime>(
     app: &mut tauri::App<R>,
     persistence_service: PersistenceService,
-    memory_admin_service: MemoryAdminService,
-    history_admin_service: HistoryAdminService,
     privacy_policy_service: PrivacyPolicyService,
     worker_supervisor: WorkerSupervisor,
 ) -> Result<RuntimeHandle, String> {
@@ -50,15 +46,7 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
     let persistence_bootstrap = if let Some(data_dir) = local_data_dir {
         let database_path = data_dir.join("lenvu.sqlite3");
         match PersistenceBootstrap::open(&database_path) {
-            Ok(bootstrap) => {
-                if let Err(error) = memory_admin_service.install(database_path.clone()) {
-                    eprintln!("Lenvu Memory Browser unavailable: {error}");
-                }
-                if let Err(error) = history_admin_service.install(database_path) {
-                    eprintln!("Lenvu Activity History unavailable: {error}");
-                }
-                Some(bootstrap)
-            }
+            Ok(bootstrap) => Some(bootstrap),
             Err(error) => {
                 eprintln!("Lenvu persistence unavailable; continuing session-only: {error}");
                 None
