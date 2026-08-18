@@ -1,9 +1,10 @@
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 use crate::{
     domain::events::DomainEvent,
     runtime::RuntimeHandle,
     screen_context::ScreenContextBroker,
+    worker::WorkerSupervisor,
 };
 
 #[repr(C)]
@@ -34,29 +35,32 @@ fn local_hour() -> u8 {
     normalize_hour(time.hour)
 }
 
-pub fn spawn_local_time_sensor(runtime: RuntimeHandle, screen_context: ScreenContextBroker) {
-    thread::spawn(move || {
+pub fn spawn_local_time_sensor(
+    runtime: RuntimeHandle,
+    screen_context: ScreenContextBroker,
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("windows-local-time", move |token| {
         let mut previous_hour: Option<u8> = None;
 
-        loop {
+        while !token.is_cancelled() {
             let hour = local_hour();
             // Refresh observation freshness every sensor pass while keeping Domain Events
             // hour-change-only and Screen Context sequence semantic-change-only.
             screen_context.observe_local_hour(hour);
 
             if previous_hour != Some(hour) {
-                if runtime
-                    .dispatch(DomainEvent::TimeOfDayChanged { hour })
-                    .is_err()
-                {
-                    break;
-                }
+                runtime.dispatch(DomainEvent::TimeOfDayChanged { hour })?;
                 previous_hour = Some(hour);
             }
 
-            thread::sleep(Duration::from_secs(30));
+            if token.wait_timeout(Duration::from_secs(30)) {
+                break;
+            }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
