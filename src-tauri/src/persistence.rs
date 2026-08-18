@@ -16,6 +16,8 @@ use crate::{
         memory::{MemoryDraft, MemoryKind, MemorySearchHit},
         pet_state::{Facing, PetStateV2},
     },
+    history_admin::{self, ActivityHistoryRecord},
+    memory_admin::{self, MemoryInput, MemoryRecord},
     runtime::RuntimeHandle,
     worker::WorkerSupervisor,
 };
@@ -94,6 +96,37 @@ enum PersistenceCommand {
         query: String,
         limit: u32,
         ack: mpsc::SyncSender<Result<Vec<MemorySearchHit>, String>>,
+    },
+    ListMemoryRecords {
+        kind: Option<MemoryKind>,
+        limit: u32,
+        ack: mpsc::SyncSender<Result<Vec<MemoryRecord>, String>>,
+    },
+    SearchMemoryRecords {
+        query: String,
+        limit: u32,
+        ack: mpsc::SyncSender<Result<Vec<MemoryRecord>, String>>,
+    },
+    CreateMemoryRecord {
+        input: MemoryInput,
+        ack: mpsc::SyncSender<Result<i64, String>>,
+    },
+    UpdateMemoryRecord {
+        id: i64,
+        input: MemoryInput,
+        ack: mpsc::SyncSender<Result<(), String>>,
+    },
+    DeleteMemoryRecord {
+        id: i64,
+        ack: mpsc::SyncSender<Result<(), String>>,
+    },
+    ListActivity {
+        limit: u32,
+        ack: mpsc::SyncSender<Result<Vec<ActivityHistoryRecord>, String>>,
+    },
+    GetActivity {
+        id: i64,
+        ack: mpsc::SyncSender<Result<Option<ActivityHistoryRecord>, String>>,
     },
 }
 
@@ -227,6 +260,27 @@ impl PersistenceBootstrap {
                         let result = search_memories(&connection, &query, limit);
                         let _ = ack.send(result);
                     }
+                    PersistenceCommand::ListMemoryRecords { kind, limit, ack } => {
+                        let _ = ack.send(memory_admin::list_memories(&connection, kind, limit));
+                    }
+                    PersistenceCommand::SearchMemoryRecords { query, limit, ack } => {
+                        let _ = ack.send(memory_admin::search_memories(&connection, &query, limit));
+                    }
+                    PersistenceCommand::CreateMemoryRecord { input, ack } => {
+                        let _ = ack.send(memory_admin::create_memory(&connection, &input));
+                    }
+                    PersistenceCommand::UpdateMemoryRecord { id, input, ack } => {
+                        let _ = ack.send(memory_admin::update_memory(&connection, id, &input));
+                    }
+                    PersistenceCommand::DeleteMemoryRecord { id, ack } => {
+                        let _ = ack.send(memory_admin::delete_memory(&connection, id));
+                    }
+                    PersistenceCommand::ListActivity { limit, ack } => {
+                        let _ = ack.send(history_admin::list_activity(&connection, limit));
+                    }
+                    PersistenceCommand::GetActivity { id, ack } => {
+                        let _ = ack.send(history_admin::get_activity(&connection, id));
+                    }
                 }
             }
 
@@ -255,11 +309,7 @@ impl PersistenceHandle {
         self.tx
             .send(PersistenceCommand::SaveAndFlush { state, ack: ack_tx })
             .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
-
-        ack_rx
-            .recv_timeout(timeout)
-            .map_err(|error| format!("persistence final-save acknowledgement failed: {error}"))??;
-        Ok(())
+        wait_for_ack(ack_rx, timeout, "persistence final-save")
     }
 
     fn queue_activity(&self, activity: ActivityRecord) -> Result<(), String> {
@@ -297,15 +347,120 @@ impl PersistenceHandle {
                 ack: ack_tx,
             })
             .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory search")
+    }
 
-        ack_rx
-            .recv_timeout(timeout)
-            .map_err(|error| format!("memory search acknowledgement failed: {error}"))?
+    pub fn list_memory_records(
+        &self,
+        kind: Option<MemoryKind>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemoryRecord>, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::ListMemoryRecords {
+                kind,
+                limit: limit.clamp(1, 100),
+                ack: ack_tx,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory list")
+    }
+
+    pub fn search_memory_records(
+        &self,
+        query: impl Into<String>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemoryRecord>, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::SearchMemoryRecords {
+                query: query.into(),
+                limit: limit.clamp(1, 100),
+                ack: ack_tx,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory admin search")
+    }
+
+    pub fn create_memory_record(
+        &self,
+        input: MemoryInput,
+        timeout: Duration,
+    ) -> Result<i64, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::CreateMemoryRecord { input, ack: ack_tx })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory create")
+    }
+
+    pub fn update_memory_record(
+        &self,
+        id: i64,
+        input: MemoryInput,
+        timeout: Duration,
+    ) -> Result<(), String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::UpdateMemoryRecord {
+                id,
+                input,
+                ack: ack_tx,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory update")
+    }
+
+    pub fn delete_memory_record(&self, id: i64, timeout: Duration) -> Result<(), String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::DeleteMemoryRecord { id, ack: ack_tx })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "memory delete")
+    }
+
+    pub fn list_activity(
+        &self,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<ActivityHistoryRecord>, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::ListActivity {
+                limit: limit.clamp(1, 100),
+                ack: ack_tx,
+            })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "activity list")
+    }
+
+    pub fn get_activity(
+        &self,
+        id: i64,
+        timeout: Duration,
+    ) -> Result<Option<ActivityHistoryRecord>, String> {
+        let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+        self.tx
+            .send(PersistenceCommand::GetActivity { id, ack: ack_tx })
+            .map_err(|_| "persistence worker channel is unavailable".to_owned())?;
+        wait_for_ack(ack_rx, timeout, "activity get")
     }
 
     pub fn had_saved_state(&self) -> bool {
         self.had_saved_state
     }
+}
+
+fn wait_for_ack<T>(
+    receiver: mpsc::Receiver<Result<T, String>>,
+    timeout: Duration,
+    operation: &str,
+) -> Result<T, String> {
+    receiver
+        .recv_timeout(timeout)
+        .map_err(|error| format!("{operation} acknowledgement failed: {error}"))?
 }
 
 #[derive(Clone, Default)]
@@ -323,6 +478,10 @@ impl PersistenceService {
 
     fn handle(&self) -> Option<PersistenceHandle> {
         self.inner.read().ok().and_then(|slot| slot.clone())
+    }
+
+    fn required_handle(&self, unavailable: &str) -> Result<PersistenceHandle, String> {
+        self.handle().ok_or_else(|| unavailable.to_owned())
     }
 
     pub fn save_and_flush(&self, state: PetStateV2, timeout: Duration) -> Result<(), String> {
@@ -349,6 +508,68 @@ impl PersistenceService {
             return Ok(Vec::new());
         };
         handle.search_memories(query, limit, timeout)
+    }
+
+    pub fn list_memory_records(
+        &self,
+        kind: Option<MemoryKind>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemoryRecord>, String> {
+        self.required_handle("persistent memory is unavailable for this session")?
+            .list_memory_records(kind, limit, timeout)
+    }
+
+    pub fn search_memory_records(
+        &self,
+        query: impl Into<String>,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<MemoryRecord>, String> {
+        self.required_handle("persistent memory is unavailable for this session")?
+            .search_memory_records(query, limit, timeout)
+    }
+
+    pub fn create_memory_record(
+        &self,
+        input: MemoryInput,
+        timeout: Duration,
+    ) -> Result<i64, String> {
+        self.required_handle("persistent memory is unavailable for this session")?
+            .create_memory_record(input, timeout)
+    }
+
+    pub fn update_memory_record(
+        &self,
+        id: i64,
+        input: MemoryInput,
+        timeout: Duration,
+    ) -> Result<(), String> {
+        self.required_handle("persistent memory is unavailable for this session")?
+            .update_memory_record(id, input, timeout)
+    }
+
+    pub fn delete_memory_record(&self, id: i64, timeout: Duration) -> Result<(), String> {
+        self.required_handle("persistent memory is unavailable for this session")?
+            .delete_memory_record(id, timeout)
+    }
+
+    pub fn list_activity(
+        &self,
+        limit: u32,
+        timeout: Duration,
+    ) -> Result<Vec<ActivityHistoryRecord>, String> {
+        self.required_handle("activity history is unavailable for this session")?
+            .list_activity(limit, timeout)
+    }
+
+    pub fn get_activity(
+        &self,
+        id: i64,
+        timeout: Duration,
+    ) -> Result<Option<ActivityHistoryRecord>, String> {
+        self.required_handle("activity history is unavailable for this session")?
+            .get_activity(id, timeout)
     }
 
     fn queue_activity(&self, activity: ActivityRecord) -> Result<(), String> {
@@ -867,6 +1088,61 @@ mod tests {
         persistence
             .save_and_flush(state, Duration::from_secs(1))
             .expect("final save acknowledgement");
+
+        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        assert_eq!(report.joined, vec!["persistence-db".to_owned()]);
+        assert!(report.detached.is_empty());
+    }
+
+    #[test]
+    fn admin_queries_share_the_persistence_worker() {
+        let connection = Connection::open_in_memory().expect("in-memory SQLite");
+        let bootstrap = PersistenceBootstrap::from_connection(connection).expect("bootstrap");
+        let supervisor = WorkerSupervisor::default();
+        let handle = bootstrap
+            .into_worker(&supervisor)
+            .expect("persistence worker");
+        let service = PersistenceService::default();
+        service.install(handle.clone()).expect("install persistence");
+
+        let id = service
+            .create_memory_record(
+                MemoryInput {
+                    kind: MemoryKind::Preference,
+                    content: "Quiet focus companion".to_owned(),
+                    importance: 0.8,
+                },
+                Duration::from_secs(1),
+            )
+            .expect("create through worker");
+        let memories = service
+            .search_memory_records("quiet focus", 10, Duration::from_secs(1))
+            .expect("search through worker");
+        assert_eq!(memories.len(), 1);
+        assert_eq!(memories[0].id, id);
+
+        handle
+            .queue_activity(ActivityRecord {
+                event_type: "pet_petted".to_owned(),
+                category: "relationship".to_owned(),
+                relationship_kind: Some("affection".to_owned()),
+                bond_delta: 0.01,
+                counts_as_interaction: true,
+            })
+            .expect("queue activity");
+        let activity = service
+            .list_activity(10, Duration::from_secs(1))
+            .expect("activity through worker");
+        assert_eq!(activity.len(), 1);
+        assert_eq!(activity[0].event_type, "pet_petted");
+
+        service
+            .delete_memory_record(id, Duration::from_secs(1))
+            .expect("delete through worker");
+        assert!(service
+            .list_memory_records(None, 10, Duration::from_secs(1))
+            .expect("list after delete")
+            .is_empty());
 
         let report = supervisor.shutdown_and_join(Duration::from_secs(1));
         assert_eq!(report.joined, vec!["persistence-db".to_owned()]);
