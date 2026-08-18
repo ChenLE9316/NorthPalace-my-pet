@@ -250,10 +250,12 @@ Continuous visual perception is out of scope. Future visual understanding must b
 
 The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`; the production CSP still needs verification in the first successful Windows bundle/run.
 
-Windows CI guards `main` with tracked-data validation, frontend asset/build validation, Rust formatting, Clippy and tests. A separate manual Windows Bundle workflow builds the NSIS/executable artifact. That clean runner also resolves and uploads `package-lock.json` and `src-tauri/Cargo.lock` candidates so dependency locks can be reviewed before committing them.
+`package-lock.json` and `src-tauri/Cargo.lock` are committed from a clean `windows-latest` bootstrap run after that runner verified `npm ci` and `cargo metadata --locked`. The one-time bootstrap workflow removed itself in the same bot commit, so dependency-resolution bootstrap logic is not a permanent maintenance surface.
 
-Builds are not considered fully reproducible until those lockfiles are committed and normal CI switches to locked installs. CI source compatibility also does not replace a clean target-machine run and RAM/CPU/GPU measurements.
+Normal Windows CI now installs frontend dependencies with `npm ci`, verifies the Cargo lockfile with `cargo metadata --locked`, and runs Clippy/tests with Cargo `--locked`; source formatting and tracked-data guards remain part of the same gate. The manual Windows Bundle workflow consumes the same committed locks, verifies Cargo metadata under `--locked`, builds the NSIS/executable artifact, and no longer generates independent lockfile candidates.
+
+Dependency resolution is therefore reproducible at the repository/CI boundary. This does **not** yet establish a successful clean Windows NSIS run, production CSP verification, or target-machine RAM/CPU/GPU performance; those remain separate acceptance gates.
 
 ## 17. Documentation authority
 
-For engineering behavior: running code/tests → `ARCHITECTURE.md` → `ROADMAP.md` → README. For visual identity, original source evidence and `LENVU_VISUAL_GROUND_TRUTH.md` remain authoritative.
+For engineering behavior: running code/tests → `ARCHITECTURE.md` → `ROADMAP.md` → README. For visual identity, original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` remain authoritative.
