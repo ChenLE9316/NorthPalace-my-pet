@@ -10,7 +10,7 @@ use crate::{
     },
     privacy::PrivacyPolicyService,
     runtime::{RuntimeHandle, SnapshotObserver},
-    worker::WorkerSupervisor,
+    worker::{WorkerPhase, WorkerSupervisor},
 };
 
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
@@ -86,7 +86,8 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
     )?;
 
     if let Some(bootstrap) = persistence_bootstrap {
-        match bootstrap.into_worker(&worker_supervisor) {
+        let persistence_supervisor = worker_supervisor.in_phase(WorkerPhase::Persistence);
+        match bootstrap.into_worker(&persistence_supervisor) {
             Ok(persistence) => {
                 if !persistence.had_saved_state() {
                     if let Err(error) = persistence.queue_save(initial_state) {
@@ -111,10 +112,11 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
         }
     }
 
+    let journal_supervisor = worker_supervisor.in_phase(WorkerPhase::Journal);
     if let Err(error) = spawn_event_journal(
         runtime.clone(),
         persistence_service,
-        &worker_supervisor,
+        &journal_supervisor,
     ) {
         eprintln!("Lenvu activity journal observer unavailable: {error}");
     }
