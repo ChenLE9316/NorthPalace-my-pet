@@ -26,11 +26,15 @@
 - [x] Define the Lenvu Character Bible.
 - [x] Freeze original-image visual ground truth and authority order so generated candidates cannot redefine Lenvu.
 - [x] Import the first provenance-tracked high-resolution-canvas anatomy reference preview and preserve original-source checksum/resolution metadata.
+- [x] Verify the original 1536×1024 anatomy source dimensions, exact byte length and SHA-256.
 - [x] Freeze the Canonical Lenvu production coordinate/identity contract while keeping normalization coordinates subordinate to source evidence.
 - [x] Establish provisional front/profile/back normalization landmarks and QA tolerances with explicit source-image precedence.
-- [x] Add CI rules that forbid provisional coordinates from becoming character-identity authority.
-- [ ] Measure production landmarks from the original high-resolution anatomy source before canonical-master approval.
+- [x] Measure front/profile/back production landmarks directly from the original high-resolution anatomy source.
+- [x] Remap measured source pixels into canonical 1024×1024 coordinates using aspect-preserving ground/root alignment.
+- [x] Revise canonical safe bounds and source-derived pivots so the long canine profile is not compressed by earlier inferred/chibi-biased coordinates.
+- [x] Add CI rules that recompute canonical landmarks from source measurements and reject drift.
 - [x] Add a candidate-promotion gate that rejects source-divergent/chibi/cat-like master artwork.
+- [x] Require future master candidates to match measured source landmarks as well as visual identity.
 - [ ] Replace the transport-optimized anatomy preview with a high-quality source-faithful repository derivative.
 - [ ] Replace the low-resolution README concept-board copy with the original high-resolution source-faithful derivative.
 - [ ] Normalize canonical Lenvu anatomy/scale/anchors from the original sheets into a production master artwork.
