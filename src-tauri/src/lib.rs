@@ -191,6 +191,10 @@ pub fn run() {
         );
         report_detached_workers("producers", &producers);
 
+        let runtime = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Runtime, WORKER_PHASE_SHUTDOWN_TIMEOUT);
+        report_detached_workers("runtime", &runtime);
+
         let frozen_snapshot = app_handle
             .try_state::<RuntimeHandle>()
             .and_then(|runtime| runtime.snapshot().ok());
