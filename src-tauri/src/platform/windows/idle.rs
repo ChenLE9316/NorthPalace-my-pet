@@ -1,9 +1,10 @@
-use std::{thread, time::Duration};
+use std::time::Duration;
 
 use crate::{
     domain::events::DomainEvent,
     runtime::RuntimeHandle,
     screen_context::ScreenContextBroker,
+    worker::WorkerSupervisor,
 };
 
 #[repr(C)]
@@ -40,35 +41,35 @@ fn system_idle_ms() -> Option<u64> {
 pub fn spawn_idle_sensor(
     runtime: RuntimeHandle,
     screen_context: ScreenContextBroker,
-) {
-    thread::spawn(move || {
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("windows-idle", move |token| {
         let mut previous_idle_ms = 0_u64;
 
-        loop {
+        while !token.is_cancelled() {
             let Some(idle_ms) = system_idle_ms() else {
-                thread::sleep(Duration::from_secs(2));
+                if token.wait_timeout(Duration::from_secs(2)) {
+                    break;
+                }
                 continue;
             };
 
             screen_context.observe_user_idle(idle_ms);
 
             if previous_idle_ms >= 10_000 && idle_ms <= 1_500 {
-                if runtime.dispatch(DomainEvent::UserReturned).is_err() {
-                    break;
-                }
+                runtime.dispatch(DomainEvent::UserReturned)?;
             }
 
-            if runtime
-                .dispatch(DomainEvent::UserIdleChanged { idle_ms })
-                .is_err()
-            {
+            runtime.dispatch(DomainEvent::UserIdleChanged { idle_ms })?;
+            previous_idle_ms = idle_ms;
+
+            if token.wait_timeout(Duration::from_secs(1)) {
                 break;
             }
-
-            previous_idle_ms = idle_ms;
-            thread::sleep(Duration::from_secs(1));
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
