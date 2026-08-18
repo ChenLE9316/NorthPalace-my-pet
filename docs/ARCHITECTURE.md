@@ -32,9 +32,9 @@ The Domain layer must not depend on Svelte, PixiJS, WebView coordinates, Tauri w
 NorthPalace-my-pet.exe
 │
 ├─ Rust application composition
-│  ├─ lib.rs       → builder + command registration + adapter wiring + shutdown
+│  ├─ lib.rs       → builder + command registration + adapter wiring + phased shutdown
 │  ├─ bootstrap.rs → local-data / privacy / persistence / Pet Runtime bootstrap
-│  ├─ worker.rs    → cancellation / named worker registry / health / bounded join
+│  ├─ worker.rs    → phase cancellation / named registry / health / bounded join
 │  ├─ shell.rs     → tray-native shell behavior
 │  └─ commands.rs  → Tauri application command boundary
 ├─ pet WebView       → transparent / always-on-top / PixiJS
@@ -74,7 +74,7 @@ Short actions use `BehaviorIntent` priority, remaining lifetime, interruption po
 
 Current Windows modules include idle/return, local hour, foreground executable identity + privacy-approved DWM bounds, display/DPI/work area, optional bounded UI Automation metadata, selective cursor passthrough and native pet-window motion/drag.
 
-The long-running Windows adapters are registered as named supervised workers. Their previous `thread::sleep` loops use cancellation-aware waits so application shutdown does not wait for a 30-second clock poll, a 2-second accessibility poll or a high-frequency motion/cursor loop to wake naturally.
+The long-running Windows adapters are registered as named supervised producer workers. Their previous `thread::sleep` loops use cancellation-aware waits so application shutdown does not wait for a 30-second clock poll, a 2-second accessibility poll or a high-frequency motion/cursor loop to wake naturally.
 
 Movement seeds direction from domain `facing`, respects work areas, reverses at edges and only allows autonomous monitor transitions for `Explore` across genuinely adjacent horizontal displays.
 
@@ -124,7 +124,11 @@ Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank rendere
 
 SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
 
-The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`. On application exit, the final pet-state flush occurs before cancellation. After cancellation, channel-owning persistence workers drain already queued commands/events until a bounded quiet receive timeout before returning, reducing tail-event loss while still allowing a bounded process shutdown.
+The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`, but they belong to different shutdown phases. Autosave is a producer; the event journal is the journal phase; the DB owner is the persistence phase.
+
+Application exit no longer relies on quiet-time ordering between those workers. Producer workers are cancelled and joined first, which freezes Pet Runtime state and prevents new successful domain dispatches. The application then reads that frozen snapshot. The journal phase is cancelled and joined next, allowing its already queued events to reach the still-running persistence worker. Only after the journal barrier completes is the frozen Pet State sent through `SaveAndFlush`. Its acknowledgement therefore sits behind previously queued journal/autosave writes. The DB phase is cancelled and joined last.
+
+The SQLite worker uses a 2500 ms busy timeout; final-save acknowledgement allows 3 seconds so the application does not declare timeout before SQLite's own bounded lock wait can complete.
 
 Memory category and transport contracts have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
 
@@ -138,29 +142,42 @@ Runtime state synchronization is event-driven: both WebViews listen to the Rust-
 
 ## 12. Application composition boundary
 
-`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior, final persistence flush and bounded worker shutdown. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
+`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and ordered worker shutdown/final persistence. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
 
-`bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. The Pet Runtime remains unaware of WebView labels and Tauri event types.
+`bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. It also assigns persistence-related workers to phase-scoped supervisor views; persistence code itself does not need to know the whole application shutdown topology.
 
-The supervisor itself is Tauri-managed application state. `worker_status_get` exposes a small structured health snapshot for future deep-management/debug surfaces without pushing worker administration into the ambient pet UI.
+The supervisor itself is Tauri-managed application state. `worker_status_get` exposes a small structured health snapshot, including each worker's shutdown phase, for future deep-management/debug surfaces without pushing worker administration into the ambient pet UI.
 
 ## 13. Worker lifecycle
 
-`WorkerSupervisor` is the common lifecycle boundary for long-running in-process workers. It owns one shared cancellation token, a named worker registry, per-worker health/error state and join handles.
-
-Current production-managed workers include:
+`WorkerSupervisor` is the common lifecycle boundary for long-running in-process workers. It owns one shared registry and independent cancellation tokens for three ordered phases:
 
 ```text
-pet-runtime
-persistence-db
-persistence-autosave
-persistence-event-journal
-windows-local-time
-windows-idle
-windows-active-window
-windows-accessibility
-windows-cursor-passthrough
-windows-pet-motion
+producers
+journal
+persistence
+```
+
+Phase-scoped supervisor views share the same registry/health state but assign newly spawned workers to the selected phase. The default view is `producers`.
+
+Current production-managed workers are classified as:
+
+```text
+producers
+├─ pet-runtime
+├─ persistence-autosave
+├─ windows-local-time
+├─ windows-idle
+├─ windows-active-window
+├─ windows-accessibility
+├─ windows-cursor-passthrough
+└─ windows-pet-motion
+
+journal
+└─ persistence-event-journal
+
+persistence
+└─ persistence-db
 ```
 
 Worker health is explicit:
@@ -174,21 +191,27 @@ panicked
 detached
 ```
 
-Blocking loops must either use `CancellationToken::wait_timeout` or a bounded channel receive timeout and re-check cancellation. Shutdown ordering is deliberate:
+Blocking loops must either use `CancellationToken::wait_timeout` or a bounded channel receive timeout and re-check cancellation. The receive timeout is only a cancellation-responsiveness mechanism; correctness no longer depends on one worker guessing that an upstream worker has been quiet for long enough.
+
+Shutdown ordering is deliberate:
 
 ```text
-snapshot current Pet State
+cancel + join producers
         ↓
-final persistence save + acknowledgement
+Pet Runtime is frozen; read final snapshot
         ↓
-global cancellation
+cancel + join journal
         ↓
-channel workers drain already queued tail work
+all accepted journal work has been handed to persistence
         ↓
-bounded join (3 s application deadline)
+SaveAndFlush frozen Pet State + wait for acknowledgement
         ↓
-unfinished workers marked detached + named in stderr
+cancel + join persistence DB
+        ↓
+unfinished workers marked detached + named by phase in stderr
 ```
+
+Each phase has a bounded join deadline. If a producer cannot stop before its deadline, the application reports it as detached and final persistence becomes best-effort rather than pretending the snapshot is guaranteed frozen.
 
 The supervisor catches unexpected worker panics and records them. It does **not** apply a generic automatic-restart loop. SQLite ownership, COM/UI Automation, WebView controllers and future external model processes have different idempotency and resource-recreation requirements; restart must therefore be an explicit worker-specific policy. Runtime `recovering` should only exist when such a real policy is implemented.
 
