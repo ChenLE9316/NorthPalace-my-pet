@@ -1,99 +1,78 @@
 # NorthPalace-my-pet Foundation Review
 
-> **Historical review record.** This document captures the first foundation review and the corrections that originally shaped the project. Many items below have since been implemented or superseded. For current behavior and architecture, use `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`.
+> **Historical review record.** This document captures the first foundation review. Current engineering behavior lives in `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`.
 
-## Decisions that survived the review
+## Decisions that survived
 
 - Tauri 2 desktop shell.
 - Rust runtime/core.
-- Svelte + TypeScript for application UI.
-- PixiJS for the pet renderer.
-- SQLite + FTS5 for local persistence/search.
-- MiniCPM5-1B + llama.cpp as a future optional local cognition layer.
+- Svelte + TypeScript application UI.
+- PixiJS pet renderer.
+- SQLite + FTS5 local persistence/search.
+- Future optional MiniCPM5-1B + llama.cpp cognition layer.
 - Separate LLM worker process.
-- Pet-first, AI-second product philosophy.
-- Primary target: Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8.
+- Pet-first, AI-second philosophy.
+- Windows 11 / Ryzen 3 2200G / 16 GB / Vega 8 primary target.
 
-## Original corrections
+## Original corrections and current status
 
-### 1. Runtime clock belongs to Rust
+### Runtime clock belongs to Rust
 
-The Pet Brain must not depend on a JavaScript timer to stay alive. Rust owns monotonic time and semantic simulation ticks. Frontend code renders snapshots and issues commands.
+Implemented. Pet Brain no longer depends on a JavaScript timer.
 
-**Current status:** implemented.
+### Pet state is parallel
 
-### 2. Pet state is parallel, not one activity enum
+Implemented as locomotion, facing, posture, attention, emotion, mode and cognition.
 
-Movement, facing, posture, attention, emotion, system mode and cognition can coexist.
+### Behavior Intent is separate from persistent state
 
-**Current status:** implemented as Pet State V2.
+Implemented with priority, TTL, interruption and semantic animation intent.
 
-### 3. Behavior Intent is separate from persistent state
+### Domain events form the backbone
 
-Short reactions require priority, duration/TTL, interruption semantics and renderer-facing animation intent.
+Implemented and expanded with held/drop/facing and structured Windows-context events.
 
-**Current status:** implemented.
+### UI is not the source of truth
 
-### 4. Domain events form the backbone
+Implemented. Frontend timers are presentation polling only and do not advance simulation time.
 
-Sensors publish facts and Pet Runtime interprets them.
+### Window boundaries
 
-**Current status:** implemented and expanded with held/drop/facing and Windows context events.
+`pet` and `companion` are separate native windows. Bubble remains inside the pet overlay; Settings currently lives inside Companion; dedicated debug remains future work.
 
-### 5. UI is not the source of truth
+### Transparent does not mean click-through
 
-Svelte issues commands and renders state. It does not own simulation time, persistence policy or Windows sensors.
+Implemented through native selective cursor passthrough and semantic hit zones. Production per-frame masks remain future asset work.
 
-**Current status:** implemented; frontend polling remains presentation-only.
+### Renderer boundary
 
-### 6. Window boundaries
+Implemented as manifest + semantic resolver + PixiJS. Production character art is still pending.
 
-The review proposed separate logical responsibilities for pet, bubble, companion, settings and debug surfaces.
+### Error state must be explicit
 
-**Current status:** `pet` and `companion` are separate native windows. Bubble remains inside the pet overlay. Settings currently lives inside the Companion. A dedicated debug surface is still future work.
+Implemented as a small truthful runtime-health contract: `ready`, `degraded`, `error`. Event-channel disconnect preserves a degraded snapshot; a Pet Runtime panic preserves the last published snapshot and marks it error. A `recovering` state is intentionally deferred until a real supervisor/restart mechanism exists.
 
-### 7. Transparent does not mean click-through
+### Avoid one global Pet Brain lock
 
-Transparent space must pass pointer input through while semantic pet regions remain interactive.
-
-**Current status:** implemented through native selective cursor passthrough with normalized semantic hit regions. Production per-frame masks remain future asset work.
-
-### 8. Renderer boundary
-
-PixiJS owns high-frequency character presentation; Svelte owns management UI.
-
-**Current status:** implemented as a renderer/manifest boundary, but the actual character remains a procedural placeholder until production assets are authored.
-
-### 9. Error state must be explicit
-
-Runtime failure must not silently imitate a healthy idle pet.
-
-**Current status:** runtime-health contract exists, but full recovering/error transition semantics remain consolidation work.
-
-### 10. Avoid one global Pet Brain lock
-
-The target was a single-owner Pet Runtime receiving events and publishing immutable snapshots, with SQLite/model/platform work outside that owner.
-
-**Current status:** implemented for Pet Runtime; background worker lifecycle/supervision still needs consolidation before AI workers are introduced.
+Implemented as a single-owner runtime channel/snapshot model. Background worker lifecycle/supervision remains consolidation work before AI workers.
 
 ## Asset-pipeline decision
 
-Reference art and runtime assets are different products. Original source evidence defines identity; canonical engineering coordinates normalize production; runtime sprites/atlases are downstream outputs.
+Reference art and runtime assets are different products. Original source evidence defines identity; canonical coordinates normalize production; runtime sprites/atlases are downstream outputs.
 
-The current repository has source provenance, canonical measurement/remap contracts and validation gates. That governance layer is now intentionally frozen unless new source evidence exposes a concrete missing requirement. The next visual work should produce the canonical master and runtime assets rather than additional policy documents.
+The governance layer is now intentionally frozen unless new source evidence exposes a concrete missing requirement. The next visual work should produce the canonical master and runtime assets rather than more policy documents.
 
-## Public-release items that remain open
+## Public-release items still open
 
-- code license;
-- separate character/artwork license;
+- code and artwork licenses;
 - dependency lockfiles;
 - `SECURITY.md`;
 - restrictive CSP;
 - production icon/art;
 - clean Windows bundle validation;
-- Ryzen 3 2200G performance baseline;
-- final tracked-data/privacy audit.
+- target-hardware performance baseline;
+- tracked-data/privacy audit.
 
 ## Non-negotiable acceptance test
 
-Unload MiniCPM5-1B and any future vision worker completely. Lenvu still moves, sleeps/wakes, reacts, focuses, persists state and supports ordinary desktop interaction.
+Unload MiniCPM5-1B and any future vision worker. Lenvu still moves, sleeps/wakes, reacts, focuses, persists state and supports ordinary desktop interaction.

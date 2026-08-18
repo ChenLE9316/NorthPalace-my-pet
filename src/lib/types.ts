@@ -41,7 +41,7 @@ export interface BehaviorIntent {
   animation: string;
 }
 
-export type RuntimeHealth = 'ready' | 'degraded' | 'recovering' | 'error';
+export type RuntimeHealth = 'ready' | 'degraded' | 'error';
 
 export interface PetRuntimeSnapshot {
   health: RuntimeHealth;

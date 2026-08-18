@@ -1,4 +1,5 @@
 use std::{
+    panic::{catch_unwind, AssertUnwindSafe},
     sync::{
         mpsc::{self, Receiver, RecvTimeoutError, Sender},
         Arc, Mutex, RwLock,
@@ -21,7 +22,6 @@ use crate::domain::{
 pub enum RuntimeHealth {
     Ready,
     Degraded,
-    Recovering,
     Error,
 }
 
@@ -69,52 +69,61 @@ impl RuntimeHandle {
         let event_subscribers = Arc::new(Mutex::new(Vec::<Sender<DomainEvent>>::new()));
 
         thread::spawn(move || {
-            let mut brain = brain;
-            let mut sequence = 0_u64;
-            let mut last_tick = Instant::now();
+            let runtime_result = catch_unwind(AssertUnwindSafe(|| {
+                let mut brain = brain;
+                let mut sequence = 0_u64;
+                let mut last_tick = Instant::now();
 
-            loop {
-                let elapsed = last_tick.elapsed();
-                let wait = if elapsed >= tick_interval {
-                    Duration::ZERO
-                } else {
-                    tick_interval - elapsed
-                };
+                loop {
+                    let elapsed = last_tick.elapsed();
+                    let wait = if elapsed >= tick_interval {
+                        Duration::ZERO
+                    } else {
+                        tick_interval - elapsed
+                    };
 
-                match event_rx.recv_timeout(wait) {
-                    Ok(event) => {
-                        brain.handle_event(event);
+                    match event_rx.recv_timeout(wait) {
+                        Ok(event) => {
+                            brain.handle_event(event);
+                            sequence = sequence.saturating_add(1);
+                        }
+                        Err(RecvTimeoutError::Timeout) => {}
+                        Err(RecvTimeoutError::Disconnected) => {
+                            if let Ok(mut slot) = snapshot_writer.write() {
+                                *slot = PetRuntimeSnapshot::from_brain(
+                                    RuntimeHealth::Degraded,
+                                    sequence,
+                                    &brain,
+                                );
+                            }
+                            return;
+                        }
+                    }
+
+                    let now = Instant::now();
+                    let delta = now.duration_since(last_tick);
+                    if delta >= tick_interval {
+                        let delta_ms = delta.as_millis().min(u64::MAX as u128) as u64;
+                        brain.handle_event(DomainEvent::Tick { delta_ms });
+                        last_tick = now;
                         sequence = sequence.saturating_add(1);
                     }
-                    Err(RecvTimeoutError::Timeout) => {}
-                    Err(RecvTimeoutError::Disconnected) => {
-                        if let Ok(mut slot) = snapshot_writer.write() {
-                            *slot = PetRuntimeSnapshot::from_brain(
-                                RuntimeHealth::Degraded,
-                                sequence,
-                                &brain,
-                            );
-                        }
-                        break;
+
+                    if let Ok(mut slot) = snapshot_writer.write() {
+                        *slot = PetRuntimeSnapshot::from_brain(
+                            RuntimeHealth::Ready,
+                            sequence,
+                            &brain,
+                        );
                     }
                 }
+            }));
 
-                let now = Instant::now();
-                let delta = now.duration_since(last_tick);
-                if delta >= tick_interval {
-                    let delta_ms = delta.as_millis().min(u64::MAX as u128) as u64;
-                    brain.handle_event(DomainEvent::Tick { delta_ms });
-                    last_tick = now;
-                    sequence = sequence.saturating_add(1);
-                }
-
+            if runtime_result.is_err() {
                 if let Ok(mut slot) = snapshot_writer.write() {
-                    *slot = PetRuntimeSnapshot::from_brain(
-                        RuntimeHealth::Ready,
-                        sequence,
-                        &brain,
-                    );
+                    slot.health = RuntimeHealth::Error;
                 }
+                eprintln!("Lenvu Pet Runtime panicked; preserving the last snapshot as error state");
             }
         });
 
@@ -165,6 +174,7 @@ mod tests {
         state.facing = Facing::Left;
         let runtime = RuntimeHandle::spawn_with_state(Duration::from_secs(60), state);
         let snapshot = runtime.snapshot().expect("runtime snapshot");
+        assert_eq!(snapshot.health, RuntimeHealth::Ready);
         assert_eq!(snapshot.state.bond, 0.66);
         assert_eq!(snapshot.state.facing, Facing::Left);
     }
