@@ -21,9 +21,9 @@ use privacy::PrivacyPolicyService;
 use runtime::RuntimeHandle;
 use screen_context::ScreenContextBroker;
 use tauri::Manager;
-use worker::WorkerSupervisor;
+use worker::{ShutdownReport, WorkerPhase, WorkerSupervisor};
 
-const WORKER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
+const WORKER_PHASE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -181,28 +181,51 @@ pub fn run() {
             return;
         }
 
-        if let (Some(runtime), Some(persistence)) = (
-            app_handle.try_state::<RuntimeHandle>(),
+        let Some(supervisor) = app_handle.try_state::<WorkerSupervisor>() else {
+            return;
+        };
+
+        let producers = supervisor.shutdown_phase_and_join(
+            WorkerPhase::Producers,
+            WORKER_PHASE_SHUTDOWN_TIMEOUT,
+        );
+        report_detached_workers("producers", &producers);
+
+        let frozen_snapshot = app_handle
+            .try_state::<RuntimeHandle>()
+            .and_then(|runtime| runtime.snapshot().ok());
+
+        let journal = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Journal, WORKER_PHASE_SHUTDOWN_TIMEOUT);
+        report_detached_workers("journal", &journal);
+
+        if let (Some(snapshot), Some(persistence)) = (
+            frozen_snapshot,
             app_handle.try_state::<PersistenceService>(),
         ) {
-            if let Ok(snapshot) = runtime.snapshot() {
-                if let Err(error) = persistence.save_and_flush(
-                    snapshot.state,
-                    bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
-                ) {
-                    eprintln!("Lenvu final persistence save failed: {error}");
-                }
+            if let Err(error) = persistence.save_and_flush(
+                snapshot.state,
+                bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+            ) {
+                eprintln!("Lenvu final persistence save failed: {error}");
             }
         }
 
-        if let Some(supervisor) = app_handle.try_state::<WorkerSupervisor>() {
-            let report = supervisor.shutdown_and_join(WORKER_SHUTDOWN_TIMEOUT);
-            if !report.detached.is_empty() {
-                eprintln!(
-                    "Lenvu worker shutdown deadline expired; detached workers: {}",
-                    report.detached.join(", ")
-                );
-            }
-        }
+        let persistence = supervisor.shutdown_phase_and_join(
+            WorkerPhase::Persistence,
+            WORKER_PHASE_SHUTDOWN_TIMEOUT,
+        );
+        report_detached_workers("persistence", &persistence);
     });
+}
+
+fn report_detached_workers(phase: &str, report: &ShutdownReport) {
+    if report.detached.is_empty() {
+        return;
+    }
+
+    eprintln!(
+        "Lenvu {phase} shutdown deadline expired; detached workers: {}",
+        report.detached.join(", ")
+    );
 }
