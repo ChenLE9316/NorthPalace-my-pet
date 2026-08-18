@@ -6,35 +6,7 @@ use std::{
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum MemoryKind {
-    Episodic,
-    Semantic,
-    Preference,
-    Relationship,
-}
-
-impl MemoryKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Episodic => "episodic",
-            Self::Semantic => "semantic",
-            Self::Preference => "preference",
-            Self::Relationship => "relationship",
-        }
-    }
-
-    fn from_str(value: &str) -> Option<Self> {
-        match value {
-            "episodic" => Some(Self::Episodic),
-            "semantic" => Some(Self::Semantic),
-            "preference" => Some(Self::Preference),
-            "relationship" => Some(Self::Relationship),
-            _ => None,
-        }
-    }
-}
+pub use crate::domain::memory::MemoryKind;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
