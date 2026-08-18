@@ -263,22 +263,34 @@ impl WorkerSupervisor {
         timeout: Duration,
     ) -> ShutdownReport {
         self.inner.cancellation.cancel(phase);
-        let pending = self.take_pending(Some(phase));
-        join_pending(pending, timeout)
+        match self.take_pending(Some(phase)) {
+            Ok(pending) => join_pending(pending, timeout),
+            Err(marker) => ShutdownReport {
+                joined: Vec::new(),
+                detached: vec![marker],
+            },
+        }
     }
 
     pub fn shutdown_and_join(&self, timeout: Duration) -> ShutdownReport {
         self.inner.cancellation.cancel_all();
-        let pending = self.take_pending(None);
-        join_pending(pending, timeout)
+        match self.take_pending(None) {
+            Ok(pending) => join_pending(pending, timeout),
+            Err(marker) => ShutdownReport {
+                joined: Vec::new(),
+                detached: vec![marker],
+            },
+        }
     }
 
-    fn take_pending(&self, phase: Option<WorkerPhase>) -> Vec<PendingWorker> {
-        let Ok(mut workers) = self.inner.workers.lock() else {
-            return Vec::new();
-        };
+    fn take_pending(&self, phase: Option<WorkerPhase>) -> Result<Vec<PendingWorker>, String> {
+        let mut workers = self
+            .inner
+            .workers
+            .lock()
+            .map_err(|_| "worker-registry-lock".to_owned())?;
 
-        workers
+        Ok(workers
             .iter_mut()
             .filter(|worker| phase.is_none_or(|expected| worker.phase == expected))
             .filter_map(|worker| {
@@ -287,7 +299,7 @@ impl WorkerSupervisor {
                     .take()
                     .map(|join| (worker.name.clone(), Arc::clone(&worker.state), join))
             })
-            .collect()
+            .collect())
     }
 }
 
