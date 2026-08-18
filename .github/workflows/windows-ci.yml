@@ -32,8 +32,8 @@ jobs:
       - name: Reject tracked local/private runtime data
         run: npm run validate:repo
 
-      - name: Install frontend dependencies
-        run: npm install --no-audit --no-fund
+      - name: Install locked frontend dependencies
+        run: npm ci --no-audit --no-fund
 
       - name: Build Svelte and PixiJS frontend
         run: npm run build
@@ -44,11 +44,14 @@ jobs:
           rustup toolchain install stable --profile minimal --component rustfmt --component clippy
           rustup default stable
 
+      - name: Verify Cargo lockfile
+        run: cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > NUL
+
       - name: Check Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
 
-      - name: Lint Rust
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Lint Rust with locked dependencies
+        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
-      - name: Test Rust Pet Runtime
-        run: cargo test --manifest-path src-tauri/Cargo.toml
+      - name: Test Rust Pet Runtime with locked dependencies
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
