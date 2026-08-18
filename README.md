@@ -24,6 +24,7 @@ Implemented today:
 - parallel Pet State for locomotion, facing, posture, attention, emotion, mode and cognition;
 - Behavior Intent priority/TTL/interruption instead of one exclusive activity state;
 - deterministic weighted ambient personality selection without an LLM;
+- common named worker supervision with cancellation, health/error state, interruptible waits and bounded shutdown/join;
 - Windows idle/return, local hour and privacy-gated foreground-app awareness;
 - opt-in bounded Windows UI Automation metadata with no element text/tree dump;
 - native work-area movement, facing, drag/pick-up/drop and selective transparent click-through;
@@ -32,6 +33,7 @@ Implemented today:
 - event-driven runtime snapshot and pet display-context synchronization across WebViews without independent background UI polling;
 - system tray and opt-in Windows launch-at-login;
 - bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
+- supervised persistence DB/autosave/event-journal workers with final flush and bounded shutdown queue drain;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -50,6 +52,12 @@ Not implemented yet:
 Windows 11
 │
 ├─ Tauri 2 desktop process
+│  ├─ Worker Supervisor
+│  │  ├─ shared cancellation
+│  │  ├─ named worker health
+│  │  ├─ panic/error capture
+│  │  └─ bounded shutdown + join
+│  │
 │  ├─ Rust Pet Runtime
 │  │  ├─ monotonic clock
 │  │  ├─ Domain Event channel
@@ -91,6 +99,8 @@ Windows 11
 ```
 
 The Domain layer does not depend on Svelte, PixiJS, Tauri window coordinates, Win32, SQLite or llama.cpp. Sensors publish facts; privacy gates decide whether sensitive context may cross the boundary; Pet Brain interprets allowed facts; platform controllers perform validated side effects; presentation renders snapshots.
+
+Generic automatic worker restart is intentionally not part of the common supervisor. SQLite, COM/UI Automation, WebView controllers and future external model processes have different safe recreation rules; restart must be worker-specific and idempotent rather than a blind global loop.
 
 ## Pet behavior
 
@@ -159,6 +169,8 @@ If persistence cannot initialize, Lenvu continues session-only instead of failin
 
 Opening the Companion is intentionally separated from petting: the small `☾` handle and system tray open the panel; double-clicking Lenvu is not used as a second hidden command path.
 
+Worker health is exposed through the backend `worker_status_get` command for future deep diagnostics; it is not promoted into the ambient pet surface.
+
 ## Validation
 
 Current Windows CI validates the source on `main` with:
@@ -174,8 +186,6 @@ The repository still needs dependency lockfiles before builds can be considered 
 
 ```text
 Consolidation
-  ↓
-common worker lifecycle / supervision
   ↓
 reproducible dependency locks
   ↓
@@ -206,7 +216,7 @@ NorthPalace-my-pet/
 ├─ public/                 UI-served static resources
 ├─ scripts/                asset validation
 ├─ src/                    Svelte + PixiJS presentation
-├─ src-tauri/              Rust runtime, persistence and Windows integration
+├─ src-tauri/              Rust runtime, supervision, persistence and Windows integration
 ├─ README.md
 ├─ package.json
 └─ vite.config.ts
