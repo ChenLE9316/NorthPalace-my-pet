@@ -10,11 +10,14 @@ use std::{
 
 use serde::Serialize;
 
-use crate::domain::{
-    behavior::BehaviorIntent,
-    events::DomainEvent,
-    pet_state::PetStateV2,
-    pet_v2::PetBrainV2,
+use crate::{
+    domain::{
+        behavior::BehaviorIntent,
+        events::DomainEvent,
+        pet_state::PetStateV2,
+        pet_v2::PetBrainV2,
+    },
+    worker::{CancellationToken, WorkerSupervisor},
 };
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
@@ -68,6 +71,48 @@ impl RuntimeHandle {
         initial_state: PetStateV2,
         snapshot_observer: Option<SnapshotObserver>,
     ) -> Self {
+        let (handle, event_rx, brain, snapshot_writer) = Self::prepare(initial_state);
+        thread::spawn(move || {
+            let _ = run_runtime_loop(
+                tick_interval,
+                event_rx,
+                brain,
+                snapshot_writer,
+                snapshot_observer,
+                None,
+            );
+        });
+        handle
+    }
+
+    pub fn spawn_managed_with_state_and_observer(
+        supervisor: &WorkerSupervisor,
+        tick_interval: Duration,
+        initial_state: PetStateV2,
+        snapshot_observer: Option<SnapshotObserver>,
+    ) -> Result<Self, String> {
+        let (handle, event_rx, brain, snapshot_writer) = Self::prepare(initial_state);
+        supervisor.spawn("pet-runtime", move |token| {
+            run_runtime_loop(
+                tick_interval,
+                event_rx,
+                brain,
+                snapshot_writer,
+                snapshot_observer,
+                Some(token),
+            )
+        })?;
+        Ok(handle)
+    }
+
+    fn prepare(
+        initial_state: PetStateV2,
+    ) -> (
+        Self,
+        Receiver<DomainEvent>,
+        PetBrainV2,
+        Arc<RwLock<PetRuntimeSnapshot>>,
+    ) {
         let (event_tx, event_rx) = mpsc::channel::<DomainEvent>();
         let brain = PetBrainV2::from_state(initial_state);
         let snapshot = Arc::new(RwLock::new(PetRuntimeSnapshot::from_brain(
@@ -75,81 +120,18 @@ impl RuntimeHandle {
             0,
             &brain,
         )));
-        let snapshot_writer = Arc::clone(&snapshot);
         let event_subscribers = Arc::new(Mutex::new(Vec::<Sender<DomainEvent>>::new()));
 
-        thread::spawn(move || {
-            let runtime_result = catch_unwind(AssertUnwindSafe(|| {
-                let mut brain = brain;
-                let mut sequence = 0_u64;
-                let mut last_tick = Instant::now();
-
-                loop {
-                    let elapsed = last_tick.elapsed();
-                    let wait = if elapsed >= tick_interval {
-                        Duration::ZERO
-                    } else {
-                        tick_interval - elapsed
-                    };
-
-                    match event_rx.recv_timeout(wait) {
-                        Ok(event) => {
-                            brain.handle_event(event);
-                            sequence = sequence.saturating_add(1);
-                        }
-                        Err(RecvTimeoutError::Timeout) => {}
-                        Err(RecvTimeoutError::Disconnected) => {
-                            let degraded = PetRuntimeSnapshot::from_brain(
-                                RuntimeHealth::Degraded,
-                                sequence,
-                                &brain,
-                            );
-                            publish_snapshot(
-                                &snapshot_writer,
-                                snapshot_observer.as_ref(),
-                                degraded,
-                            );
-                            return;
-                        }
-                    }
-
-                    let now = Instant::now();
-                    let delta = now.duration_since(last_tick);
-                    if delta >= tick_interval {
-                        let delta_ms = delta.as_millis().min(u64::MAX as u128) as u64;
-                        brain.handle_event(DomainEvent::Tick { delta_ms });
-                        last_tick = now;
-                        sequence = sequence.saturating_add(1);
-                    }
-
-                    let next = PetRuntimeSnapshot::from_brain(
-                        RuntimeHealth::Ready,
-                        sequence,
-                        &brain,
-                    );
-                    publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), next);
-                }
-            }));
-
-            if runtime_result.is_err() {
-                let error_snapshot = snapshot_writer.write().ok().map(|mut slot| {
-                    slot.health = RuntimeHealth::Error;
-                    slot.clone()
-                });
-                if let (Some(observer), Some(snapshot)) =
-                    (snapshot_observer.as_ref(), error_snapshot)
-                {
-                    observer(snapshot);
-                }
-                eprintln!("Lenvu Pet Runtime panicked; preserving the last snapshot as error state");
-            }
-        });
-
-        Self {
-            event_tx,
+        (
+            Self {
+                event_tx,
+                snapshot: Arc::clone(&snapshot),
+                event_subscribers,
+            },
+            event_rx,
+            brain,
             snapshot,
-            event_subscribers,
-        }
+        )
     }
 
     pub fn dispatch(&self, event: DomainEvent) -> Result<(), String> {
@@ -180,6 +162,82 @@ impl RuntimeHandle {
     }
 }
 
+fn run_runtime_loop(
+    tick_interval: Duration,
+    event_rx: Receiver<DomainEvent>,
+    mut brain: PetBrainV2,
+    snapshot_writer: Arc<RwLock<PetRuntimeSnapshot>>,
+    snapshot_observer: Option<SnapshotObserver>,
+    cancellation: Option<CancellationToken>,
+) -> Result<(), String> {
+    let runtime_result = catch_unwind(AssertUnwindSafe(|| {
+        let mut sequence = 0_u64;
+        let mut last_tick = Instant::now();
+
+        loop {
+            if cancellation
+                .as_ref()
+                .is_some_and(CancellationToken::is_cancelled)
+            {
+                return;
+            }
+
+            let elapsed = last_tick.elapsed();
+            let mut wait = if elapsed >= tick_interval {
+                Duration::ZERO
+            } else {
+                tick_interval - elapsed
+            };
+            if cancellation.is_some() {
+                wait = wait.min(Duration::from_millis(100));
+            }
+
+            match event_rx.recv_timeout(wait) {
+                Ok(event) => {
+                    brain.handle_event(event);
+                    sequence = sequence.saturating_add(1);
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => {
+                    let degraded = PetRuntimeSnapshot::from_brain(
+                        RuntimeHealth::Degraded,
+                        sequence,
+                        &brain,
+                    );
+                    publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), degraded);
+                    return;
+                }
+            }
+
+            let now = Instant::now();
+            let delta = now.duration_since(last_tick);
+            if delta >= tick_interval {
+                let delta_ms = delta.as_millis().min(u64::MAX as u128) as u64;
+                brain.handle_event(DomainEvent::Tick { delta_ms });
+                last_tick = now;
+                sequence = sequence.saturating_add(1);
+            }
+
+            let next = PetRuntimeSnapshot::from_brain(RuntimeHealth::Ready, sequence, &brain);
+            publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), next);
+        }
+    }));
+
+    if runtime_result.is_err() {
+        let error_snapshot = snapshot_writer.write().ok().map(|mut slot| {
+            slot.health = RuntimeHealth::Error;
+            slot.clone()
+        });
+        if let (Some(observer), Some(snapshot)) = (snapshot_observer.as_ref(), error_snapshot) {
+            observer(snapshot);
+        }
+        eprintln!("Lenvu Pet Runtime panicked; preserving the last snapshot as error state");
+        return Err("pet runtime panicked".to_owned());
+    }
+
+    Ok(())
+}
+
 fn publish_snapshot(
     snapshot_writer: &Arc<RwLock<PetRuntimeSnapshot>>,
     observer: Option<&SnapshotObserver>,
@@ -196,7 +254,7 @@ fn publish_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::pet_state::Facing;
+    use crate::{domain::pet_state::Facing, worker::WorkerHealth};
 
     #[test]
     fn runtime_starts_from_supplied_state() {
@@ -245,5 +303,22 @@ mod tests {
 
         assert_eq!(snapshot.health, RuntimeHealth::Ready);
         assert!(snapshot.sequence >= 1);
+    }
+
+    #[test]
+    fn managed_runtime_stops_with_supervisor() {
+        let supervisor = WorkerSupervisor::default();
+        let _runtime = RuntimeHandle::spawn_managed_with_state_and_observer(
+            &supervisor,
+            Duration::from_secs(60),
+            PetStateV2::default(),
+            None,
+        )
+        .expect("managed runtime");
+
+        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        assert_eq!(report.joined, vec!["pet-runtime".to_owned()]);
+        assert!(report.detached.is_empty());
+        assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);
     }
 }
