@@ -81,7 +81,7 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Foundation Review marked historical.
 - [x] Runtime manifest source consolidated.
 - [x] Runtime-health contract simplified to implemented semantics.
-- [ ] Split `CompanionView.svelte` into section components.
+- [x] Split `CompanionView.svelte` into section components.
 - [ ] Split `src-tauri/src/lib.rs` composition root.
 - [ ] Common worker lifecycle/supervision.
 - [ ] Replace growth of independent frontend polling loops with bounded shared subscription/event strategy.
