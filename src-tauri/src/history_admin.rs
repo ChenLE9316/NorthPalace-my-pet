@@ -1,8 +1,3 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
-
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
@@ -17,61 +12,15 @@ pub struct ActivityHistoryRecord {
     pub bond_delta: Option<f32>,
 }
 
-#[derive(Clone, Default)]
-pub struct HistoryAdminService {
-    database_path: Arc<RwLock<Option<PathBuf>>>,
-}
-
-impl HistoryAdminService {
-    pub fn install(&self, path: PathBuf) -> Result<(), String> {
-        self.database_path
-            .write()
-            .map(|mut slot| *slot = Some(path))
-            .map_err(|_| "history-admin path lock is poisoned".to_owned())
-    }
-
-    pub fn list(&self, limit: u32) -> Result<Vec<ActivityHistoryRecord>, String> {
-        let connection = self.connection()?;
-        list_activity(&connection, limit)
-    }
-
-    pub fn get(&self, id: i64) -> Result<Option<ActivityHistoryRecord>, String> {
-        if id <= 0 {
-            return Err("activity id must be positive".to_owned());
-        }
-        let connection = self.connection()?;
-        get_activity(&connection, id)
-    }
-
-    fn connection(&self) -> Result<Connection, String> {
-        let path = self
-            .database_path
-            .read()
-            .map_err(|_| "history-admin path lock is poisoned".to_owned())?
-            .clone()
-            .ok_or_else(|| "activity history is unavailable for this session".to_owned())?;
-        open_connection(&path)
-    }
-}
-
-fn open_connection(path: &Path) -> Result<Connection, String> {
-    let connection = Connection::open(path)
-        .map_err(|error| format!("failed to open activity database {}: {error}", path.display()))?;
-    connection
-        .execute_batch(
-            "PRAGMA foreign_keys = ON;\n\
-             PRAGMA busy_timeout = 2500;",
-        )
-        .map_err(|error| format!("failed to configure activity database connection: {error}"))?;
-    Ok(connection)
-}
-
 const SELECT_ACTIVITY: &str =
     "SELECT a.id, a.event_type, a.category, a.created_at_ms, r.kind, r.bond_delta\n\
      FROM activity_journal a\n\
      LEFT JOIN relationship_events r ON r.journal_id = a.id";
 
-fn list_activity(connection: &Connection, limit: u32) -> Result<Vec<ActivityHistoryRecord>, String> {
+pub(crate) fn list_activity(
+    connection: &Connection,
+    limit: u32,
+) -> Result<Vec<ActivityHistoryRecord>, String> {
     let sql = format!(
         "{SELECT_ACTIVITY}\nORDER BY a.created_at_ms DESC, a.id DESC\nLIMIT ?1"
     );
@@ -89,7 +38,13 @@ fn list_activity(connection: &Connection, limit: u32) -> Result<Vec<ActivityHist
     Ok(records)
 }
 
-fn get_activity(connection: &Connection, id: i64) -> Result<Option<ActivityHistoryRecord>, String> {
+pub(crate) fn get_activity(
+    connection: &Connection,
+    id: i64,
+) -> Result<Option<ActivityHistoryRecord>, String> {
+    if id <= 0 {
+        return Err("activity id must be positive".to_owned());
+    }
     let sql = format!("{SELECT_ACTIVITY}\nWHERE a.id = ?1\nLIMIT 1");
     connection
         .query_row(&sql, params![id], read_activity_row)
