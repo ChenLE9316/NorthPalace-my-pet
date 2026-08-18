@@ -191,6 +191,12 @@ pub fn run() {
         );
         report_detached_workers("producers", &producers);
 
+        if let Some(runtime) = app_handle.try_state::<RuntimeHandle>() {
+            if let Err(error) = runtime.close_event_input() {
+                eprintln!("Lenvu runtime input gate could not close cleanly: {error}");
+            }
+        }
+
         let runtime = supervisor
             .shutdown_phase_and_join(WorkerPhase::Runtime, WORKER_PHASE_SHUTDOWN_TIMEOUT);
         report_detached_workers("runtime", &runtime);
