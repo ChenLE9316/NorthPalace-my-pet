@@ -1,5 +1,8 @@
 import { invoke } from '@tauri-apps/api/core';
+import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+
+const PET_DISPLAY_CONTEXT_EVENT = 'pet-display-context';
 
 export interface PhysicalPoint {
   x: number;
@@ -47,6 +50,18 @@ export async function getDisplayContext(): Promise<DisplayContext> {
     console.error('Failed to read display context', error);
     return fallbackDisplayContext;
   }
+}
+
+export async function publishPetDisplayContext(context: DisplayContext): Promise<void> {
+  await emit(PET_DISPLAY_CONTEXT_EVENT, context);
+}
+
+export async function observePetDisplayContext(
+  onContext: (context: DisplayContext) => void,
+): Promise<UnlistenFn> {
+  return listen<DisplayContext>(PET_DISPLAY_CONTEXT_EVENT, (event) => {
+    onContext(event.payload);
+  });
 }
 
 export async function toggleCompanionWindow(): Promise<boolean> {
