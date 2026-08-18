@@ -14,8 +14,6 @@ mod worker;
 
 use std::time::Duration;
 
-use history_admin::HistoryAdminService;
-use memory_admin::MemoryAdminService;
 use persistence::PersistenceService;
 use privacy::PrivacyPolicyService;
 use runtime::RuntimeHandle;
@@ -28,8 +26,6 @@ const WORKER_PHASE_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let persistence_service = PersistenceService::default();
-    let memory_admin_service = MemoryAdminService::default();
-    let history_admin_service = HistoryAdminService::default();
     let privacy_policy_service = PrivacyPolicyService::default();
     let screen_context_broker = ScreenContextBroker::default();
     let worker_supervisor = WorkerSupervisor::default();
@@ -37,8 +33,6 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
-        .manage(memory_admin_service.clone())
-        .manage(history_admin_service.clone())
         .manage(privacy_policy_service.clone())
         .manage(screen_context_broker.clone())
         .manage(worker_supervisor);
@@ -62,8 +56,6 @@ pub fn run() {
         let runtime = bootstrap::initialize_runtime(
             app,
             persistence_service.clone(),
-            memory_admin_service.clone(),
-            history_admin_service.clone(),
             privacy_policy_service.clone(),
             setup_supervisor.clone(),
         )
