@@ -11,6 +11,7 @@ use serde::Serialize;
 #[serde(rename_all = "snake_case")]
 pub enum WorkerPhase {
     Producers,
+    Runtime,
     Journal,
     Persistence,
 }
@@ -90,6 +91,7 @@ impl CancellationToken {
 #[derive(Default)]
 struct PhaseCancellation {
     producers: CancellationToken,
+    runtime: CancellationToken,
     journal: CancellationToken,
     persistence: CancellationToken,
 }
@@ -98,6 +100,7 @@ impl PhaseCancellation {
     fn token(&self, phase: WorkerPhase) -> CancellationToken {
         match phase {
             WorkerPhase::Producers => self.producers.clone(),
+            WorkerPhase::Runtime => self.runtime.clone(),
             WorkerPhase::Journal => self.journal.clone(),
             WorkerPhase::Persistence => self.persistence.clone(),
         }
@@ -109,6 +112,7 @@ impl PhaseCancellation {
 
     fn cancel_all(&self) {
         self.producers.cancel();
+        self.runtime.cancel();
         self.journal.cancel();
         self.persistence.cancel();
     }
