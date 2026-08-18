@@ -128,6 +128,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::get_pet_snapshot,
         commands::pet_interact,
+        commands::worker_status_get,
         commands::memory_list,
         commands::memory_search,
         commands::memory_create,
@@ -152,6 +153,7 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         commands::get_pet_snapshot,
         commands::pet_interact,
+        commands::worker_status_get,
         commands::memory_list,
         commands::memory_search,
         commands::memory_create,
