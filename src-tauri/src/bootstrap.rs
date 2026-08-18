@@ -15,7 +15,7 @@ use crate::{
 
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
-pub(crate) const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
+pub(crate) const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(3);
 const PET_RUNTIME_SNAPSHOT_EVENT: &str = "pet-runtime-snapshot";
 
 /// Build the Pet Runtime and all persistence-backed application state that must exist before
