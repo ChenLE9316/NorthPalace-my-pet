@@ -75,23 +75,36 @@ pub fn run() {
             platform::windows::spawn_local_time_sensor(
                 runtime.clone(),
                 screen_context_broker.clone(),
-            );
+                &setup_supervisor,
+            )
+            .map_err(std::io::Error::other)?;
             platform::windows::spawn_idle_sensor(
                 runtime.clone(),
                 screen_context_broker.clone(),
-            );
+                &setup_supervisor,
+            )
+            .map_err(std::io::Error::other)?;
             platform::windows::spawn_active_window_sensor(
                 runtime.clone(),
                 privacy_policy_service.clone(),
                 screen_context_broker.clone(),
-            );
+                &setup_supervisor,
+            )
+            .map_err(std::io::Error::other)?;
 
             if let Some(pet_window) = app.get_webview_window("pet") {
                 platform::windows::spawn_cursor_passthrough_sensor(
                     pet_window.clone(),
                     sensor_hit_test.clone(),
-                );
-                platform::windows::spawn_pet_motion_controller(pet_window, runtime.clone());
+                    &setup_supervisor,
+                )
+                .map_err(std::io::Error::other)?;
+                platform::windows::spawn_pet_motion_controller(
+                    pet_window,
+                    runtime.clone(),
+                    &setup_supervisor,
+                )
+                .map_err(std::io::Error::other)?;
             }
         }
 
