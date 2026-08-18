@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::{
     history_admin::HistoryAdminService,
@@ -9,12 +9,13 @@ use crate::{
         spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
     },
     privacy::PrivacyPolicyService,
-    runtime::RuntimeHandle,
+    runtime::{RuntimeHandle, SnapshotObserver},
 };
 
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 pub(crate) const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
+const PET_RUNTIME_SNAPSHOT_EVENT: &str = "pet-runtime-snapshot";
 
 /// Build the Pet Runtime and all persistence-backed application state that must exist before
 /// platform adapters begin publishing events. Failures deliberately degrade to session-only life.
@@ -68,7 +69,17 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
         .as_ref()
         .map(PersistenceBootstrap::initial_state)
         .unwrap_or_default();
-    let runtime = RuntimeHandle::spawn_with_state(PET_TICK_INTERVAL, initial_state.clone());
+    let app_handle = app.handle().clone();
+    let snapshot_observer: SnapshotObserver = Arc::new(move |snapshot| {
+        if let Err(error) = app_handle.emit(PET_RUNTIME_SNAPSHOT_EVENT, &snapshot) {
+            eprintln!("failed to publish Lenvu runtime snapshot: {error}");
+        }
+    });
+    let runtime = RuntimeHandle::spawn_with_state_and_observer(
+        PET_TICK_INTERVAL,
+        initial_state.clone(),
+        Some(snapshot_observer),
+    );
 
     if let Some(bootstrap) = persistence_bootstrap {
         let persistence = bootstrap.into_worker();
