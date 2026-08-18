@@ -1,4 +1,7 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    sync::{Arc, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::Serialize;
 
@@ -46,10 +49,14 @@ pub struct ScreenContextSnapshot {
     pub active_app_id: Option<String>,
     pub active_app_state: ActiveAppContextState,
     pub active_window_bounds: Option<WindowBounds>,
+    pub active_app_observed_at_ms: Option<i64>,
     pub accessibility_state: AccessibilityContextState,
     pub accessibility: Option<AccessibilityContext>,
+    pub accessibility_observed_at_ms: Option<i64>,
     pub user_idle_ms: u64,
+    pub user_idle_observed_at_ms: Option<i64>,
     pub local_hour: u8,
+    pub local_hour_observed_at_ms: Option<i64>,
     pub sequence: u64,
 }
 
@@ -58,10 +65,14 @@ struct ScreenContextState {
     active_app_id: Option<String>,
     active_app_state: ActiveAppContextState,
     active_window_bounds: Option<WindowBounds>,
+    active_app_observed_at_ms: Option<i64>,
     accessibility_state: AccessibilityContextState,
     accessibility: Option<AccessibilityContext>,
+    accessibility_observed_at_ms: Option<i64>,
     user_idle_ms: u64,
+    user_idle_observed_at_ms: Option<i64>,
     local_hour: u8,
+    local_hour_observed_at_ms: Option<i64>,
     sequence: u64,
 }
 
@@ -71,10 +82,14 @@ impl Default for ScreenContextState {
             active_app_id: None,
             active_app_state: ActiveAppContextState::Unknown,
             active_window_bounds: None,
+            active_app_observed_at_ms: None,
             accessibility_state: AccessibilityContextState::Disabled,
             accessibility: None,
+            accessibility_observed_at_ms: None,
             user_idle_ms: 0,
+            user_idle_observed_at_ms: None,
             local_hour: 12,
+            local_hour_observed_at_ms: None,
             sequence: 0,
         }
     }
@@ -96,80 +111,107 @@ impl ScreenContextBroker {
             active_app_id: state.active_app_id,
             active_app_state: state.active_app_state,
             active_window_bounds: state.active_window_bounds,
+            active_app_observed_at_ms: state.active_app_observed_at_ms,
             accessibility_state: state.accessibility_state,
             accessibility: state.accessibility,
+            accessibility_observed_at_ms: state.accessibility_observed_at_ms,
             user_idle_ms: state.user_idle_ms,
+            user_idle_observed_at_ms: state.user_idle_observed_at_ms,
             local_hour: state.local_hour,
+            local_hour_observed_at_ms: state.local_hour_observed_at_ms,
             sequence: state.sequence,
         }
     }
 
-    pub fn observe_active_app(
-        &self,
-        app_id: String,
-        bounds: Option<WindowBounds>,
-    ) {
-        if let Ok(mut state) = self.inner.write() {
-            let app_changed = state.active_app_state != ActiveAppContextState::Available
-                || state.active_app_id.as_deref() != Some(app_id.as_str());
-            if app_changed {
+    pub fn observe_active_app(&self, app_id: String, bounds: Option<WindowBounds>) {
+        let observed_at_ms = now_ms();
+        let Ok(mut state) = self.inner.write() else {
+            return;
+        };
+
+        let app_changed = state.active_app_state != ActiveAppContextState::Available
+            || state.active_app_id.as_deref() != Some(app_id.as_str());
+        let changed = app_changed || state.active_window_bounds != bounds;
+
+        if app_changed {
+            if state.accessibility_state != AccessibilityContextState::Disabled {
                 state.accessibility_state = AccessibilityContextState::Unavailable;
-                state.accessibility = None;
             }
-            state.active_app_id = Some(app_id);
-            state.active_app_state = ActiveAppContextState::Available;
-            state.active_window_bounds = bounds;
+            state.accessibility = None;
+            state.accessibility_observed_at_ms = None;
+        }
+
+        state.active_app_id = Some(app_id);
+        state.active_app_state = ActiveAppContextState::Available;
+        state.active_window_bounds = bounds;
+        state.active_app_observed_at_ms = Some(observed_at_ms);
+        if changed {
             state.sequence = state.sequence.wrapping_add(1);
         }
     }
 
     pub fn observe_active_app_blocked(&self) {
-        self.update(|state| {
-            state.active_app_id = None;
-            state.active_app_state = ActiveAppContextState::PrivacyBlocked;
-            state.active_window_bounds = None;
-            state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
-            state.accessibility = None;
-        });
+        let observed_at_ms = now_ms();
+        let Ok(mut state) = self.inner.write() else {
+            return;
+        };
+        let changed = state.active_app_id.is_some()
+            || state.active_app_state != ActiveAppContextState::PrivacyBlocked
+            || state.active_window_bounds.is_some()
+            || state.accessibility_state != AccessibilityContextState::PrivacyBlocked
+            || state.accessibility.is_some();
+
+        state.active_app_id = None;
+        state.active_app_state = ActiveAppContextState::PrivacyBlocked;
+        state.active_window_bounds = None;
+        state.active_app_observed_at_ms = Some(observed_at_ms);
+        state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
+        state.accessibility = None;
+        state.accessibility_observed_at_ms = Some(observed_at_ms);
+        if changed {
+            state.sequence = state.sequence.wrapping_add(1);
+        }
     }
 
     pub fn clear_active_app(&self) {
-        self.update(|state| {
-            state.active_app_id = None;
-            state.active_app_state = ActiveAppContextState::Unknown;
-            state.active_window_bounds = None;
-            state.accessibility_state = AccessibilityContextState::Unavailable;
-            state.accessibility = None;
-        });
+        let observed_at_ms = now_ms();
+        let Ok(mut state) = self.inner.write() else {
+            return;
+        };
+        let next_accessibility_state =
+            if state.accessibility_state == AccessibilityContextState::Disabled {
+                AccessibilityContextState::Disabled
+            } else {
+                AccessibilityContextState::Unavailable
+            };
+        let changed = state.active_app_id.is_some()
+            || state.active_app_state != ActiveAppContextState::Unknown
+            || state.active_window_bounds.is_some()
+            || state.accessibility_state != next_accessibility_state
+            || state.accessibility.is_some();
+
+        state.active_app_id = None;
+        state.active_app_state = ActiveAppContextState::Unknown;
+        state.active_window_bounds = None;
+        state.active_app_observed_at_ms = Some(observed_at_ms);
+        state.accessibility_state = next_accessibility_state;
+        state.accessibility = None;
+        state.accessibility_observed_at_ms = None;
+        if changed {
+            state.sequence = state.sequence.wrapping_add(1);
+        }
     }
 
     pub fn observe_accessibility_disabled(&self) {
-        self.update(|state| {
-            if state.active_app_state == ActiveAppContextState::PrivacyBlocked {
-                state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
-            } else {
-                state.accessibility_state = AccessibilityContextState::Disabled;
-            }
-            state.accessibility = None;
-        });
+        self.observe_accessibility_state(AccessibilityContextState::Disabled);
     }
 
     pub fn observe_accessibility_unavailable(&self) {
-        self.update(|state| {
-            if state.active_app_state == ActiveAppContextState::PrivacyBlocked {
-                state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
-            } else {
-                state.accessibility_state = AccessibilityContextState::Unavailable;
-            }
-            state.accessibility = None;
-        });
+        self.observe_accessibility_state(AccessibilityContextState::Unavailable);
     }
 
     pub fn observe_accessibility_blocked(&self) {
-        self.update(|state| {
-            state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
-            state.accessibility = None;
-        });
+        self.observe_accessibility_state(AccessibilityContextState::PrivacyBlocked);
     }
 
     pub fn observe_accessibility_for_app(
@@ -177,6 +219,7 @@ impl ScreenContextBroker {
         app_id: &str,
         context: Option<AccessibilityContext>,
     ) {
+        let observed_at_ms = now_ms();
         let Ok(mut state) = self.inner.write() else {
             return;
         };
@@ -186,33 +229,70 @@ impl ScreenContextBroker {
             return;
         }
 
-        state.accessibility_state = if context.is_some() {
+        let next_state = if context.is_some() {
             AccessibilityContextState::Available
         } else {
             AccessibilityContextState::Unavailable
         };
+        let changed = state.accessibility_state != next_state || state.accessibility != context;
+        state.accessibility_state = next_state;
         state.accessibility = context;
-        state.sequence = state.sequence.wrapping_add(1);
-    }
-
-    pub fn observe_user_idle(&self, idle_ms: u64) {
-        self.update(|state| {
-            state.user_idle_ms = idle_ms;
-        });
-    }
-
-    pub fn observe_local_hour(&self, hour: u8) {
-        self.update(|state| {
-            state.local_hour = hour.min(23);
-        });
-    }
-
-    fn update(&self, update: impl FnOnce(&mut ScreenContextState)) {
-        if let Ok(mut state) = self.inner.write() {
-            update(&mut state);
+        state.accessibility_observed_at_ms = Some(observed_at_ms);
+        if changed {
             state.sequence = state.sequence.wrapping_add(1);
         }
     }
+
+    pub fn observe_user_idle(&self, idle_ms: u64) {
+        let observed_at_ms = now_ms();
+        if let Ok(mut state) = self.inner.write() {
+            let changed = state.user_idle_ms != idle_ms;
+            state.user_idle_ms = idle_ms;
+            state.user_idle_observed_at_ms = Some(observed_at_ms);
+            if changed {
+                state.sequence = state.sequence.wrapping_add(1);
+            }
+        }
+    }
+
+    pub fn observe_local_hour(&self, hour: u8) {
+        let observed_at_ms = now_ms();
+        if let Ok(mut state) = self.inner.write() {
+            let hour = hour.min(23);
+            let changed = state.local_hour != hour;
+            state.local_hour = hour;
+            state.local_hour_observed_at_ms = Some(observed_at_ms);
+            if changed {
+                state.sequence = state.sequence.wrapping_add(1);
+            }
+        }
+    }
+
+    fn observe_accessibility_state(&self, requested_state: AccessibilityContextState) {
+        let observed_at_ms = now_ms();
+        if let Ok(mut state) = self.inner.write() {
+            let next_state = if state.active_app_state == ActiveAppContextState::PrivacyBlocked {
+                AccessibilityContextState::PrivacyBlocked
+            } else {
+                requested_state
+            };
+            let changed = state.accessibility_state != next_state || state.accessibility.is_some();
+            state.accessibility_state = next_state;
+            state.accessibility = None;
+            state.accessibility_observed_at_ms = Some(observed_at_ms);
+            if changed {
+                state.sequence = state.sequence.wrapping_add(1);
+            }
+        }
+    }
+}
+
+fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+        .min(i64::MAX as u128) as i64
 }
 
 #[cfg(test)]
@@ -257,6 +337,8 @@ mod tests {
         assert_eq!(snapshot.active_app_id, None);
         assert_eq!(snapshot.active_window_bounds, None);
         assert_eq!(snapshot.accessibility, None);
+        assert!(snapshot.active_app_observed_at_ms.is_some());
+        assert!(snapshot.accessibility_observed_at_ms.is_some());
         assert_eq!(
             snapshot.active_app_state,
             ActiveAppContextState::PrivacyBlocked
@@ -268,7 +350,7 @@ mod tests {
     }
 
     #[test]
-    fn switching_apps_invalidates_previous_accessibility_context() {
+    fn switching_apps_invalidates_previous_accessibility_context_and_freshness() {
         let broker = ScreenContextBroker::default();
         broker.observe_active_app("code".to_owned(), Some(example_bounds()));
         broker.observe_accessibility_for_app("code", Some(example_accessibility()));
@@ -277,6 +359,7 @@ mod tests {
         let snapshot = broker.snapshot();
         assert_eq!(snapshot.active_app_id.as_deref(), Some("notepad"));
         assert_eq!(snapshot.accessibility, None);
+        assert_eq!(snapshot.accessibility_observed_at_ms, None);
         assert_eq!(
             snapshot.accessibility_state,
             AccessibilityContextState::Unavailable
@@ -290,6 +373,19 @@ mod tests {
         broker.observe_accessibility_for_app("code", Some(example_accessibility()));
         let snapshot = broker.snapshot();
         assert_eq!(snapshot.accessibility, None);
+        assert_eq!(snapshot.accessibility_observed_at_ms, None);
+    }
+
+    #[test]
+    fn disabled_accessibility_survives_active_app_heartbeats() {
+        let broker = ScreenContextBroker::default();
+        broker.observe_accessibility_disabled();
+        broker.observe_active_app("code".to_owned(), Some(example_bounds()));
+        broker.clear_active_app();
+        assert_eq!(
+            broker.snapshot().accessibility_state,
+            AccessibilityContextState::Disabled
+        );
     }
 
     #[test]
@@ -315,13 +411,27 @@ mod tests {
     }
 
     #[test]
-    fn structured_signals_update_without_screen_pixels() {
+    fn repeated_heartbeat_refreshes_timestamp_without_advancing_sequence() {
+        let broker = ScreenContextBroker::default();
+        broker.observe_active_app("code".to_owned(), Some(example_bounds()));
+        let first = broker.snapshot();
+        broker.observe_active_app("code".to_owned(), Some(example_bounds()));
+        let second = broker.snapshot();
+
+        assert!(second.active_app_observed_at_ms.is_some());
+        assert_eq!(second.sequence, first.sequence);
+    }
+
+    #[test]
+    fn structured_signals_include_freshness_without_screen_pixels() {
         let broker = ScreenContextBroker::default();
         broker.observe_user_idle(42_000);
         broker.observe_local_hour(25);
         let snapshot = broker.snapshot();
         assert_eq!(snapshot.user_idle_ms, 42_000);
         assert_eq!(snapshot.local_hour, 23);
+        assert!(snapshot.user_idle_observed_at_ms.is_some());
+        assert!(snapshot.local_hour_observed_at_ms.is_some());
         assert_eq!(snapshot.sequence, 2);
     }
 }

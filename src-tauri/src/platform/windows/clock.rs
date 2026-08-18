@@ -34,17 +34,17 @@ fn local_hour() -> u8 {
     normalize_hour(time.hour)
 }
 
-pub fn spawn_local_time_sensor(
-    runtime: RuntimeHandle,
-    screen_context: ScreenContextBroker,
-) {
+pub fn spawn_local_time_sensor(runtime: RuntimeHandle, screen_context: ScreenContextBroker) {
     thread::spawn(move || {
         let mut previous_hour: Option<u8> = None;
 
         loop {
             let hour = local_hour();
+            // Refresh observation freshness every sensor pass while keeping Domain Events
+            // hour-change-only and Screen Context sequence semantic-change-only.
+            screen_context.observe_local_hour(hour);
+
             if previous_hour != Some(hour) {
-                screen_context.observe_local_hour(hour);
                 if runtime
                     .dispatch(DomainEvent::TimeOfDayChanged { hour })
                     .is_err()

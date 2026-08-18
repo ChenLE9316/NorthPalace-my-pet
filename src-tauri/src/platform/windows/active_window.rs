@@ -95,9 +95,7 @@ pub(super) fn foreground_app() -> Option<ForegroundApp> {
 
     let mut buffer = vec![0_u16; 32_768];
     let mut size = buffer.len() as u32;
-    let ok = unsafe {
-        QueryFullProcessImageNameW(process.0, 0, buffer.as_mut_ptr(), &mut size)
-    };
+    let ok = unsafe { QueryFullProcessImageNameW(process.0, 0, buffer.as_mut_ptr(), &mut size) };
     if ok == 0 || size == 0 {
         return None;
     }
@@ -157,7 +155,6 @@ pub fn spawn_active_window_sensor(
     thread::spawn(move || {
         let mut last_app_id: Option<String> = None;
         let mut last_blocked = false;
-        let mut last_bounds: Option<WindowBounds> = None;
 
         loop {
             let foreground = foreground_app();
@@ -167,8 +164,8 @@ pub fn spawn_active_window_sensor(
                 .map(|app_id| privacy.is_app_excluded(app_id))
                 .unwrap_or(false);
 
-            // Window geometry is a privacy-controlled capability. Never ask DWM for
-            // bounds until the process app id has passed the exclusion gate.
+            // Window geometry is privacy-controlled. Never ask DWM for bounds until
+            // process identity has passed the exclusion gate.
             let bounds = if blocked {
                 None
             } else {
@@ -178,33 +175,30 @@ pub fn spawn_active_window_sensor(
             };
 
             let identity_changed = app_id != last_app_id || blocked != last_blocked;
-            let context_changed = identity_changed || bounds != last_bounds;
 
-            if context_changed {
-                match app_id.clone() {
-                    Some(_) if blocked => {
-                        screen_context.observe_active_app_blocked();
-                    }
-                    Some(app_id) => {
-                        screen_context.observe_active_app(app_id.clone(), bounds);
-                        if identity_changed
-                            && runtime
-                                .dispatch(DomainEvent::ActiveWindowChanged { app_id })
-                                .is_err()
-                        {
-                            break;
-                        }
-                    }
-                    None => {
-                        screen_context.clear_active_app();
+            // Always refresh broker observation time on a successful sensor pass. The broker
+            // only advances its semantic sequence when identity/state/geometry actually changes.
+            match app_id.clone() {
+                Some(_) if blocked => {
+                    screen_context.observe_active_app_blocked();
+                }
+                Some(app_id) => {
+                    screen_context.observe_active_app(app_id.clone(), bounds);
+                    if identity_changed
+                        && runtime
+                            .dispatch(DomainEvent::ActiveWindowChanged { app_id })
+                            .is_err()
+                    {
+                        break;
                     }
                 }
-
-                last_app_id = app_id;
-                last_blocked = blocked;
-                last_bounds = bounds;
+                None => {
+                    screen_context.clear_active_app();
+                }
             }
 
+            last_app_id = app_id;
+            last_blocked = blocked;
             thread::sleep(Duration::from_secs(1));
         }
     });

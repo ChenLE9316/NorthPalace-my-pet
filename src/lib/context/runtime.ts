@@ -24,10 +24,14 @@ export interface ScreenContextSnapshot {
   activeAppId: string | null;
   activeAppState: ActiveAppContextState;
   activeWindowBounds: WindowBounds | null;
+  activeAppObservedAtMs: number | null;
   accessibilityState: AccessibilityContextState;
   accessibility: AccessibilityContext | null;
+  accessibilityObservedAtMs: number | null;
   userIdleMs: number;
+  userIdleObservedAtMs: number | null;
   localHour: number;
+  localHourObservedAtMs: number | null;
   sequence: number;
 }
 
@@ -35,10 +39,14 @@ export const fallbackScreenContext: ScreenContextSnapshot = {
   activeAppId: null,
   activeAppState: 'unknown',
   activeWindowBounds: null,
+  activeAppObservedAtMs: null,
   accessibilityState: 'disabled',
   accessibility: null,
+  accessibilityObservedAtMs: null,
   userIdleMs: 0,
+  userIdleObservedAtMs: null,
   localHour: 12,
+  localHourObservedAtMs: null,
   sequence: 0,
 };
 
