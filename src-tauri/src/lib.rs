@@ -1,25 +1,24 @@
+mod commands;
 mod domain;
 mod history_admin;
 mod memory_admin;
 mod persistence;
-mod privacy;
-mod screen_context;
 #[cfg(target_os = "windows")]
 mod platform;
+mod privacy;
 mod runtime;
+mod screen_context;
 
 use std::time::Duration;
 
-use domain::pet::PetInteraction;
-use history_admin::{ActivityHistoryRecord, HistoryAdminService};
-use memory_admin::{MemoryAdminService, MemoryInput, MemoryKind, MemoryRecord};
+use history_admin::HistoryAdminService;
+use memory_admin::MemoryAdminService;
 use persistence::{
     spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
 };
-use privacy::{PrivacyPolicyService, PrivacyRulesSnapshot};
-use runtime::{PetRuntimeSnapshot, RuntimeHandle};
-use screen_context::{ScreenContextBroker, ScreenContextSnapshot};
-use serde::Serialize;
+use privacy::PrivacyPolicyService;
+use runtime::RuntimeHandle;
+use screen_context::ScreenContextBroker;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -29,15 +28,6 @@ use tauri::{
 const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
 const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
 const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
-const MEMORY_LIST_LIMIT: u32 = 50;
-const ACTIVITY_LIST_LIMIT: u32 = 40;
-
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StartupStatus {
-    supported: bool,
-    enabled: bool,
-}
 
 fn show_companion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
     if let Some(window) = app.get_webview_window("companion") {
@@ -61,222 +51,6 @@ fn toggle_pet_visibility<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
         }
         Err(error) => eprintln!("failed to read Lenvu pet-window visibility: {error}"),
     }
-}
-
-#[tauri::command]
-fn get_pet_snapshot(runtime: tauri::State<'_, RuntimeHandle>) -> Result<PetRuntimeSnapshot, String> {
-    runtime.snapshot()
-}
-
-#[tauri::command]
-fn pet_interact(
-    kind: PetInteraction,
-    runtime: tauri::State<'_, RuntimeHandle>,
-) -> Result<(), String> {
-    runtime.dispatch(kind.into_event())
-}
-
-#[tauri::command]
-fn memory_list(
-    kind: Option<MemoryKind>,
-    limit: Option<u32>,
-    memory: tauri::State<'_, MemoryAdminService>,
-) -> Result<Vec<MemoryRecord>, String> {
-    memory.list(kind, limit.unwrap_or(MEMORY_LIST_LIMIT))
-}
-
-#[tauri::command]
-fn memory_search(
-    query: String,
-    limit: Option<u32>,
-    memory: tauri::State<'_, MemoryAdminService>,
-) -> Result<Vec<MemoryRecord>, String> {
-    memory.search(&query, limit.unwrap_or(MEMORY_LIST_LIMIT))
-}
-
-#[tauri::command]
-fn memory_create(
-    input: MemoryInput,
-    memory: tauri::State<'_, MemoryAdminService>,
-) -> Result<i64, String> {
-    memory.create(input)
-}
-
-#[tauri::command]
-fn memory_update(
-    id: i64,
-    input: MemoryInput,
-    memory: tauri::State<'_, MemoryAdminService>,
-) -> Result<(), String> {
-    memory.update(id, input)
-}
-
-#[tauri::command]
-fn memory_delete(
-    id: i64,
-    memory: tauri::State<'_, MemoryAdminService>,
-) -> Result<(), String> {
-    memory.delete(id)
-}
-
-#[tauri::command]
-fn activity_list(
-    limit: Option<u32>,
-    history: tauri::State<'_, HistoryAdminService>,
-) -> Result<Vec<ActivityHistoryRecord>, String> {
-    history.list(limit.unwrap_or(ACTIVITY_LIST_LIMIT))
-}
-
-#[tauri::command]
-fn activity_get(
-    id: i64,
-    history: tauri::State<'_, HistoryAdminService>,
-) -> Result<Option<ActivityHistoryRecord>, String> {
-    history.get(id)
-}
-
-#[tauri::command]
-fn privacy_get(privacy: tauri::State<'_, PrivacyPolicyService>) -> PrivacyRulesSnapshot {
-    privacy.snapshot()
-}
-
-#[tauri::command]
-fn privacy_add_excluded_app(
-    app_id: String,
-    privacy: tauri::State<'_, PrivacyPolicyService>,
-) -> Result<PrivacyRulesSnapshot, String> {
-    privacy.add_excluded_app(&app_id)
-}
-
-#[tauri::command]
-fn privacy_remove_excluded_app(
-    app_id: String,
-    privacy: tauri::State<'_, PrivacyPolicyService>,
-) -> Result<PrivacyRulesSnapshot, String> {
-    privacy.remove_excluded_app(&app_id)
-}
-
-#[tauri::command]
-fn privacy_set_accessibility_context_enabled(
-    enabled: bool,
-    privacy: tauri::State<'_, PrivacyPolicyService>,
-) -> Result<PrivacyRulesSnapshot, String> {
-    privacy.set_accessibility_context_enabled(enabled)
-}
-
-#[tauri::command]
-fn screen_context_get(
-    screen_context: tauri::State<'_, ScreenContextBroker>,
-) -> ScreenContextSnapshot {
-    screen_context.snapshot()
-}
-
-#[tauri::command]
-fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String> {
-    #[cfg(target_os = "windows")]
-    {
-        use tauri_plugin_autostart::ManagerExt;
-
-        let enabled = app
-            .autolaunch()
-            .is_enabled()
-            .map_err(|error| format!("failed to read Windows startup registration: {error}"))?;
-        return Ok(StartupStatus {
-            supported: true,
-            enabled,
-        });
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = app;
-        Ok(StartupStatus {
-            supported: false,
-            enabled: false,
-        })
-    }
-}
-
-#[tauri::command]
-fn startup_set(enabled: bool, app: tauri::AppHandle) -> Result<StartupStatus, String> {
-    #[cfg(target_os = "windows")]
-    {
-        use tauri_plugin_autostart::ManagerExt;
-
-        let manager = app.autolaunch();
-        if enabled {
-            manager
-                .enable()
-                .map_err(|error| format!("failed to enable Windows startup: {error}"))?;
-        } else {
-            manager
-                .disable()
-                .map_err(|error| format!("failed to disable Windows startup: {error}"))?;
-        }
-
-        let actual = manager
-            .is_enabled()
-            .map_err(|error| format!("failed to verify Windows startup registration: {error}"))?;
-        return Ok(StartupStatus {
-            supported: true,
-            enabled: actual,
-        });
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = app;
-        if enabled {
-            Err("Windows startup registration is unavailable on this platform".to_owned())
-        } else {
-            Ok(StartupStatus {
-                supported: false,
-                enabled: false,
-            })
-        }
-    }
-}
-
-#[tauri::command]
-fn toggle_companion_window(app: tauri::AppHandle) -> Result<bool, String> {
-    let window = app
-        .get_webview_window("companion")
-        .ok_or_else(|| "companion window is unavailable".to_owned())?;
-
-    let visible = window.is_visible().map_err(|error| error.to_string())?;
-    if visible {
-        window.hide().map_err(|error| error.to_string())?;
-        Ok(false)
-    } else {
-        window.show().map_err(|error| error.to_string())?;
-        window.set_focus().map_err(|error| error.to_string())?;
-        Ok(true)
-    }
-}
-
-#[tauri::command]
-fn hide_companion_window(app: tauri::AppHandle) -> Result<(), String> {
-    let window = app
-        .get_webview_window("companion")
-        .ok_or_else(|| "companion window is unavailable".to_owned())?;
-    window.hide().map_err(|error| error.to_string())
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-fn get_display_context(
-    webview_window: tauri::WebviewWindow,
-) -> Result<platform::windows::DisplayContext, String> {
-    platform::windows::read_display_context(&webview_window)
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-fn configure_pet_hit_regions(
-    regions: Vec<platform::windows::CursorHitRegion>,
-    hit_test: tauri::State<'_, platform::windows::CursorHitTestHandle>,
-) -> Result<(), String> {
-    hit_test.set_regions(regions)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -466,48 +240,48 @@ pub fn run() {
 
     #[cfg(target_os = "windows")]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        get_pet_snapshot,
-        pet_interact,
-        memory_list,
-        memory_search,
-        memory_create,
-        memory_update,
-        memory_delete,
-        activity_list,
-        activity_get,
-        privacy_get,
-        privacy_add_excluded_app,
-        privacy_remove_excluded_app,
-        privacy_set_accessibility_context_enabled,
-        screen_context_get,
-        startup_get,
-        startup_set,
-        toggle_companion_window,
-        hide_companion_window,
-        get_display_context,
-        configure_pet_hit_regions
+        commands::get_pet_snapshot,
+        commands::pet_interact,
+        commands::memory_list,
+        commands::memory_search,
+        commands::memory_create,
+        commands::memory_update,
+        commands::memory_delete,
+        commands::activity_list,
+        commands::activity_get,
+        commands::privacy_get,
+        commands::privacy_add_excluded_app,
+        commands::privacy_remove_excluded_app,
+        commands::privacy_set_accessibility_context_enabled,
+        commands::screen_context_get,
+        commands::startup_get,
+        commands::startup_set,
+        commands::toggle_companion_window,
+        commands::hide_companion_window,
+        commands::get_display_context,
+        commands::configure_pet_hit_regions
     ]);
 
     #[cfg(not(target_os = "windows"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        get_pet_snapshot,
-        pet_interact,
-        memory_list,
-        memory_search,
-        memory_create,
-        memory_update,
-        memory_delete,
-        activity_list,
-        activity_get,
-        privacy_get,
-        privacy_add_excluded_app,
-        privacy_remove_excluded_app,
-        privacy_set_accessibility_context_enabled,
-        screen_context_get,
-        startup_get,
-        startup_set,
-        toggle_companion_window,
-        hide_companion_window
+        commands::get_pet_snapshot,
+        commands::pet_interact,
+        commands::memory_list,
+        commands::memory_search,
+        commands::memory_create,
+        commands::memory_update,
+        commands::memory_delete,
+        commands::activity_list,
+        commands::activity_get,
+        commands::privacy_get,
+        commands::privacy_add_excluded_app,
+        commands::privacy_remove_excluded_app,
+        commands::privacy_set_accessibility_context_enabled,
+        commands::screen_context_get,
+        commands::startup_get,
+        commands::startup_set,
+        commands::toggle_companion_window,
+        commands::hide_companion_window
     ]);
 
     let app = builder
