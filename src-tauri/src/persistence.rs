@@ -2,10 +2,9 @@ use std::{
     fs,
     path::Path,
     sync::{
-        mpsc::{self, Sender},
+        mpsc::{self, RecvTimeoutError, Sender},
         Arc, RwLock,
     },
-    thread,
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -18,11 +17,13 @@ use crate::{
         pet_state::{Facing, PetStateV2},
     },
     runtime::RuntimeHandle,
+    worker::WorkerSupervisor,
 };
 
 const SCHEMA_VERSION: i64 = 2;
 const ACTIVITY_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 const ACTIVITY_MAX_ROWS: i64 = 2_000;
+const WORKER_RECV_POLL: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Clone, PartialEq)]
 struct ActivityRecord {
@@ -168,13 +169,24 @@ impl PersistenceBootstrap {
         self.initial_state.clone()
     }
 
-    pub fn into_worker(self) -> PersistenceHandle {
+    pub fn into_worker(self, supervisor: &WorkerSupervisor) -> Result<PersistenceHandle, String> {
         let (tx, rx) = mpsc::channel::<PersistenceCommand>();
         let connection = self.connection;
+        let handle = PersistenceHandle {
+            tx,
+            had_saved_state: self.had_saved_state,
+        };
 
-        thread::spawn(move || {
+        supervisor.spawn("persistence-db", move |token| {
             let mut connection = connection;
-            while let Ok(command) = rx.recv() {
+
+            while !token.is_cancelled() {
+                let command = match rx.recv_timeout(WORKER_RECV_POLL) {
+                    Ok(command) => command,
+                    Err(RecvTimeoutError::Timeout) => continue,
+                    Err(RecvTimeoutError::Disconnected) => break,
+                };
+
                 match command {
                     PersistenceCommand::Save(state) => {
                         if let Err(error) = save_pet_state(
@@ -215,12 +227,11 @@ impl PersistenceBootstrap {
                     }
                 }
             }
-        });
 
-        PersistenceHandle {
-            tx,
-            had_saved_state: self.had_saved_state,
-        }
+            Ok(())
+        })?;
+
+        Ok(handle)
     }
 }
 
@@ -357,12 +368,12 @@ pub fn spawn_autosave(
     runtime: RuntimeHandle,
     persistence: PersistenceHandle,
     interval: Duration,
-) {
-    thread::spawn(move || {
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("persistence-autosave", move |token| {
         let mut last_queued: Option<PersistentPetState> = None;
 
-        loop {
-            thread::sleep(interval);
+        while !token.wait_timeout(interval) {
             let Ok(snapshot) = runtime.snapshot() else {
                 continue;
             };
@@ -371,25 +382,45 @@ pub fn spawn_autosave(
                 continue;
             }
 
-            if persistence.queue_save(snapshot.state).is_err() {
-                break;
+            if let Err(error) = persistence.queue_save(snapshot.state) {
+                if token.is_cancelled() {
+                    break;
+                }
+                return Err(error);
             }
             last_queued = Some(persistent);
         }
-    });
+
+        Ok(())
+    })
 }
 
-pub fn spawn_event_journal(runtime: RuntimeHandle, persistence: PersistenceService) {
+pub fn spawn_event_journal(
+    runtime: RuntimeHandle,
+    persistence: PersistenceService,
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
     let events = runtime.subscribe_events();
 
-    thread::spawn(move || {
+    supervisor.spawn("persistence-event-journal", move |token| {
         let mut current_hour: Option<u8> = None;
 
-        while let Ok(event) = events.recv() {
+        while !token.is_cancelled() {
+            let event = match events.recv_timeout(WORKER_RECV_POLL) {
+                Ok(event) => event,
+                Err(RecvTimeoutError::Timeout) => continue,
+                Err(RecvTimeoutError::Disconnected) => {
+                    if token.is_cancelled() {
+                        break;
+                    }
+                    return Err("pet runtime event subscription disconnected".to_owned());
+                }
+            };
+
             if let DomainEvent::TimeOfDayChanged { hour } = &event {
                 let hour = (*hour).min(23);
                 current_hour = Some(hour);
-                let _ = persistence.observe_hour(hour, 0);
+                persistence.observe_hour(hour, 0)?;
                 continue;
             }
 
@@ -397,15 +428,17 @@ pub fn spawn_event_journal(runtime: RuntimeHandle, persistence: PersistenceServi
                 continue;
             };
             let counts_as_interaction = activity.counts_as_interaction;
-            let _ = persistence.queue_activity(activity);
+            persistence.queue_activity(activity)?;
 
             if counts_as_interaction {
                 if let Some(hour) = current_hour {
-                    let _ = persistence.observe_hour(hour, 1);
+                    persistence.observe_hour(hour, 1)?;
                 }
             }
         }
-    });
+
+        Ok(())
+    })
 }
 
 fn configure_connection(connection: &Connection) -> Result<(), String> {
@@ -821,13 +854,20 @@ mod tests {
     fn final_save_waits_for_worker_acknowledgement() {
         let connection = Connection::open_in_memory().expect("in-memory SQLite");
         let bootstrap = PersistenceBootstrap::from_connection(connection).expect("bootstrap");
-        let persistence = bootstrap.into_worker();
+        let supervisor = WorkerSupervisor::default();
+        let persistence = bootstrap
+            .into_worker(&supervisor)
+            .expect("persistence worker");
 
         let mut state = PetStateV2::default();
         state.bond = 0.91;
         persistence
             .save_and_flush(state, Duration::from_secs(1))
             .expect("final save acknowledgement");
+
+        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        assert_eq!(report.joined, vec!["persistence-db".to_owned()]);
+        assert!(report.detached.is_empty());
     }
 
     #[test]
