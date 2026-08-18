@@ -60,6 +60,7 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Hourly interaction rhythm.
 - [x] Memory Browser/editor + CRUD + provenance.
 - [x] Consolidate duplicated memory-domain types.
+- [x] Route Memory/Activity management through the single persistence DB owner.
 - [ ] Memory Evaluator: store / merge / discard.
 - [ ] Stronger relationship/personality evolution.
 - [ ] Local-data export/reset/backup policy.
