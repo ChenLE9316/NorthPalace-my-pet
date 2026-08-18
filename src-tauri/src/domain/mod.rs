@@ -1,5 +1,6 @@
 pub mod behavior;
 pub mod events;
+pub mod memory;
 pub mod personality;
 pub mod pet;
 pub mod pet_state;
