@@ -28,8 +28,8 @@ jobs:
       - name: Reject tracked local/private runtime data
         run: npm run validate:repo
 
-      - name: Install frontend dependencies and resolve npm lockfile
-        run: npm install --no-audit --no-fund
+      - name: Install locked frontend dependencies
+        run: npm ci --no-audit --no-fund
 
       - name: Install stable Rust
         shell: pwsh
@@ -37,18 +37,8 @@ jobs:
           rustup toolchain install stable --profile minimal
           rustup default stable
 
-      - name: Resolve Cargo lockfile
-        run: cargo generate-lockfile --manifest-path src-tauri/Cargo.toml
-
-      - name: Upload resolved lockfile candidates
-        uses: actions/upload-artifact@v7
-        with:
-          name: northpalace-lockfiles-${{ github.sha }}
-          path: |
-            package-lock.json
-            src-tauri/Cargo.lock
-          if-no-files-found: error
-          retention-days: 7
+      - name: Verify committed Cargo lockfile
+        run: cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > NUL
 
       - name: Build Windows executable and NSIS bundle
         run: npm run desktop:build -- --bundles nsis
