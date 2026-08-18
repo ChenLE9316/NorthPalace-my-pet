@@ -165,10 +165,6 @@ impl WorkerSupervisor {
         Ok(())
     }
 
-    pub fn cancellation_token(&self) -> CancellationToken {
-        self.inner.cancellation.clone()
-    }
-
     pub fn snapshot(&self) -> Vec<WorkerStatus> {
         let Ok(workers) = self.inner.workers.lock() else {
             return Vec::new();
@@ -263,21 +259,34 @@ fn update_state(state: &Arc<Mutex<WorkerState>>, health: WorkerHealth, last_erro
 
 #[cfg(test)]
 mod tests {
+    use std::sync::mpsc;
+
     use super::*;
 
     #[test]
     fn cancellation_interrupts_wait() {
         let supervisor = WorkerSupervisor::default();
-        let token = supervisor.cancellation_token();
-        let token_for_thread = token.clone();
-        let started = Instant::now();
-        let waiter = thread::spawn(move || token_for_thread.wait_timeout(Duration::from_secs(5)));
+        let (tx, rx) = mpsc::sync_channel(1);
+        supervisor
+            .spawn("interruptible-wait", move |token| {
+                let started = Instant::now();
+                let cancelled = token.wait_timeout(Duration::from_secs(5));
+                tx.send((cancelled, started.elapsed()))
+                    .map_err(|error| format!("failed to report wait result: {error}"))?;
+                Ok(())
+            })
+            .expect("spawn worker");
 
         thread::sleep(Duration::from_millis(20));
-        supervisor.shutdown_and_join(Duration::from_millis(20));
+        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        let (cancelled, elapsed) = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("wait result");
 
-        assert!(waiter.join().expect("waiter join"));
-        assert!(started.elapsed() < Duration::from_secs(1));
+        assert_eq!(report.joined, vec!["interruptible-wait".to_owned()]);
+        assert!(report.detached.is_empty());
+        assert!(cancelled);
+        assert!(elapsed < Duration::from_secs(1));
     }
 
     #[test]
@@ -305,7 +314,10 @@ mod tests {
 
         for _ in 0..100 {
             let status = supervisor.snapshot();
-            if status.first().is_some_and(|status| status.health == WorkerHealth::Error) {
+            if status
+                .first()
+                .is_some_and(|status| status.health == WorkerHealth::Error)
+            {
                 assert_eq!(status[0].last_error.as_deref(), Some("expected failure"));
                 return;
             }
