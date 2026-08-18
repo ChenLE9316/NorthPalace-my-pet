@@ -12,7 +12,9 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Parallel Pet State V2 and Behavior Intent.
 - [x] Truthful runtime health: `ready / degraded / error`.
 - [x] Runtime panic preserves last snapshot and marks `error`.
-- [x] Windows CI on `main` with frontend build, Rust fmt, Clippy and tests.
+- [x] Windows CI on `main` with tracked-data guard, frontend build, Rust fmt, Clippy and tests.
+- [x] Root-local runtime ignore is anchored so `assets/runtime/` remains available for production assets.
+- [x] CI rejects tracked local databases, model weights, `.env`, privacy rules, logs and private key containers.
 - [ ] Dependency lockfiles / reproducible installs.
 - [ ] Clean executable/bundle build on target Windows machine.
 - [ ] RAM / idle CPU / GPU baseline on Ryzen 3 2200G + Vega 8.
@@ -113,7 +115,7 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 - [ ] `SECURITY.md` and restrictive CSP.
 - [ ] Production derivatives/icon/character assets.
 - [ ] Clean Windows bundle build + target performance baseline.
-- [ ] Tracked-data/secrets/private-data audit.
+- [ ] Final manual tracked-data/secrets/private-data audit before visibility/release change.
 - [ ] Local-data export/reset/backup verification.
 
 ## Definition of success

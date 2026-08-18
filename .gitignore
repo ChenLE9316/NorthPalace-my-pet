@@ -12,7 +12,7 @@ src-tauri/target/
 .cache/
 .tmp/
 logs/
-runtime/
+/runtime/
 
 # Local models — never commit GGUF weights
 models/*.gguf

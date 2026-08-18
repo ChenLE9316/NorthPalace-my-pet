@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "validate:repo": "node scripts/validate-tracked-data.mjs",
     "validate:assets": "node scripts/validate-lenvu-assets.mjs",
     "build": "npm run validate:assets && vite build",
     "preview": "vite preview",
