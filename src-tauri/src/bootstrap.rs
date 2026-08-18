@@ -78,8 +78,9 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
             eprintln!("failed to publish Lenvu runtime snapshot: {error}");
         }
     });
+    let runtime_supervisor = worker_supervisor.in_phase(WorkerPhase::Runtime);
     let runtime = RuntimeHandle::spawn_managed_with_state_and_observer(
-        &worker_supervisor,
+        &runtime_supervisor,
         PET_TICK_INTERVAL,
         initial_state.clone(),
         Some(snapshot_observer),
