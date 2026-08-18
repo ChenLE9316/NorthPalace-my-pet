@@ -58,7 +58,7 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Typed memories + FTS5/BM25/importance/recency retrieval.
 - [x] Hourly interaction rhythm.
 - [x] Memory Browser/editor + CRUD + provenance.
-- [ ] Consolidate duplicated memory-domain types.
+- [x] Consolidate duplicated memory-domain types.
 - [ ] Memory Evaluator: store / merge / discard.
 - [ ] Stronger relationship/personality evolution.
 - [ ] Local-data export/reset/backup policy.
