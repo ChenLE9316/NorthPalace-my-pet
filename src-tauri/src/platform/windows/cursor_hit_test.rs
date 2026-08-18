@@ -1,10 +1,11 @@
 use std::{
     sync::{Arc, RwLock},
-    thread,
     time::Duration,
 };
 
 use serde::Deserialize;
+
+use crate::worker::WorkerSupervisor;
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "shape", rename_all = "snake_case")]
@@ -102,11 +103,12 @@ fn cursor_position() -> Option<Point> {
 pub fn spawn_cursor_passthrough_sensor(
     window: tauri::WebviewWindow,
     hit_test: CursorHitTestHandle,
-) {
-    thread::spawn(move || {
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("windows-cursor-passthrough", move |token| {
         let mut last_ignore: Option<bool> = None;
 
-        loop {
+        while !token.is_cancelled() {
             let regions = hit_test.snapshot();
             let desired_ignore = if regions.is_empty() {
                 // Safe startup state: never make the window unreachable before the WebView
@@ -114,15 +116,17 @@ pub fn spawn_cursor_passthrough_sensor(
                 false
             } else {
                 let Some(cursor) = cursor_position() else {
-                    thread::sleep(Duration::from_millis(30));
+                    if token.wait_timeout(Duration::from_millis(30)) {
+                        break;
+                    }
                     continue;
                 };
-                let Ok(position) = window.outer_position() else {
-                    break;
-                };
-                let Ok(size) = window.inner_size() else {
-                    break;
-                };
+                let position = window
+                    .outer_position()
+                    .map_err(|error| format!("failed to read pet window position: {error}"))?;
+                let size = window
+                    .inner_size()
+                    .map_err(|error| format!("failed to read pet window size: {error}"))?;
                 if size.width == 0 || size.height == 0 {
                     false
                 } else {
@@ -144,15 +148,19 @@ pub fn spawn_cursor_passthrough_sensor(
             };
 
             if last_ignore != Some(desired_ignore) {
-                if window.set_ignore_cursor_events(desired_ignore).is_err() {
-                    break;
-                }
+                window
+                    .set_ignore_cursor_events(desired_ignore)
+                    .map_err(|error| format!("failed to update pet cursor passthrough: {error}"))?;
                 last_ignore = Some(desired_ignore);
             }
 
-            thread::sleep(Duration::from_millis(30));
+            if token.wait_timeout(Duration::from_millis(30)) {
+                break;
+            }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
