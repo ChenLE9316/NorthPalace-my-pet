@@ -45,6 +45,8 @@ impl PetRuntimeSnapshot {
     }
 }
 
+pub type SnapshotObserver = Arc<dyn Fn(PetRuntimeSnapshot) + Send + Sync + 'static>;
+
 #[derive(Clone)]
 pub struct RuntimeHandle {
     event_tx: Sender<DomainEvent>,
@@ -58,6 +60,14 @@ impl RuntimeHandle {
     }
 
     pub fn spawn_with_state(tick_interval: Duration, initial_state: PetStateV2) -> Self {
+        Self::spawn_with_state_and_observer(tick_interval, initial_state, None)
+    }
+
+    pub fn spawn_with_state_and_observer(
+        tick_interval: Duration,
+        initial_state: PetStateV2,
+        snapshot_observer: Option<SnapshotObserver>,
+    ) -> Self {
         let (event_tx, event_rx) = mpsc::channel::<DomainEvent>();
         let brain = PetBrainV2::from_state(initial_state);
         let snapshot = Arc::new(RwLock::new(PetRuntimeSnapshot::from_brain(
@@ -89,13 +99,16 @@ impl RuntimeHandle {
                         }
                         Err(RecvTimeoutError::Timeout) => {}
                         Err(RecvTimeoutError::Disconnected) => {
-                            if let Ok(mut slot) = snapshot_writer.write() {
-                                *slot = PetRuntimeSnapshot::from_brain(
-                                    RuntimeHealth::Degraded,
-                                    sequence,
-                                    &brain,
-                                );
-                            }
+                            let degraded = PetRuntimeSnapshot::from_brain(
+                                RuntimeHealth::Degraded,
+                                sequence,
+                                &brain,
+                            );
+                            publish_snapshot(
+                                &snapshot_writer,
+                                snapshot_observer.as_ref(),
+                                degraded,
+                            );
                             return;
                         }
                     }
@@ -109,19 +122,24 @@ impl RuntimeHandle {
                         sequence = sequence.saturating_add(1);
                     }
 
-                    if let Ok(mut slot) = snapshot_writer.write() {
-                        *slot = PetRuntimeSnapshot::from_brain(
-                            RuntimeHealth::Ready,
-                            sequence,
-                            &brain,
-                        );
-                    }
+                    let next = PetRuntimeSnapshot::from_brain(
+                        RuntimeHealth::Ready,
+                        sequence,
+                        &brain,
+                    );
+                    publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), next);
                 }
             }));
 
             if runtime_result.is_err() {
-                if let Ok(mut slot) = snapshot_writer.write() {
+                let error_snapshot = snapshot_writer.write().ok().map(|mut slot| {
                     slot.health = RuntimeHealth::Error;
+                    slot.clone()
+                });
+                if let (Some(observer), Some(snapshot)) =
+                    (snapshot_observer.as_ref(), error_snapshot)
+                {
+                    observer(snapshot);
                 }
                 eprintln!("Lenvu Pet Runtime panicked; preserving the last snapshot as error state");
             }
@@ -162,6 +180,19 @@ impl RuntimeHandle {
     }
 }
 
+fn publish_snapshot(
+    snapshot_writer: &Arc<RwLock<PetRuntimeSnapshot>>,
+    observer: Option<&SnapshotObserver>,
+    snapshot: PetRuntimeSnapshot,
+) {
+    if let Ok(mut slot) = snapshot_writer.write() {
+        *slot = snapshot.clone();
+    }
+    if let Some(observer) = observer {
+        observer(snapshot);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -191,5 +222,28 @@ mod tests {
             events.recv_timeout(Duration::from_secs(1)),
             Ok(DomainEvent::PetPetted)
         ));
+    }
+
+    #[test]
+    fn runtime_publishes_snapshots_to_observer() {
+        let (tx, rx) = mpsc::sync_channel(1);
+        let observer: SnapshotObserver = Arc::new(move |snapshot| {
+            let _ = tx.try_send(snapshot);
+        });
+        let runtime = RuntimeHandle::spawn_with_state_and_observer(
+            Duration::from_secs(60),
+            PetStateV2::default(),
+            Some(observer),
+        );
+
+        runtime
+            .dispatch(DomainEvent::PetPetted)
+            .expect("dispatch event");
+        let snapshot = rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("published snapshot");
+
+        assert_eq!(snapshot.health, RuntimeHealth::Ready);
+        assert!(snapshot.sequence >= 1);
     }
 }
