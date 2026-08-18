@@ -1,8 +1,3 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::{Arc, RwLock},
-};
-
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 
@@ -28,77 +23,7 @@ pub struct MemoryRecord {
     pub source_event_id: Option<i64>,
 }
 
-#[derive(Clone, Default)]
-pub struct MemoryAdminService {
-    database_path: Arc<RwLock<Option<PathBuf>>>,
-}
-
-impl MemoryAdminService {
-    pub fn install(&self, path: PathBuf) -> Result<(), String> {
-        self.database_path
-            .write()
-            .map(|mut slot| *slot = Some(path))
-            .map_err(|_| "memory-admin path lock is poisoned".to_owned())
-    }
-
-    pub fn list(
-        &self,
-        kind: Option<MemoryKind>,
-        limit: u32,
-    ) -> Result<Vec<MemoryRecord>, String> {
-        let connection = self.connection()?;
-        list_memories(&connection, kind, limit)
-    }
-
-    pub fn search(&self, query: &str, limit: u32) -> Result<Vec<MemoryRecord>, String> {
-        let connection = self.connection()?;
-        search_memories(&connection, query, limit)
-    }
-
-    pub fn create(&self, input: MemoryInput) -> Result<i64, String> {
-        validate_input(&input)?;
-        let connection = self.connection()?;
-        create_memory(&connection, &input)
-    }
-
-    pub fn update(&self, id: i64, input: MemoryInput) -> Result<(), String> {
-        validate_id(id)?;
-        validate_input(&input)?;
-        let connection = self.connection()?;
-        update_memory(&connection, id, &input)
-    }
-
-    pub fn delete(&self, id: i64) -> Result<(), String> {
-        validate_id(id)?;
-        let connection = self.connection()?;
-        delete_memory(&connection, id)
-    }
-
-    fn connection(&self) -> Result<Connection, String> {
-        let path = self
-            .database_path
-            .read()
-            .map_err(|_| "memory-admin path lock is poisoned".to_owned())?
-            .clone()
-            .ok_or_else(|| "persistent memory is unavailable for this session".to_owned())?;
-
-        open_admin_connection(&path)
-    }
-}
-
-fn open_admin_connection(path: &Path) -> Result<Connection, String> {
-    let connection = Connection::open(path)
-        .map_err(|error| format!("failed to open memory database {}: {error}", path.display()))?;
-    connection
-        .execute_batch(
-            "PRAGMA foreign_keys = ON;\n\
-             PRAGMA busy_timeout = 2500;",
-        )
-        .map_err(|error| format!("failed to configure memory database connection: {error}"))?;
-    Ok(connection)
-}
-
-fn validate_id(id: i64) -> Result<(), String> {
+pub(crate) fn validate_id(id: i64) -> Result<(), String> {
     if id <= 0 {
         Err("memory id must be positive".to_owned())
     } else {
@@ -106,7 +31,7 @@ fn validate_id(id: i64) -> Result<(), String> {
     }
 }
 
-fn validate_input(input: &MemoryInput) -> Result<(), String> {
+pub(crate) fn validate_input(input: &MemoryInput) -> Result<(), String> {
     let content = input.content.trim();
     if content.is_empty() {
         return Err("memory content cannot be empty".to_owned());
@@ -120,7 +45,7 @@ fn validate_input(input: &MemoryInput) -> Result<(), String> {
     Ok(())
 }
 
-fn list_memories(
+pub(crate) fn list_memories(
     connection: &Connection,
     kind: Option<MemoryKind>,
     limit: u32,
@@ -171,7 +96,7 @@ fn list_memories(
     Ok(records)
 }
 
-fn search_memories(
+pub(crate) fn search_memories(
     connection: &Connection,
     query: &str,
     limit: u32,
@@ -216,7 +141,8 @@ fn build_fts_query(query: &str) -> String {
         .join(" AND ")
 }
 
-fn create_memory(connection: &Connection, input: &MemoryInput) -> Result<i64, String> {
+pub(crate) fn create_memory(connection: &Connection, input: &MemoryInput) -> Result<i64, String> {
+    validate_input(input)?;
     let now = now_ms();
     connection
         .execute(
@@ -234,7 +160,13 @@ fn create_memory(connection: &Connection, input: &MemoryInput) -> Result<i64, St
     Ok(connection.last_insert_rowid())
 }
 
-fn update_memory(connection: &Connection, id: i64, input: &MemoryInput) -> Result<(), String> {
+pub(crate) fn update_memory(
+    connection: &Connection,
+    id: i64,
+    input: &MemoryInput,
+) -> Result<(), String> {
+    validate_id(id)?;
+    validate_input(input)?;
     let changed = connection
         .execute(
             "UPDATE memories\n\
@@ -257,7 +189,8 @@ fn update_memory(connection: &Connection, id: i64, input: &MemoryInput) -> Resul
     }
 }
 
-fn delete_memory(connection: &Connection, id: i64) -> Result<(), String> {
+pub(crate) fn delete_memory(connection: &Connection, id: i64) -> Result<(), String> {
+    validate_id(id)?;
     let changed = connection
         .execute("DELETE FROM memories WHERE id = ?1", params![id])
         .map_err(|error| format!("failed to delete memory: {error}"))?;
