@@ -180,9 +180,10 @@ impl PersistenceBootstrap {
         supervisor.spawn("persistence-db", move |token| {
             let mut connection = connection;
 
-            while !token.is_cancelled() {
+            loop {
                 let command = match rx.recv_timeout(WORKER_RECV_POLL) {
                     Ok(command) => command,
+                    Err(RecvTimeoutError::Timeout) if token.is_cancelled() => break,
                     Err(RecvTimeoutError::Timeout) => continue,
                     Err(RecvTimeoutError::Disconnected) => break,
                 };
@@ -405,9 +406,10 @@ pub fn spawn_event_journal(
     supervisor.spawn("persistence-event-journal", move |token| {
         let mut current_hour: Option<u8> = None;
 
-        while !token.is_cancelled() {
+        loop {
             let event = match events.recv_timeout(WORKER_RECV_POLL) {
                 Ok(event) => event,
+                Err(RecvTimeoutError::Timeout) if token.is_cancelled() => break,
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {
                     if token.is_cancelled() {
