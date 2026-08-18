@@ -9,15 +9,22 @@ import { lenvuManifest, type LenvuHitZoneId } from './manifest';
  *
  * This remains a procedural placeholder. The manifest already defines the stable renderer contract,
  * so production sprites/atlases can replace these primitives without changing Pet Brain.
+ * Direction changes are semantic rather than blind root mirroring because Lenvu has asymmetric
+ * identity features (heterochromia and the left-side crescent-horn ornament).
  */
 export class PetRenderer {
   private readonly app = new Application();
   private readonly root = new Container();
+  private readonly symmetricLayer = new Container();
+  private readonly identityLayer = new Container();
   private readonly focusRing = new Graphics()
     .circle(0, 54, 58)
     .stroke({ color: 0x4edbff, width: 2, alpha: 0.55 });
-  private readonly leftEye = new Graphics().circle(-18, -26, 6).fill(0x67e9ff);
-  private readonly rightEye = new Graphics().circle(18, -26, 6).fill(0xb991ff);
+  private readonly leftEye = new Graphics().circle(-18, -26, 6).fill(0xb991ff);
+  private readonly rightEye = new Graphics().circle(18, -26, 6).fill(0x67e9ff);
+  private readonly leftCrescent = new Graphics()
+    .circle(-24, -83, 8)
+    .stroke({ color: 0xd8b86b, width: 2.2, alpha: 0.95 });
   private snapshot: PetRuntimeSnapshot | null = null;
   private animation: LenvuAnimationId = 'idle';
   private elapsedSeconds = 0;
@@ -67,14 +74,15 @@ export class PetRenderer {
       .fill({ color: 0x6f899b, alpha: 0.98 });
     rightEar.scale.y = 1.4;
 
-    const leftHorn = new Graphics().circle(-19, -82, 5).fill(0xd8b86b);
-    const rightHorn = new Graphics().circle(19, -82, 5).fill(0xd8b86b);
+    // Placeholder horns deliberately remain dark and separate from the gold crescent ornament.
+    const leftHorn = new Graphics().circle(-19, -82, 5).fill(0x26313d);
+    const rightHorn = new Graphics().circle(19, -82, 5).fill(0x26313d);
 
     const tail = new Graphics()
       .circle(47, 37, 19)
       .fill({ color: 0x77e9ff, alpha: 0.48 });
 
-    this.root.addChild(
+    this.symmetricLayer.addChild(
       this.focusRing,
       tail,
       body,
@@ -84,9 +92,9 @@ export class PetRenderer {
       rightEar,
       leftHorn,
       rightHorn,
-      this.leftEye,
-      this.rightEye,
     );
+    this.identityLayer.addChild(this.leftEye, this.rightEye, this.leftCrescent);
+    this.root.addChild(this.symmetricLayer, this.identityLayer);
 
     this.root.position.set(container.clientWidth / 2, container.clientHeight / 2 + 8);
     this.app.stage.addChild(this.root);
@@ -160,7 +168,16 @@ export class PetRenderer {
 
   private applyFacingScale() {
     const facingSign = this.snapshot?.state.facing === 'left' ? -1 : 1;
-    this.root.scale.set(facingSign * this.poseScaleX, this.poseScaleY);
+    // Only symmetric placeholder geometry is mirrored. Identity-bearing features stay on their
+    // canonical semantic sides and are repositioned explicitly below.
+    this.symmetricLayer.scale.x = facingSign;
+    this.root.scale.set(this.poseScaleX, this.poseScaleY);
+
+    const leftEyeX = -18 * facingSign;
+    const rightEyeX = 18 * facingSign;
+    this.leftEye.position.x = leftEyeX - (-18);
+    this.rightEye.position.x = rightEyeX - 18;
+    this.leftCrescent.position.x = -24 * facingSign - (-24);
   }
 
   private animate = (ticker: Ticker) => {

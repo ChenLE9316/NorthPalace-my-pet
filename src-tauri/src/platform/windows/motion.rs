@@ -46,6 +46,13 @@ impl HorizontalDirection {
             Self::Right => Facing::Right,
         }
     }
+
+    fn from_facing(facing: Facing) -> Self {
+        match facing {
+            Facing::Left => Self::Left,
+            Facing::Right => Self::Right,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -244,7 +251,7 @@ fn publish_facing(runtime: &RuntimeHandle, direction: HorizontalDirection) -> bo
 
 pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: RuntimeHandle) {
     thread::spawn(move || {
-        let mut direction = HorizontalDirection::Right;
+        let mut direction: Option<HorizontalDirection> = None;
         let mut published_direction: Option<HorizontalDirection> = None;
         let mut last_step = Instant::now();
         let mut fractional_x: Option<f64> = None;
@@ -262,15 +269,21 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
             let Some(speed_logical) = motion_speed_logical_px_per_sec(snapshot.state.locomotion)
             else {
                 fractional_x = None;
+                direction = None;
+                published_direction = None;
                 thread::sleep(MOTION_TICK);
                 continue;
             };
 
-            if published_direction != Some(direction) {
-                if !publish_facing(&runtime, direction) {
+            let mut active_direction = direction
+                .unwrap_or_else(|| HorizontalDirection::from_facing(snapshot.state.facing));
+            direction = Some(active_direction);
+
+            if published_direction != Some(active_direction) {
+                if !publish_facing(&runtime, active_direction) {
                     break;
                 }
-                published_direction = Some(direction);
+                published_direction = Some(active_direction);
             }
 
             let Ok(Some(monitor)) = window.current_monitor() else {
@@ -297,16 +310,16 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
             let current_x = fractional_x.unwrap_or(window_position.x as f64);
             let speed_physical = speed_logical * scale_factor.max(0.5);
             let delta_seconds = delta_seconds.min(0.25);
-            let projected = projected_x(current_x, direction, speed_physical, delta_seconds);
+            let projected = projected_x(current_x, active_direction, speed_physical, delta_seconds);
 
-            if reaches_edge(projected, direction, bounds)
+            if reaches_edge(projected, active_direction, bounds)
                 && allows_monitor_transition(snapshot.behavior.as_ref().map(|behavior| behavior.kind))
             {
                 let adjacent = window.available_monitors().ok().and_then(|monitors| {
                     find_adjacent_monitor(
                         current_monitor,
                         monitors.iter().map(monitor_geometry),
-                        direction,
+                        active_direction,
                     )
                 });
 
@@ -316,7 +329,7 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
                         window_size.width,
                         window_size.height,
                     );
-                    let target_x = match direction {
+                    let target_x = match active_direction {
                         HorizontalDirection::Left => target_bounds.max_x,
                         HorizontalDirection::Right => target_bounds.min_x,
                     };
@@ -337,22 +350,23 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
                 }
             }
 
-            let previous_direction = direction;
+            let previous_direction = active_direction;
             let (next_x, next_direction) = advance_x(
                 current_x,
-                direction,
+                active_direction,
                 speed_physical,
                 delta_seconds,
                 bounds,
             );
-            direction = next_direction;
+            active_direction = next_direction;
+            direction = Some(active_direction);
             fractional_x = Some(next_x);
 
-            if direction != previous_direction {
-                if !publish_facing(&runtime, direction) {
+            if active_direction != previous_direction {
+                if !publish_facing(&runtime, active_direction) {
                     break;
                 }
-                published_direction = Some(direction);
+                published_direction = Some(active_direction);
             }
 
             let physical_x = next_x.round().clamp(i32::MIN as f64, i32::MAX as f64) as i32;
@@ -419,6 +433,12 @@ mod tests {
         assert_eq!(x, 100.0);
         assert_eq!(direction, HorizontalDirection::Left);
         assert_eq!(direction.facing(), Facing::Left);
+    }
+
+    #[test]
+    fn initial_direction_respects_domain_facing() {
+        assert_eq!(HorizontalDirection::from_facing(Facing::Left), HorizontalDirection::Left);
+        assert_eq!(HorizontalDirection::from_facing(Facing::Right), HorizontalDirection::Right);
     }
 
     #[test]

@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeSet,
     fs,
+    io::Write,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
@@ -214,8 +215,78 @@ fn persist_rules(path: &Path, state: &PrivacyState) -> Result<(), String> {
     };
     let content = serde_json::to_string_pretty(&stored)
         .map_err(|error| format!("failed to serialize privacy rules: {error}"))?;
-    fs::write(path, format!("{content}\n"))
-        .map_err(|error| format!("failed to write privacy rules {}: {error}", path.display()))
+    let temp_path = path.with_extension("json.tmp");
+
+    let result = (|| -> Result<(), String> {
+        let mut file = fs::File::create(&temp_path).map_err(|error| {
+            format!(
+                "failed to create temporary privacy rules {}: {error}",
+                temp_path.display()
+            )
+        })?;
+        file.write_all(format!("{content}\n").as_bytes())
+            .map_err(|error| format!("failed to write temporary privacy rules: {error}"))?;
+        file.sync_all()
+            .map_err(|error| format!("failed to flush temporary privacy rules: {error}"))?;
+        drop(file);
+
+        replace_file(&temp_path, path)
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temp_path);
+    }
+    result
+}
+
+#[cfg(target_os = "windows")]
+fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
+    use std::{iter, os::windows::ffi::OsStrExt};
+
+    const MOVEFILE_REPLACE_EXISTING: u32 = 0x0000_0001;
+    const MOVEFILE_WRITE_THROUGH: u32 = 0x0000_0008;
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn MoveFileExW(existing_file_name: *const u16, new_file_name: *const u16, flags: u32) -> i32;
+    }
+
+    let source_wide = source
+        .as_os_str()
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect::<Vec<_>>();
+    let destination_wide = destination
+        .as_os_str()
+        .encode_wide()
+        .chain(iter::once(0))
+        .collect::<Vec<_>>();
+
+    let ok = unsafe {
+        MoveFileExW(
+            source_wide.as_ptr(),
+            destination_wide.as_ptr(),
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH,
+        )
+    };
+    if ok == 0 {
+        return Err(format!(
+            "failed to atomically replace privacy rules {}: {}",
+            destination.display(),
+            std::io::Error::last_os_error()
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
+    fs::rename(source, destination).map_err(|error| {
+        format!(
+            "failed to atomically replace privacy rules {}: {error}",
+            destination.display()
+        )
+    })
 }
 
 #[cfg(test)]
@@ -312,6 +383,26 @@ mod tests {
             .remove_excluded_app("keepassxc")
             .expect("remove exclusion");
         assert!(reloaded.is_accessibility_context_allowed("keepassxc"));
+
+        if let Some(parent) = path.parent() {
+            let _ = fs::remove_dir_all(parent);
+        }
+    }
+
+    #[test]
+    fn replacement_leaves_no_temp_file_after_success() {
+        let path = unique_test_path();
+        let privacy = PrivacyPolicyService::default();
+        privacy.install(path.clone()).expect("install privacy rules");
+        privacy.add_excluded_app("code").expect("first write");
+        privacy.add_excluded_app("discord").expect("replacement write");
+
+        assert!(path.exists());
+        assert!(!path.with_extension("json.tmp").exists());
+
+        let reloaded = PrivacyPolicyService::default();
+        reloaded.install(path.clone()).expect("reload replacement");
+        assert_eq!(reloaded.snapshot().excluded_apps, vec!["code", "discord"]);
 
         if let Some(parent) = path.parent() {
             let _ = fs::remove_dir_all(parent);

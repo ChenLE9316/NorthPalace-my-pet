@@ -154,6 +154,17 @@ impl ScreenContextBroker {
         });
     }
 
+    pub fn observe_accessibility_unavailable(&self) {
+        self.update(|state| {
+            if state.active_app_state == ActiveAppContextState::PrivacyBlocked {
+                state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
+            } else {
+                state.accessibility_state = AccessibilityContextState::Unavailable;
+            }
+            state.accessibility = None;
+        });
+    }
+
     pub fn observe_accessibility_blocked(&self) {
         self.update(|state| {
             state.accessibility_state = AccessibilityContextState::PrivacyBlocked;
@@ -286,6 +297,17 @@ mod tests {
         let broker = ScreenContextBroker::default();
         broker.observe_active_app_blocked();
         broker.observe_accessibility_disabled();
+        assert_eq!(
+            broker.snapshot().accessibility_state,
+            AccessibilityContextState::PrivacyBlocked
+        );
+    }
+
+    #[test]
+    fn accessibility_unavailable_does_not_override_privacy_block() {
+        let broker = ScreenContextBroker::default();
+        broker.observe_active_app_blocked();
+        broker.observe_accessibility_unavailable();
         assert_eq!(
             broker.snapshot().accessibility_state,
             AccessibilityContextState::PrivacyBlocked

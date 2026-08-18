@@ -19,6 +19,7 @@ use crate::{
 use super::active_window::foreground_app;
 
 const ACCESSIBILITY_POLL_INTERVAL: Duration = Duration::from_secs(2);
+const ACCESSIBILITY_RETRY_INTERVAL: Duration = Duration::from_secs(10);
 
 struct ComApartment;
 
@@ -116,18 +117,24 @@ pub(super) fn spawn_accessibility_sensor(
     screen_context: ScreenContextBroker,
 ) {
     thread::spawn(move || {
-        let mut reader_initialized = false;
         let mut reader: Option<AccessibilityReader> = None;
+        let mut retry_after: Option<std::time::Instant> = None;
 
         loop {
             let policy = privacy.snapshot();
             if policy.fail_closed {
+                reader = None;
+                retry_after = None;
                 screen_context.observe_accessibility_blocked();
                 thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
                 continue;
             }
 
             if !policy.accessibility_context_enabled {
+                // Releasing the reader also releases COM/UI Automation resources while the
+                // capability is explicitly disabled.
+                reader = None;
+                retry_after = None;
                 screen_context.observe_accessibility_disabled();
                 thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
                 continue;
@@ -144,12 +151,27 @@ pub(super) fn spawn_accessibility_sensor(
                 continue;
             }
 
-            if !reader_initialized {
-                reader = AccessibilityReader::new().map_err(|error| {
-                    eprintln!("Lenvu accessibility context unavailable: {error}");
-                    error
-                }).ok();
-                reader_initialized = true;
+            if reader.is_none() {
+                let now = std::time::Instant::now();
+                if retry_after.is_some_and(|deadline| now < deadline) {
+                    screen_context.observe_accessibility_unavailable();
+                    thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                    continue;
+                }
+
+                match AccessibilityReader::new() {
+                    Ok(new_reader) => {
+                        reader = Some(new_reader);
+                        retry_after = None;
+                    }
+                    Err(error) => {
+                        eprintln!("Lenvu accessibility context unavailable: {error}");
+                        retry_after = Some(now + ACCESSIBILITY_RETRY_INTERVAL);
+                        screen_context.observe_accessibility_unavailable();
+                        thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                        continue;
+                    }
+                }
             }
 
             let context = reader

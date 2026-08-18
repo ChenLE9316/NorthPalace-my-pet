@@ -248,7 +248,6 @@
   <button
     class="pet"
     aria-label="與 Lenvu 互動"
-    ondblclick={() => void toggleCompanionWindow()}
     onmouseenter={() => void send('hover')}
     onmouseleave={() => void send('hover_end')}
     onpointerdown={handlePetPointerDown}
