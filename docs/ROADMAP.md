@@ -113,7 +113,8 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 
 - [ ] Code license and separate Lenvu artwork license.
 - [ ] `package-lock.json` + `Cargo.lock` from real dependency resolution.
-- [ ] `SECURITY.md` and restrictive CSP.
+- [x] Add `SECURITY.md` with pre-release vulnerability/privacy reporting guidance.
+- [ ] Restore a restrictive CSP.
 - [ ] Production derivatives/icon/character assets.
 - [ ] Successful clean Windows bundle plus target performance baseline.
 - [ ] Final manual tracked-data/secrets/private-data audit before visibility/release change.
