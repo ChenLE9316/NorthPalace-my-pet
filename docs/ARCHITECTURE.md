@@ -124,9 +124,11 @@ Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank rendere
 
 SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
 
-The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`, but they belong to different shutdown phases. Autosave is a producer; the event journal is the journal phase; the DB owner is the persistence phase.
+The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`, but they belong to different shutdown phases. Autosave is a producer; Pet Runtime has its own runtime phase; the event journal is the journal phase; the DB owner is the persistence phase.
 
-Application exit no longer relies on quiet-time ordering between those workers. Producer workers are cancelled and joined first, which freezes Pet Runtime state and prevents new successful domain dispatches. The application then reads that frozen snapshot. The journal phase is cancelled and joined next, allowing its already queued events to reach the still-running persistence worker. Only after the journal barrier completes is the frozen Pet State sent through `SaveAndFlush`. Its acknowledgement therefore sits behind previously queued journal/autosave writes. The DB phase is cancelled and joined last.
+Application exit no longer relies on quiet-time ordering. Platform sensors/controllers and autosave producers are cancelled and joined first so no upstream worker continues generating runtime or persistence work. Pet Runtime is then cancelled in its own phase; before returning, it drains every already accepted event remaining in its input queue and publishes that final semantic snapshot. Only after the runtime join barrier completes does the application read the frozen snapshot.
+
+The journal phase is cancelled and joined next, allowing its already accepted domain events to reach the still-running persistence worker. After that barrier, the frozen Pet State is sent through `SaveAndFlush`; because the final save command is queued after all journal sends have completed, its acknowledgement also proves that earlier queued persistence work has been processed. The DB phase is cancelled and joined last.
 
 The SQLite worker uses a 2500 ms busy timeout; final-save acknowledgement allows 3 seconds so the application does not declare timeout before SQLite's own bounded lock wait can complete.
 
@@ -144,16 +146,17 @@ Runtime state synchronization is event-driven: both WebViews listen to the Rust-
 
 `lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and ordered worker shutdown/final persistence. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
 
-`bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. It also assigns persistence-related workers to phase-scoped supervisor views; persistence code itself does not need to know the whole application shutdown topology.
+`bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. It assigns Pet Runtime, event journal and DB ownership to phase-scoped supervisor views while leaving Windows adapters and autosave on the default producer phase; persistence code itself therefore does not need to know the whole application shutdown topology.
 
 The supervisor itself is Tauri-managed application state. `worker_status_get` exposes a small structured health snapshot, including each worker's shutdown phase, for future deep-management/debug surfaces without pushing worker administration into the ambient pet UI.
 
 ## 13. Worker lifecycle
 
-`WorkerSupervisor` is the common lifecycle boundary for long-running in-process workers. It owns one shared registry and independent cancellation tokens for three ordered phases:
+`WorkerSupervisor` is the common lifecycle boundary for long-running in-process workers. It owns one shared registry and independent cancellation tokens for four ordered phases:
 
 ```text
 producers
+runtime
 journal
 persistence
 ```
@@ -164,7 +167,6 @@ Current production-managed workers are classified as:
 
 ```text
 producers
-├─ pet-runtime
 ├─ persistence-autosave
 ├─ windows-local-time
 ├─ windows-idle
@@ -172,6 +174,9 @@ producers
 ├─ windows-accessibility
 ├─ windows-cursor-passthrough
 └─ windows-pet-motion
+
+runtime
+└─ pet-runtime
 
 journal
 └─ persistence-event-journal
@@ -191,14 +196,18 @@ panicked
 detached
 ```
 
-Blocking loops must either use `CancellationToken::wait_timeout` or a bounded channel receive timeout and re-check cancellation. The receive timeout is only a cancellation-responsiveness mechanism; correctness no longer depends on one worker guessing that an upstream worker has been quiet for long enough.
+Blocking loops must either use `CancellationToken::wait_timeout` or a bounded channel receive timeout and re-check cancellation. Receive timeouts are cancellation-responsiveness mechanisms only; correctness does not depend on one worker guessing that an upstream worker has been quiet for long enough.
 
 Shutdown ordering is deliberate:
 
 ```text
 cancel + join producers
         ↓
-Pet Runtime is frozen; read final snapshot
+no upstream sensor/controller/autosave producers remain
+        ↓
+cancel runtime; drain accepted runtime events; join runtime
+        ↓
+read frozen Pet Runtime snapshot
         ↓
 cancel + join journal
         ↓
@@ -211,7 +220,7 @@ cancel + join persistence DB
 unfinished workers marked detached + named by phase in stderr
 ```
 
-Each phase has a bounded join deadline. If a producer cannot stop before its deadline, the application reports it as detached and final persistence becomes best-effort rather than pretending the snapshot is guaranteed frozen.
+Each phase has a bounded join deadline. If an upstream producer or the runtime itself cannot stop before its deadline, final persistence is best-effort rather than being represented as a guaranteed frozen-state save.
 
 The supervisor catches unexpected worker panics and records them. It does **not** apply a generic automatic-restart loop. SQLite ownership, COM/UI Automation, WebView controllers and future external model processes have different idempotency and resource-recreation requirements; restart must therefore be an explicit worker-specific policy. Runtime `recovering` should only exist when such a real policy is implemented.
 
