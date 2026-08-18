@@ -9,6 +9,14 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
+pub enum WorkerPhase {
+    Producers,
+    Journal,
+    Persistence,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum WorkerHealth {
     Starting,
     Running,
@@ -22,6 +30,7 @@ pub enum WorkerHealth {
 #[serde(rename_all = "camelCase")]
 pub struct WorkerStatus {
     pub name: String,
+    pub phase: WorkerPhase,
     pub health: WorkerHealth,
     pub last_error: Option<String>,
 }
@@ -78,6 +87,33 @@ impl CancellationToken {
     }
 }
 
+#[derive(Default)]
+struct PhaseCancellation {
+    producers: CancellationToken,
+    journal: CancellationToken,
+    persistence: CancellationToken,
+}
+
+impl PhaseCancellation {
+    fn token(&self, phase: WorkerPhase) -> CancellationToken {
+        match phase {
+            WorkerPhase::Producers => self.producers.clone(),
+            WorkerPhase::Journal => self.journal.clone(),
+            WorkerPhase::Persistence => self.persistence.clone(),
+        }
+    }
+
+    fn cancel(&self, phase: WorkerPhase) {
+        self.token(phase).cancel();
+    }
+
+    fn cancel_all(&self) {
+        self.producers.cancel();
+        self.journal.cancel();
+        self.persistence.cancel();
+    }
+}
+
 #[derive(Debug)]
 struct WorkerState {
     health: WorkerHealth,
@@ -86,13 +122,14 @@ struct WorkerState {
 
 struct ManagedWorker {
     name: String,
+    phase: WorkerPhase,
     state: Arc<Mutex<WorkerState>>,
     join: Option<JoinHandle<()>>,
 }
 
 #[derive(Default)]
 struct SupervisorInner {
-    cancellation: CancellationToken,
+    cancellation: PhaseCancellation,
     workers: Mutex<Vec<ManagedWorker>>,
 }
 
@@ -107,8 +144,22 @@ pub struct ShutdownReport {
     pub detached: Vec<String>,
 }
 
+type PendingWorker = (String, Arc<Mutex<WorkerState>>, JoinHandle<()>);
+
 impl WorkerSupervisor {
     pub fn spawn<F>(&self, name: impl Into<String>, worker: F) -> Result<(), String>
+    where
+        F: FnOnce(CancellationToken) -> Result<(), String> + Send + 'static,
+    {
+        self.spawn_in_phase(WorkerPhase::Producers, name, worker)
+    }
+
+    pub fn spawn_in_phase<F>(
+        &self,
+        phase: WorkerPhase,
+        name: impl Into<String>,
+        worker: F,
+    ) -> Result<(), String>
     where
         F: FnOnce(CancellationToken) -> Result<(), String> + Send + 'static,
     {
@@ -122,8 +173,10 @@ impl WorkerSupervisor {
         if workers.iter().any(|entry| entry.name == name) {
             return Err(format!("worker already registered: {name}"));
         }
-        if self.inner.cancellation.is_cancelled() {
-            return Err("worker supervisor is shutting down".to_owned());
+
+        let token = self.inner.cancellation.token(phase);
+        if token.is_cancelled() {
+            return Err(format!("worker phase {phase:?} is shutting down"));
         }
 
         let state = Arc::new(Mutex::new(WorkerState {
@@ -131,7 +184,6 @@ impl WorkerSupervisor {
             last_error: None,
         }));
         let state_for_thread = Arc::clone(&state);
-        let token = self.inner.cancellation.clone();
         let thread_name = format!("lenvu-{name}");
 
         let join = thread::Builder::new()
@@ -159,6 +211,7 @@ impl WorkerSupervisor {
 
         workers.push(ManagedWorker {
             name,
+            phase,
             state,
             join: Some(join),
         });
@@ -179,6 +232,7 @@ impl WorkerSupervisor {
                     .unwrap_or_else(|poisoned| poisoned.into_inner());
                 WorkerStatus {
                     name: worker.name.clone(),
+                    phase: worker.phase,
                     health: state.health,
                     last_error: state.last_error.clone(),
                 }
@@ -186,68 +240,80 @@ impl WorkerSupervisor {
             .collect()
     }
 
+    pub fn shutdown_phase_and_join(
+        &self,
+        phase: WorkerPhase,
+        timeout: Duration,
+    ) -> ShutdownReport {
+        self.inner.cancellation.cancel(phase);
+        let pending = self.take_pending(Some(phase));
+        join_pending(pending, timeout)
+    }
+
     pub fn shutdown_and_join(&self, timeout: Duration) -> ShutdownReport {
-        self.inner.cancellation.cancel();
+        self.inner.cancellation.cancel_all();
+        let pending = self.take_pending(None);
+        join_pending(pending, timeout)
+    }
 
-        let mut pending = {
-            let Ok(mut workers) = self.inner.workers.lock() else {
-                return ShutdownReport {
-                    joined: Vec::new(),
-                    detached: vec!["worker-registry-lock".to_owned()],
-                };
-            };
-
-            workers
-                .iter_mut()
-                .filter_map(|worker| {
-                    worker
-                        .join
-                        .take()
-                        .map(|join| (worker.name.clone(), Arc::clone(&worker.state), join))
-                })
-                .collect::<Vec<_>>()
+    fn take_pending(&self, phase: Option<WorkerPhase>) -> Vec<PendingWorker> {
+        let Ok(mut workers) = self.inner.workers.lock() else {
+            return Vec::new();
         };
 
-        let deadline = Instant::now() + timeout;
-        let mut joined = Vec::new();
+        workers
+            .iter_mut()
+            .filter(|worker| phase.is_none_or(|expected| worker.phase == expected))
+            .filter_map(|worker| {
+                worker
+                    .join
+                    .take()
+                    .map(|join| (worker.name.clone(), Arc::clone(&worker.state), join))
+            })
+            .collect()
+    }
+}
 
-        while !pending.is_empty() && Instant::now() < deadline {
-            let mut index = 0;
-            while index < pending.len() {
-                if pending[index].2.is_finished() {
-                    let (name, state, join) = pending.swap_remove(index);
-                    if join.join().is_err() {
-                        update_state(
-                            &state,
-                            WorkerHealth::Panicked,
-                            Some("worker join observed panic".to_owned()),
-                        );
-                    }
-                    joined.push(name);
-                } else {
-                    index += 1;
+fn join_pending(mut pending: Vec<PendingWorker>, timeout: Duration) -> ShutdownReport {
+    let deadline = Instant::now() + timeout;
+    let mut joined = Vec::new();
+
+    while !pending.is_empty() && Instant::now() < deadline {
+        let mut index = 0;
+        while index < pending.len() {
+            if pending[index].2.is_finished() {
+                let (name, state, join) = pending.swap_remove(index);
+                if join.join().is_err() {
+                    update_state(
+                        &state,
+                        WorkerHealth::Panicked,
+                        Some("worker join observed panic".to_owned()),
+                    );
                 }
-            }
-
-            if !pending.is_empty() {
-                thread::sleep(Duration::from_millis(5));
+                joined.push(name);
+            } else {
+                index += 1;
             }
         }
 
-        let detached = pending
-            .into_iter()
-            .map(|(name, state, _join)| {
-                update_state(
-                    &state,
-                    WorkerHealth::Detached,
-                    Some("worker did not stop before shutdown deadline".to_owned()),
-                );
-                name
-            })
-            .collect();
-
-        ShutdownReport { joined, detached }
+        if !pending.is_empty() {
+            thread::sleep(Duration::from_millis(5));
+        }
     }
+
+    let detached = pending
+        .into_iter()
+        .map(|(name, state, _join)| {
+            update_state(
+                &state,
+                WorkerHealth::Detached,
+                Some("worker did not stop before shutdown deadline".to_owned()),
+            );
+            name
+        })
+        .collect();
+
+    ShutdownReport { joined, detached }
 }
 
 fn update_state(state: &Arc<Mutex<WorkerState>>, health: WorkerHealth, last_error: Option<String>) {
@@ -278,7 +344,8 @@ mod tests {
             .expect("spawn worker");
 
         thread::sleep(Duration::from_millis(20));
-        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        let report = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
         let (cancelled, elapsed) = rx
             .recv_timeout(Duration::from_secs(1))
             .expect("wait result");
@@ -303,6 +370,62 @@ mod tests {
         assert_eq!(report.joined, vec!["cooperative".to_owned()]);
         assert!(report.detached.is_empty());
         assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);
+    }
+
+    #[test]
+    fn phased_shutdown_leaves_later_phase_running() {
+        let supervisor = WorkerSupervisor::default();
+        let (started_tx, started_rx) = mpsc::sync_channel(2);
+
+        let producer_started = started_tx.clone();
+        supervisor
+            .spawn_in_phase(WorkerPhase::Producers, "producer", move |token| {
+                producer_started
+                    .send("producer")
+                    .map_err(|error| error.to_string())?;
+                while !token.wait_timeout(Duration::from_secs(60)) {}
+                Ok(())
+            })
+            .expect("spawn producer");
+
+        supervisor
+            .spawn_in_phase(WorkerPhase::Journal, "journal", move |token| {
+                started_tx
+                    .send("journal")
+                    .map_err(|error| error.to_string())?;
+                while !token.wait_timeout(Duration::from_secs(60)) {}
+                Ok(())
+            })
+            .expect("spawn journal");
+
+        let mut started = vec![
+            started_rx
+                .recv_timeout(Duration::from_secs(1))
+                .expect("first worker started"),
+            started_rx
+                .recv_timeout(Duration::from_secs(1))
+                .expect("second worker started"),
+        ];
+        started.sort_unstable();
+        assert_eq!(started, vec!["journal", "producer"]);
+
+        let producer_report = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
+        assert_eq!(producer_report.joined, vec!["producer".to_owned()]);
+        assert!(producer_report.detached.is_empty());
+
+        let status = supervisor.snapshot();
+        let journal = status
+            .iter()
+            .find(|worker| worker.name == "journal")
+            .expect("journal status");
+        assert_eq!(journal.phase, WorkerPhase::Journal);
+        assert_eq!(journal.health, WorkerHealth::Running);
+
+        let journal_report = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Journal, Duration::from_secs(1));
+        assert_eq!(journal_report.joined, vec!["journal".to_owned()]);
+        assert!(journal_report.detached.is_empty());
     }
 
     #[test]
