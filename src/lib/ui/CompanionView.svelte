@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { PetInteraction } from '../types';
-  import { fallbackSnapshot, getPetSnapshot, interact } from '../pet/runtime';
+  import type { PetInteraction, PetRuntimeSnapshot } from '../types';
+  import { fallbackSnapshot, getPetSnapshot, interact, observePetSnapshots } from '../pet/runtime';
   import {
     fallbackDisplayContext,
     getDisplayContext,
     hideCompanionWindow,
+    observePetDisplayContext,
     type DisplayContext,
   } from '../window/runtime';
   import ActivitySection from './companion/ActivitySection.svelte';
@@ -17,16 +18,18 @@
 
   let snapshot = fallbackSnapshot;
   let displayContext: DisplayContext = fallbackDisplayContext;
-  let snapshotTimer: number | undefined;
-  let displayTimer: number | undefined;
   let activityRefreshTimer: number | undefined;
   let activityRefreshEpoch = 0;
   let activeSection: CompanionSection = 'home';
 
   const percent = (value: number) => `${Math.round(value * 100)}%`;
 
+  function applySnapshot(nextSnapshot: PetRuntimeSnapshot) {
+    snapshot = nextSnapshot;
+  }
+
   async function refresh() {
-    snapshot = await getPetSnapshot();
+    applySnapshot(await getPetSnapshot());
   }
 
   async function refreshDisplay() {
@@ -65,15 +68,34 @@
   }
 
   onMount(() => {
+    let disposed = false;
+    let stopSnapshotObservation: (() => void) | null = null;
+    let stopDisplayContextObservation: (() => void) | null = null;
+
+    void observePetSnapshots(applySnapshot)
+      .then((stop) => {
+        if (disposed) stop();
+        else stopSnapshotObservation = stop;
+      })
+      .catch((error) => console.error('Failed to observe Pet Runtime snapshots', error));
+
+    void observePetDisplayContext((context) => {
+      displayContext = context;
+    })
+      .then((stop) => {
+        if (disposed) stop();
+        else stopDisplayContextObservation = stop;
+      })
+      .catch((error) => console.error('Failed to observe pet display context', error));
+
     void refresh();
     void refreshDisplay();
-    snapshotTimer = window.setInterval(() => void refresh(), 500);
-    displayTimer = window.setInterval(() => void refreshDisplay(), 2_000);
 
     return () => {
-      window.clearInterval(snapshotTimer);
-      window.clearInterval(displayTimer);
+      disposed = true;
       window.clearTimeout(activityRefreshTimer);
+      stopSnapshotObservation?.();
+      stopDisplayContextObservation?.();
     };
   });
 </script>
