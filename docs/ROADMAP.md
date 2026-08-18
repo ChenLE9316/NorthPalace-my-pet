@@ -15,8 +15,10 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Windows CI on `main` with tracked-data guard, frontend build, Rust fmt, Clippy and tests.
 - [x] Root-local runtime ignore is anchored so `assets/runtime/` remains available for production assets.
 - [x] CI rejects tracked local databases, model weights, `.env`, privacy rules, logs and private key containers.
+- [x] Add manual Windows NSIS bundle workflow and upload build artifacts for inspection.
+- [ ] Observe the first successful manual Windows bundle run.
 - [ ] Dependency lockfiles / reproducible installs.
-- [ ] Clean executable/bundle build on target Windows machine.
+- [ ] Clean executable/bundle run on target Windows machine.
 - [ ] RAM / idle CPU / GPU baseline on Ryzen 3 2200G + Vega 8.
 
 ## Phase 1 — Living desktop pet
@@ -85,7 +87,6 @@ A checked item means the capability exists in the repository; it does not automa
 - [ ] Replace growth of independent frontend polling loops with bounded shared subscription/event strategy.
 - [ ] Dependency lockfiles.
 - [ ] Svelte-specific diagnostic gate after TypeScript 7 toolchain compatibility is fixed and locked.
-- [ ] Release/manual Windows `tauri build` CI path.
 
 ## Phase 5 — Local AI brain
 
@@ -114,7 +115,7 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 - [ ] `package-lock.json` + `Cargo.lock` from real dependency resolution.
 - [ ] `SECURITY.md` and restrictive CSP.
 - [ ] Production derivatives/icon/character assets.
-- [ ] Clean Windows bundle build + target performance baseline.
+- [ ] Successful clean Windows bundle plus target performance baseline.
 - [ ] Final manual tracked-data/secrets/private-data audit before visibility/release change.
 - [ ] Local-data export/reset/backup verification.
 

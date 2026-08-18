@@ -1,0 +1,51 @@
+name: Windows Bundle
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bundle:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Reject tracked local/private runtime data
+        run: npm run validate:repo
+
+      - name: Install frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+
+      - name: Build Windows executable and NSIS bundle
+        run: npm run desktop:build -- --bundles nsis
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: northpalace-windows-${{ github.sha }}
+          path: |
+            src-tauri/target/release/*.exe
+            src-tauri/target/release/bundle/nsis/**
+          if-no-files-found: error
+          retention-days: 7
