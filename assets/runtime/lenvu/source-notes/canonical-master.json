@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "characterId": "lenvu",
-  "status": "contract_frozen_master_art_pending",
+  "status": "source_measured_master_art_pending",
   "authority": {
     "document": "docs/CANONICAL_LENVU.md",
     "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
@@ -25,20 +25,29 @@
     "runtimeCellHeight": 512,
     "normalizedCoordinates": true,
     "safeVisualBounds": {
-      "left": 0.08,
+      "left": 0.04,
       "top": 0.05,
-      "right": 0.92,
+      "right": 0.96,
       "bottom": 0.90
-    }
+    },
+    "safeBoundsRevisionReason": "Measured side-profile anatomy is substantially longer than the earlier inferred/chibi-biased bounds; preserve the source silhouette without horizontal compression."
   },
   "anchors": {
     "root": { "x": 0.50, "y": 0.86 },
     "groundY": 0.86,
-    "body": { "x": 0.50, "y": 0.58 },
-    "head": { "x": 0.50, "y": 0.29 },
-    "tailBase": { "x": 0.70, "y": 0.61 },
-    "frontPawLeft": { "x": 0.43, "y": 0.84 },
-    "frontPawRight": { "x": 0.57, "y": 0.84 }
+    "body": { "x": 0.50, "y": 0.492 },
+    "head": { "x": 0.50, "y": 0.269 },
+    "tailBase": { "x": 0.674283, "y": 0.440061 },
+    "frontPawLeft": { "x": 0.577536, "y": 0.86 },
+    "frontPawRight": { "x": 0.422464, "y": 0.86 }
+  },
+  "anchorProvenance": {
+    "rootAndGround": "aligned from measured supporting-paw contact",
+    "head": "production pivot derived between measured frontal eye line and measured profile head center",
+    "body": "production pivot derived from measured shoulder/hip torso region",
+    "tailBase": "measured left-profile tail-base remap",
+    "frontPaws": "measured frontal supporting-paw contact remap",
+    "coordinatesAreIdentityAuthority": false
   },
   "identity": {
     "speciesSilhouette": "tall_lean_long_legged_canine_dragon_digital",
