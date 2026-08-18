@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "characterId": "lenvu",
-  "status": "source_pixels_measured_normalization_remap_pending",
+  "status": "measured_from_original_high_resolution_source",
   "authority": {
     "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "primaryReference": "assets/reference/anatomy/lenvu-anatomy-reference.webp",
@@ -16,9 +16,16 @@
     "groundY": 0.86
   },
   "provenance": {
-    "measurementStatus": "source_pixels_measured_normalized_remap_pending",
+    "measurementStatus": "measured_from_original_high_resolution_source",
     "coordinatesAreIdentityAuthority": false,
-    "note": "Original 1536x1024 anatomy source has now been measured and identity-checked. The normalized coordinates below are still provisional engineering targets until remapped from the measured source bounds."
+    "note": "Landmarks are deterministic remaps of measured source pixels. Visual Ground Truth remains the identity authority."
+  },
+  "normalization": {
+    "preserveAspectRatio": true,
+    "targetTopY": 0.05,
+    "targetGroundY": 0.86,
+    "targetRootX": 0.5,
+    "sourceTransformAuthority": "assets/runtime/lenvu/source-notes/source-measurement.json#canonicalMapping"
   },
   "revisionPolicy": {
     "sourceVisualEvidenceOverridesCoordinates": true,
@@ -33,38 +40,38 @@
   },
   "frontNeutral": {
     "root": { "x": 0.5, "y": 0.86 },
-    "earTipRight": { "x": 0.31, "y": 0.07 },
-    "earTipLeft": { "x": 0.69, "y": 0.07 },
-    "hornTipRight": { "x": 0.44, "y": 0.13 },
-    "hornTipLeft": { "x": 0.56, "y": 0.13 },
-    "rightEye": { "x": 0.42, "y": 0.29, "color": "cyan" },
-    "leftEye": { "x": 0.58, "y": 0.29, "color": "violet" },
-    "nose": { "x": 0.5, "y": 0.36 },
-    "chin": { "x": 0.5, "y": 0.41 },
-    "shoulderRight": { "x": 0.38, "y": 0.46 },
-    "shoulderLeft": { "x": 0.62, "y": 0.46 },
-    "frontPawRight": { "x": 0.4, "y": 0.86 },
-    "frontPawLeft": { "x": 0.6, "y": 0.86 }
+    "earTipRight": { "x": 0.39442, "y": 0.05165 },
+    "earTipLeft": { "x": 0.603931, "y": 0.05165 },
+    "hornTipRight": { "x": 0.476904, "y": 0.112688 },
+    "hornTipLeft": { "x": 0.551141, "y": 0.094542 },
+    "rightEye": { "x": 0.455458, "y": 0.284257, "color": "cyan" },
+    "leftEye": { "x": 0.544542, "y": 0.284257, "color": "violet" },
+    "nose": { "x": 0.49835, "y": 0.350244 },
+    "chin": { "x": 0.49835, "y": 0.381589 },
+    "shoulderRight": { "x": 0.427413, "y": 0.460774 },
+    "shoulderLeft": { "x": 0.570937, "y": 0.460774 },
+    "frontPawRight": { "x": 0.422464, "y": 0.86 },
+    "frontPawLeft": { "x": 0.577536, "y": 0.86 }
   },
   "leftProfileNeutral": {
     "root": { "x": 0.5, "y": 0.86 },
-    "nose": { "x": 0.18, "y": 0.34 },
-    "visibleEye": { "x": 0.29, "y": 0.29, "semanticSide": "right", "color": "cyan" },
-    "head": { "x": 0.32, "y": 0.29 },
-    "shoulder": { "x": 0.39, "y": 0.44 },
-    "frontPaw": { "x": 0.38, "y": 0.86 },
-    "hip": { "x": 0.66, "y": 0.55 },
-    "rearPaw": { "x": 0.7, "y": 0.86 },
-    "tailBase": { "x": 0.7, "y": 0.5 },
-    "tailEffectPeak": { "x": 0.84, "y": 0.27 }
+    "nose": { "x": 0.050184, "y": 0.303955 },
+    "visibleEye": { "x": 0.129857, "y": 0.244201, "semanticSide": "right", "color": "cyan" },
+    "head": { "x": 0.19791, "y": 0.25416 },
+    "shoulder": { "x": 0.267623, "y": 0.403545 },
+    "frontPaw": { "x": 0.275922, "y": 0.85668 },
+    "hip": { "x": 0.59627, "y": 0.523053 },
+    "rearPaw": { "x": 0.724078, "y": 0.85668 },
+    "tailBase": { "x": 0.674283, "y": 0.440061 },
+    "tailEffectPeak": { "x": 0.80707, "y": 0.179467 }
   },
   "backNeutral": {
     "root": { "x": 0.5, "y": 0.86 },
-    "spineCenterTop": { "x": 0.5, "y": 0.17 },
-    "spineCenterMid": { "x": 0.5, "y": 0.49 },
-    "tailBase": { "x": 0.5, "y": 0.58 },
-    "rearPawRight": { "x": 0.4, "y": 0.86 },
-    "rearPawLeft": { "x": 0.6, "y": 0.86 }
+    "spineCenterTop": { "x": 0.49833, "y": 0.138515 },
+    "spineCenterMid": { "x": 0.49833, "y": 0.440804 },
+    "tailBase": { "x": 0.49833, "y": 0.551031 },
+    "rearPawRight": { "x": 0.419835, "y": 0.86 },
+    "rearPawLeft": { "x": 0.580165, "y": 0.86 }
   },
   "identityConstraints": {
     "rightEye": "cyan",
