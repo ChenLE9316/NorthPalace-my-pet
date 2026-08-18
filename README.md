@@ -33,7 +33,7 @@ Implemented today:
 - event-driven runtime snapshot and pet display-context synchronization across WebViews without independent background UI polling;
 - system tray and opt-in Windows launch-at-login;
 - bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
-- ordered producer → journal → persistence shutdown with a frozen final Pet State and acknowledged final flush;
+- ordered producer → runtime → journal → persistence shutdown, including accepted-event drain, frozen final Pet State and acknowledged final flush;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -53,7 +53,7 @@ Windows 11
 │
 ├─ Tauri 2 desktop process
 │  ├─ Worker Supervisor
-│  │  ├─ producers / journal / persistence phases
+│  │  ├─ producers / runtime / journal / persistence phases
 │  │  ├─ named worker health
 │  │  ├─ panic/error capture
 │  │  └─ bounded phase shutdown + join
@@ -155,7 +155,7 @@ memory_fts
 rhythm_hourly
 ```
 
-Application exit freezes producer workers first, then drains the event-journal phase, then sends the frozen Pet State through an acknowledged final save before the SQLite owner stops. The final-save timeout is longer than SQLite's own bounded busy timeout, so normal lock contention is allowed to resolve before shutdown reports failure.
+Application exit first stops upstream producer workers, then lets Pet Runtime drain every already accepted event before its own phase stops. The resulting snapshot is frozen. The event-journal phase drains next, then the frozen Pet State is sent through an acknowledged final save before the SQLite owner stops. The final-save timeout is longer than SQLite's own bounded busy timeout, so normal lock contention is allowed to resolve before shutdown reports failure.
 
 The activity journal is intentionally bounded and ignores high-frequency noise. Long-term memory currently supports episodic, semantic, preference and relationship records with FTS5/BM25 retrieval plus importance/recency metadata. A future Memory Evaluator will decide whether automatic candidates should be stored, merged or discarded.
 
