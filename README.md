@@ -24,7 +24,7 @@ Implemented today:
 - parallel Pet State for locomotion, facing, posture, attention, emotion, mode and cognition;
 - Behavior Intent priority/TTL/interruption instead of one exclusive activity state;
 - deterministic weighted ambient personality selection without an LLM;
-- common named worker supervision with cancellation, health/error state, interruptible waits and bounded shutdown/join;
+- common named worker supervision with phase-scoped cancellation, health/error state, interruptible waits and bounded shutdown/join;
 - Windows idle/return, local hour and privacy-gated foreground-app awareness;
 - opt-in bounded Windows UI Automation metadata with no element text/tree dump;
 - native work-area movement, facing, drag/pick-up/drop and selective transparent click-through;
@@ -33,7 +33,7 @@ Implemented today:
 - event-driven runtime snapshot and pet display-context synchronization across WebViews without independent background UI polling;
 - system tray and opt-in Windows launch-at-login;
 - bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
-- supervised persistence DB/autosave/event-journal workers with final flush and bounded shutdown queue drain;
+- ordered producer → journal → persistence shutdown with a frozen final Pet State and acknowledged final flush;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -53,10 +53,10 @@ Windows 11
 │
 ├─ Tauri 2 desktop process
 │  ├─ Worker Supervisor
-│  │  ├─ shared cancellation
+│  │  ├─ producers / journal / persistence phases
 │  │  ├─ named worker health
 │  │  ├─ panic/error capture
-│  │  └─ bounded shutdown + join
+│  │  └─ bounded phase shutdown + join
 │  │
 │  ├─ Rust Pet Runtime
 │  │  ├─ monotonic clock
@@ -154,6 +154,8 @@ memories
 memory_fts
 rhythm_hourly
 ```
+
+Application exit freezes producer workers first, then drains the event-journal phase, then sends the frozen Pet State through an acknowledged final save before the SQLite owner stops. The final-save timeout is longer than SQLite's own bounded busy timeout, so normal lock contention is allowed to resolve before shutdown reports failure.
 
 The activity journal is intentionally bounded and ignores high-frequency noise. Long-term memory currently supports episodic, semantic, preference and relationship records with FTS5/BM25 retrieval plus importance/recency metadata. A future Memory Evaluator will decide whether automatic candidates should be stored, merged or discarded.
 
