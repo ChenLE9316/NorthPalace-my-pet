@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "scope": "reference-only",
   "runtimeAsset": false,
   "assets": [
@@ -16,15 +16,21 @@
       "sourceWidth": 1536,
       "sourceHeight": 1024,
       "sourceMode": "RGBA",
-      "sourceBytes": 3140000,
+      "sourceBytes": 3137429,
       "sourceSha256": "e5cf993d91756361d86ef65c557095aa07cfe02f7fbc54f2a15f741c410342db",
+      "sourceVerification": {
+        "dimensionsVerified": true,
+        "byteLengthVerified": true,
+        "sha256Verified": true
+      },
       "derivative": {
-        "purpose": "transport-optimized high-resolution reference preview",
+        "purpose": "transport-optimized high-resolution-canvas reference preview",
         "encoder": "Pillow 12.3.0 WebP",
         "quality": 1,
-        "method": 6
+        "method": 6,
+        "replacementPending": "high-quality source-faithful derivative"
       },
-      "notes": "Reference sheet only. Never use directly as a production sprite frame or canonical runtime texture."
+      "notes": "Reference evidence only. Never use directly as a production sprite frame or canonical runtime texture. Original source provenance is authoritative over this transport derivative."
     }
   ]
 }
