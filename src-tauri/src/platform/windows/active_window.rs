@@ -1,15 +1,11 @@
-use std::{
-    ffi::c_void,
-    path::Path,
-    thread,
-    time::Duration,
-};
+use std::{ffi::c_void, path::Path, time::Duration};
 
 use crate::{
     domain::events::DomainEvent,
     privacy::PrivacyPolicyService,
     runtime::RuntimeHandle,
     screen_context::{ScreenContextBroker, WindowBounds},
+    worker::WorkerSupervisor,
 };
 
 type Hwnd = *mut c_void;
@@ -149,14 +145,19 @@ pub fn spawn_active_window_sensor(
     runtime: RuntimeHandle,
     privacy: PrivacyPolicyService,
     screen_context: ScreenContextBroker,
-) {
-    super::accessibility::spawn_accessibility_sensor(privacy.clone(), screen_context.clone());
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    super::accessibility::spawn_accessibility_sensor(
+        privacy.clone(),
+        screen_context.clone(),
+        supervisor,
+    )?;
 
-    thread::spawn(move || {
+    supervisor.spawn("windows-active-window", move |token| {
         let mut last_app_id: Option<String> = None;
         let mut last_blocked = false;
 
-        loop {
+        while !token.is_cancelled() {
             let foreground = foreground_app();
             let app_id = foreground.as_ref().map(|app| app.app_id.clone());
             let blocked = app_id
@@ -184,12 +185,8 @@ pub fn spawn_active_window_sensor(
                 }
                 Some(app_id) => {
                     screen_context.observe_active_app(app_id.clone(), bounds);
-                    if identity_changed
-                        && runtime
-                            .dispatch(DomainEvent::ActiveWindowChanged { app_id })
-                            .is_err()
-                    {
-                        break;
+                    if identity_changed {
+                        runtime.dispatch(DomainEvent::ActiveWindowChanged { app_id })?;
                     }
                 }
                 None => {
@@ -199,9 +196,13 @@ pub fn spawn_active_window_sensor(
 
             last_app_id = app_id;
             last_blocked = blocked;
-            thread::sleep(Duration::from_secs(1));
+            if token.wait_timeout(Duration::from_secs(1)) {
+                break;
+            }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
