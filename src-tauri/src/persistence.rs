@@ -14,6 +14,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use crate::{
     domain::{
         events::DomainEvent,
+        memory::{MemoryDraft, MemoryKind, MemorySearchHit},
         pet_state::{Facing, PetStateV2},
     },
     runtime::RuntimeHandle,
@@ -22,52 +23,6 @@ use crate::{
 const SCHEMA_VERSION: i64 = 2;
 const ACTIVITY_RETENTION_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 const ACTIVITY_MAX_ROWS: i64 = 2_000;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum MemoryKind {
-    Episodic,
-    Semantic,
-    Preference,
-    Relationship,
-}
-
-impl MemoryKind {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Episodic => "episodic",
-            Self::Semantic => "semantic",
-            Self::Preference => "preference",
-            Self::Relationship => "relationship",
-        }
-    }
-
-    fn from_str(value: &str) -> Option<Self> {
-        match value {
-            "episodic" => Some(Self::Episodic),
-            "semantic" => Some(Self::Semantic),
-            "preference" => Some(Self::Preference),
-            "relationship" => Some(Self::Relationship),
-            _ => None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MemoryDraft {
-    pub kind: MemoryKind,
-    pub content: String,
-    pub importance: f32,
-    pub source_event_id: Option<i64>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct MemorySearchHit {
-    pub id: i64,
-    pub kind: MemoryKind,
-    pub content: String,
-    pub importance: f32,
-    pub created_at_ms: i64,
-}
 
 #[derive(Debug, Clone, PartialEq)]
 struct ActivityRecord {
