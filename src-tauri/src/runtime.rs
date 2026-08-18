@@ -53,6 +53,7 @@ pub type SnapshotObserver = Arc<dyn Fn(PetRuntimeSnapshot) + Send + Sync + 'stat
 #[derive(Clone)]
 pub struct RuntimeHandle {
     event_tx: Sender<DomainEvent>,
+    accepting_events: Arc<RwLock<bool>>,
     snapshot: Arc<RwLock<PetRuntimeSnapshot>>,
     event_subscribers: Arc<Mutex<Vec<Sender<DomainEvent>>>>,
 }
@@ -120,11 +121,13 @@ impl RuntimeHandle {
             0,
             &brain,
         )));
+        let accepting_events = Arc::new(RwLock::new(true));
         let event_subscribers = Arc::new(Mutex::new(Vec::<Sender<DomainEvent>>::new()));
 
         (
             Self {
                 event_tx,
+                accepting_events,
                 snapshot: Arc::clone(&snapshot),
                 event_subscribers,
             },
@@ -135,6 +138,14 @@ impl RuntimeHandle {
     }
 
     pub fn dispatch(&self, event: DomainEvent) -> Result<(), String> {
+        let accepting = self
+            .accepting_events
+            .read()
+            .map_err(|_| "pet runtime input gate lock is poisoned".to_owned())?;
+        if !*accepting {
+            return Err("pet runtime is shutting down".to_owned());
+        }
+
         self.event_tx
             .send(event.clone())
             .map_err(|_| "pet runtime event channel is unavailable".to_owned())?;
@@ -144,6 +155,13 @@ impl RuntimeHandle {
         }
 
         Ok(())
+    }
+
+    pub fn close_event_input(&self) -> Result<(), String> {
+        self.accepting_events
+            .write()
+            .map(|mut accepting| *accepting = false)
+            .map_err(|_| "pet runtime input gate lock is poisoned".to_owned())
     }
 
     pub fn subscribe_events(&self) -> Receiver<DomainEvent> {
@@ -337,6 +355,9 @@ mod tests {
             thread::sleep(Duration::from_millis(5));
         }
         assert!(runtime.snapshot().expect("processed snapshot").sequence > 0);
+
+        runtime.close_event_input().expect("close runtime input");
+        assert!(runtime.dispatch(DomainEvent::PetPetted).is_err());
 
         let report = supervisor
             .shutdown_phase_and_join(WorkerPhase::Runtime, Duration::from_secs(1));
