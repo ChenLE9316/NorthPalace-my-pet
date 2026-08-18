@@ -114,7 +114,8 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 - [ ] Code license and separate Lenvu artwork license.
 - [ ] `package-lock.json` + `Cargo.lock` from real dependency resolution.
 - [x] Add `SECURITY.md` with pre-release vulnerability/privacy reporting guidance.
-- [ ] Restore a restrictive CSP.
+- [x] Configure a restrictive production CSP for local bundle resources and Tauri IPC; keep Vite development CSP explicitly disabled.
+- [ ] Verify the production CSP in the first successful Windows bundle/run.
 - [ ] Production derivatives/icon/character assets.
 - [ ] Successful clean Windows bundle plus target performance baseline.
 - [ ] Final manual tracked-data/secrets/private-data audit before visibility/release change.
