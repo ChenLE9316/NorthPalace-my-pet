@@ -86,22 +86,38 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
     )?;
 
     if let Some(bootstrap) = persistence_bootstrap {
-        let persistence = bootstrap.into_worker();
-        if !persistence.had_saved_state() {
-            if let Err(error) = persistence.queue_save(initial_state) {
-                eprintln!("Lenvu initial persistence save failed: {error}");
+        match bootstrap.into_worker(&worker_supervisor) {
+            Ok(persistence) => {
+                if !persistence.had_saved_state() {
+                    if let Err(error) = persistence.queue_save(initial_state) {
+                        eprintln!("Lenvu initial persistence save failed: {error}");
+                    }
+                }
+                if let Err(error) = persistence_service.install(persistence.clone()) {
+                    eprintln!("Lenvu persistence service install failed: {error}");
+                }
+                if let Err(error) = spawn_autosave(
+                    runtime.clone(),
+                    persistence,
+                    PERSISTENCE_AUTOSAVE_INTERVAL,
+                    &worker_supervisor,
+                ) {
+                    eprintln!("Lenvu persistence autosave unavailable: {error}");
+                }
+            }
+            Err(error) => {
+                eprintln!("Lenvu persistence worker unavailable; continuing session-only: {error}");
             }
         }
-        if let Err(error) = persistence_service.install(persistence.clone()) {
-            eprintln!("Lenvu persistence service install failed: {error}");
-        }
-        spawn_autosave(
-            runtime.clone(),
-            persistence,
-            PERSISTENCE_AUTOSAVE_INTERVAL,
-        );
     }
 
-    spawn_event_journal(runtime.clone(), persistence_service);
+    if let Err(error) = spawn_event_journal(
+        runtime.clone(),
+        persistence_service,
+        &worker_supervisor,
+    ) {
+        eprintln!("Lenvu activity journal observer unavailable: {error}");
+    }
+
     Ok(runtime)
 }
