@@ -32,7 +32,7 @@ Implemented today:
 - separate transparent `pet` and independent `companion` windows;
 - event-driven runtime snapshot and pet display-context synchronization across WebViews without independent background UI polling;
 - system tray and opt-in Windows launch-at-login;
-- bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
+- one supervised SQLite owner for pet state, journal, rhythm, Memory Browser CRUD/search and Activity History queries;
 - ordered producer → runtime → journal → persistence shutdown, including accepted-event drain, frozen final Pet State and acknowledged final flush;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
@@ -76,12 +76,12 @@ Windows 11
 │  │
 │  ├─ PrivacyPolicyService + ScreenContextBroker
 │  │
-│  ├─ Persistent Life
-│  │  ├─ SQLite + WAL
+│  ├─ Persistent Life / single SQLite owner
 │  │  ├─ pet state
 │  │  ├─ activity / relationship history
 │  │  ├─ typed memories + FTS5
-│  │  └─ hourly interaction rhythm
+│  │  ├─ hourly interaction rhythm
+│  │  └─ Memory / Activity admin command queue
 │  │
 │  └─ WebView windows
 │     ├─ pet       → PixiJS presentation
@@ -142,7 +142,7 @@ Privacy-rule updates are written to a flushed temporary file and replaced throug
 
 ## Persistent life and memory
 
-`lenvu.sqlite3` lives under the application's local-data directory. Database work is isolated from ordinary Pet Brain ticks.
+`lenvu.sqlite3` lives under the application's local-data directory. The supervised `persistence-db` worker is the single long-lived SQLite owner. Pet-state writes, journal/rhythm writes, Memory Browser CRUD/search and Activity History queries all serialize through its command queue; the UI no longer opens separate SQLite connections per request.
 
 Current schema areas:
 
@@ -159,7 +159,7 @@ Application exit first stops upstream producer workers, then lets Pet Runtime dr
 
 The activity journal is intentionally bounded and ignores high-frequency noise. Long-term memory currently supports episodic, semantic, preference and relationship records with FTS5/BM25 retrieval plus importance/recency metadata. A future Memory Evaluator will decide whether automatic candidates should be stored, merged or discarded.
 
-If persistence cannot initialize, Lenvu continues session-only instead of failing the whole pet runtime.
+If persistence cannot initialize, Lenvu continues session-only instead of failing the whole pet runtime; persistence-backed Memory/Activity management reports unavailable rather than creating a second database owner.
 
 ## UI/UX layers
 
