@@ -10,6 +10,9 @@ mod privacy;
 mod runtime;
 mod screen_context;
 mod shell;
+mod worker;
+
+use std::time::Duration;
 
 use history_admin::HistoryAdminService;
 use memory_admin::MemoryAdminService;
@@ -18,6 +21,9 @@ use privacy::PrivacyPolicyService;
 use runtime::RuntimeHandle;
 use screen_context::ScreenContextBroker;
 use tauri::Manager;
+use worker::WorkerSupervisor;
+
+const WORKER_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -26,13 +32,16 @@ pub fn run() {
     let history_admin_service = HistoryAdminService::default();
     let privacy_policy_service = PrivacyPolicyService::default();
     let screen_context_broker = ScreenContextBroker::default();
+    let worker_supervisor = WorkerSupervisor::default();
+    let setup_supervisor = worker_supervisor.clone();
 
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
         .manage(memory_admin_service.clone())
         .manage(history_admin_service.clone())
         .manage(privacy_policy_service.clone())
-        .manage(screen_context_broker.clone());
+        .manage(screen_context_broker.clone())
+        .manage(worker_supervisor);
 
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_autostart::init(
@@ -56,7 +65,9 @@ pub fn run() {
             memory_admin_service.clone(),
             history_admin_service.clone(),
             privacy_policy_service.clone(),
-        );
+            setup_supervisor.clone(),
+        )
+        .map_err(std::io::Error::other)?;
         app.manage(runtime.clone());
 
         #[cfg(target_os = "windows")]
@@ -155,21 +166,28 @@ pub fn run() {
             return;
         }
 
-        let Some(runtime) = app_handle.try_state::<RuntimeHandle>() else {
-            return;
-        };
-        let Some(persistence) = app_handle.try_state::<PersistenceService>() else {
-            return;
-        };
-        let Ok(snapshot) = runtime.snapshot() else {
-            return;
-        };
-
-        if let Err(error) = persistence.save_and_flush(
-            snapshot.state,
-            bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+        if let (Some(runtime), Some(persistence)) = (
+            app_handle.try_state::<RuntimeHandle>(),
+            app_handle.try_state::<PersistenceService>(),
         ) {
-            eprintln!("Lenvu final persistence save failed: {error}");
+            if let Ok(snapshot) = runtime.snapshot() {
+                if let Err(error) = persistence.save_and_flush(
+                    snapshot.state,
+                    bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+                ) {
+                    eprintln!("Lenvu final persistence save failed: {error}");
+                }
+            }
+        }
+
+        if let Some(supervisor) = app_handle.try_state::<WorkerSupervisor>() {
+            let report = supervisor.shutdown_and_join(WORKER_SHUTDOWN_TIMEOUT);
+            if !report.detached.is_empty() {
+                eprintln!(
+                    "Lenvu worker shutdown deadline expired; detached workers: {}",
+                    report.detached.join(", ")
+                );
+            }
         }
     });
 }
