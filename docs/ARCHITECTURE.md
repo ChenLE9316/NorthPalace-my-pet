@@ -18,7 +18,7 @@ Application
 Tauri commands / Screen Context Broker / services / controllers
 ─────────────────────────────────────────────
 Domain
-PetBrainV2 / Pet State / Behavior Intent / Personality / Domain Events
+PetBrainV2 / Pet State / Behavior Intent / Personality / Memory / Domain Events
 ─────────────────────────────────────────────
 Infrastructure
 Windows adapters / SQLite / filesystem / future llama.cpp workers
@@ -109,17 +109,17 @@ PetRuntimeSnapshot → resolveAnimation() → src/lib/pet/lenvu.manifest.json �
 
 Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank renderer placeholders, generated candidates and inferred coordinates.
 
-## 10. Persistence
+## 10. Persistence and memory domain
 
 SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
 
-Known cleanup debt: memory-domain types are still duplicated between persistence/admin layers and should be consolidated before Memory Evaluator growth.
+Memory category and transport contracts now have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
 
 ## 11. UI boundary
 
 Svelte owns management UI, not life simulation or per-frame animation. Current Companion sections are Home, Memory, Activity and Settings/Privacy. Pet interaction and Companion opening are separate; the `☾` handle/tray opens the panel.
 
-Known cleanup debt: split the large `CompanionView.svelte` before adding more surfaces.
+Companion section extraction is in progress on `main`; new product surfaces should continue moving out of the shell component rather than growing one monolithic view again.
 
 ## 12. Worker lifecycle
 
@@ -139,9 +139,13 @@ No hover, petting, walking, sleeping, basic animation or focus reaction may requ
 
 Continuous visual perception is out of scope. Future visual understanding must be separately loadable, opt-in and on-demand behind the same privacy policy.
 
-## 15. Validation and release boundary
+## 15. Security, validation and reproducibility boundary
 
-Windows CI guards `main` with frontend asset/build validation, Rust formatting, Clippy and tests. Dependency lockfiles are still required before builds are fully reproducible. CI does not replace a clean bundle build and target-machine RAM/CPU/GPU measurements.
+The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`; the production CSP still needs verification in the first successful Windows bundle/run.
+
+Windows CI guards `main` with tracked-data validation, frontend asset/build validation, Rust formatting, Clippy and tests. A separate manual Windows Bundle workflow builds the NSIS/executable artifact. That clean runner also resolves and uploads `package-lock.json` and `src-tauri/Cargo.lock` candidates so dependency locks can be reviewed before committing them.
+
+Builds are not considered fully reproducible until those lockfiles are committed and normal CI switches to locked installs. CI source compatibility also does not replace a clean target-machine run and RAM/CPU/GPU measurements.
 
 ## 16. Documentation authority
 
