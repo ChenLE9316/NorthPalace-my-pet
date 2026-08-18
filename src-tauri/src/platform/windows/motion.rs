@@ -1,7 +1,4 @@
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use crate::{
     domain::{
@@ -10,6 +7,7 @@ use crate::{
         pet_state::{Facing, Locomotion},
     },
     runtime::RuntimeHandle,
+    worker::WorkerSupervisor,
 };
 
 const MOTION_TICK: Duration = Duration::from_millis(40);
@@ -190,11 +188,7 @@ fn find_adjacent_monitor(
             }
             Some((candidate, gap, overlap))
         })
-        .min_by(|left, right| {
-            left.1
-                .cmp(&right.1)
-                .then_with(|| right.2.cmp(&left.2))
-        })
+        .min_by(|left, right| left.1.cmp(&right.1).then_with(|| right.2.cmp(&left.2)))
         .map(|(candidate, _, _)| candidate)
 }
 
@@ -204,8 +198,7 @@ fn projected_x(
     speed_physical_px_per_sec: f64,
     delta_seconds: f64,
 ) -> f64 {
-    current_x
-        + direction.sign() * speed_physical_px_per_sec.max(0.0) * delta_seconds.max(0.0)
+    current_x + direction.sign() * speed_physical_px_per_sec.max(0.0) * delta_seconds.max(0.0)
 }
 
 fn reaches_edge(projected: f64, direction: HorizontalDirection, bounds: HorizontalBounds) -> bool {
@@ -241,28 +234,32 @@ fn advance_x(
     (next, next_direction)
 }
 
-fn publish_facing(runtime: &RuntimeHandle, direction: HorizontalDirection) -> bool {
-    runtime
-        .dispatch(DomainEvent::PetFacingChanged {
-            facing: direction.facing(),
-        })
-        .is_ok()
+fn publish_facing(runtime: &RuntimeHandle, direction: HorizontalDirection) -> Result<(), String> {
+    runtime.dispatch(DomainEvent::PetFacingChanged {
+        facing: direction.facing(),
+    })
 }
 
-pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: RuntimeHandle) {
-    thread::spawn(move || {
+pub fn spawn_pet_motion_controller(
+    window: tauri::WebviewWindow,
+    runtime: RuntimeHandle,
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("windows-pet-motion", move |token| {
         let mut direction: Option<HorizontalDirection> = None;
         let mut published_direction: Option<HorizontalDirection> = None;
         let mut last_step = Instant::now();
         let mut fractional_x: Option<f64> = None;
 
-        loop {
+        while !token.is_cancelled() {
             let now = Instant::now();
             let delta_seconds = now.duration_since(last_step).as_secs_f64();
             last_step = now;
 
             let Ok(snapshot) = runtime.snapshot() else {
-                thread::sleep(MOTION_TICK);
+                if token.wait_timeout(MOTION_TICK) {
+                    break;
+                }
                 continue;
             };
 
@@ -271,7 +268,9 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
                 fractional_x = None;
                 direction = None;
                 published_direction = None;
-                thread::sleep(MOTION_TICK);
+                if token.wait_timeout(MOTION_TICK) {
+                    break;
+                }
                 continue;
             };
 
@@ -280,24 +279,26 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
             direction = Some(active_direction);
 
             if published_direction != Some(active_direction) {
-                if !publish_facing(&runtime, active_direction) {
-                    break;
-                }
+                publish_facing(&runtime, active_direction)?;
                 published_direction = Some(active_direction);
             }
 
             let Ok(Some(monitor)) = window.current_monitor() else {
-                thread::sleep(MOTION_TICK);
+                if token.wait_timeout(MOTION_TICK) {
+                    break;
+                }
                 continue;
             };
-            let Ok(window_position) = window.outer_position() else {
-                break;
-            };
-            let Ok(window_size) = window.outer_size() else {
-                break;
-            };
+            let window_position = window
+                .outer_position()
+                .map_err(|error| format!("failed to read pet window position: {error}"))?;
+            let window_size = window
+                .outer_size()
+                .map_err(|error| format!("failed to read pet window size: {error}"))?;
             let Ok(scale_factor) = window.scale_factor() else {
-                thread::sleep(MOTION_TICK);
+                if token.wait_timeout(MOTION_TICK) {
+                    break;
+                }
                 continue;
             };
 
@@ -335,17 +336,16 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
                     };
                     fractional_x = Some(target_x as f64);
 
-                    if window
+                    window
                         .set_position(tauri::PhysicalPosition::new(
                             target_x,
                             target_bounds.ground_y,
                         ))
-                        .is_err()
-                    {
+                        .map_err(|error| format!("failed to move pet to adjacent monitor: {error}"))?;
+
+                    if token.wait_timeout(MOTION_TICK) {
                         break;
                     }
-
-                    thread::sleep(MOTION_TICK);
                     continue;
                 }
             }
@@ -363,25 +363,24 @@ pub fn spawn_pet_motion_controller(window: tauri::WebviewWindow, runtime: Runtim
             fractional_x = Some(next_x);
 
             if active_direction != previous_direction {
-                if !publish_facing(&runtime, active_direction) {
-                    break;
-                }
+                publish_facing(&runtime, active_direction)?;
                 published_direction = Some(active_direction);
             }
 
             let physical_x = next_x.round().clamp(i32::MIN as f64, i32::MAX as f64) as i32;
             if window_position.x != physical_x || window_position.y != bounds.ground_y {
-                if window
+                window
                     .set_position(tauri::PhysicalPosition::new(physical_x, bounds.ground_y))
-                    .is_err()
-                {
-                    break;
-                }
+                    .map_err(|error| format!("failed to move pet window: {error}"))?;
             }
 
-            thread::sleep(MOTION_TICK);
+            if token.wait_timeout(MOTION_TICK) {
+                break;
+            }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -445,11 +444,7 @@ mod tests {
     fn adjacent_horizontal_monitor_is_selected() {
         let current = monitor(0, 0, 1920, 1080);
         let right = monitor(1920, 100, 2560, 1440);
-        let found = find_adjacent_monitor(
-            current,
-            [current, right],
-            HorizontalDirection::Right,
-        );
+        let found = find_adjacent_monitor(current, [current, right], HorizontalDirection::Right);
         assert_eq!(found, Some(right));
     }
 
@@ -457,11 +452,7 @@ mod tests {
     fn vertically_stacked_monitor_is_not_a_horizontal_neighbor() {
         let current = monitor(0, 0, 1920, 1080);
         let above = monitor(0, -1080, 1920, 1080);
-        let found = find_adjacent_monitor(
-            current,
-            [current, above],
-            HorizontalDirection::Right,
-        );
+        let found = find_adjacent_monitor(current, [current, above], HorizontalDirection::Right);
         assert_eq!(found, None);
     }
 
@@ -469,11 +460,7 @@ mod tests {
     fn disconnected_monitor_gap_prevents_autonomous_teleport() {
         let current = monitor(0, 0, 1920, 1080);
         let distant = monitor(2000, 0, 1920, 1080);
-        let found = find_adjacent_monitor(
-            current,
-            [current, distant],
-            HorizontalDirection::Right,
-        );
+        let found = find_adjacent_monitor(current, [current, distant], HorizontalDirection::Right);
         assert_eq!(found, None);
     }
 
