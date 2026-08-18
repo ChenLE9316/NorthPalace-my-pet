@@ -1,10 +1,13 @@
+use std::time::Duration;
+
 use serde::Serialize;
 use tauri::Manager;
 
 use crate::{
     domain::{memory::MemoryKind, pet::PetInteraction},
-    history_admin::{ActivityHistoryRecord, HistoryAdminService},
-    memory_admin::{MemoryAdminService, MemoryInput, MemoryRecord},
+    history_admin::ActivityHistoryRecord,
+    memory_admin::{MemoryInput, MemoryRecord},
+    persistence::PersistenceService,
     privacy::{PrivacyPolicyService, PrivacyRulesSnapshot},
     runtime::{PetRuntimeSnapshot, RuntimeHandle},
     screen_context::{ScreenContextBroker, ScreenContextSnapshot},
@@ -13,6 +16,7 @@ use crate::{
 
 const MEMORY_LIST_LIMIT: u32 = 50;
 const ACTIVITY_LIST_LIMIT: u32 = 40;
+const PERSISTENCE_ADMIN_TIMEOUT: Duration = Duration::from_secs(3);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -47,59 +51,70 @@ pub(crate) fn worker_status_get(
 pub(crate) fn memory_list(
     kind: Option<MemoryKind>,
     limit: Option<u32>,
-    memory: tauri::State<'_, MemoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<MemoryRecord>, String> {
-    memory.list(kind, limit.unwrap_or(MEMORY_LIST_LIMIT))
+    persistence.list_memory_records(
+        kind,
+        limit.unwrap_or(MEMORY_LIST_LIMIT),
+        PERSISTENCE_ADMIN_TIMEOUT,
+    )
 }
 
 #[tauri::command]
 pub(crate) fn memory_search(
     query: String,
     limit: Option<u32>,
-    memory: tauri::State<'_, MemoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<MemoryRecord>, String> {
-    memory.search(&query, limit.unwrap_or(MEMORY_LIST_LIMIT))
+    persistence.search_memory_records(
+        query,
+        limit.unwrap_or(MEMORY_LIST_LIMIT),
+        PERSISTENCE_ADMIN_TIMEOUT,
+    )
 }
 
 #[tauri::command]
 pub(crate) fn memory_create(
     input: MemoryInput,
-    memory: tauri::State<'_, MemoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<i64, String> {
-    memory.create(input)
+    persistence.create_memory_record(input, PERSISTENCE_ADMIN_TIMEOUT)
 }
 
 #[tauri::command]
 pub(crate) fn memory_update(
     id: i64,
     input: MemoryInput,
-    memory: tauri::State<'_, MemoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<(), String> {
-    memory.update(id, input)
+    persistence.update_memory_record(id, input, PERSISTENCE_ADMIN_TIMEOUT)
 }
 
 #[tauri::command]
 pub(crate) fn memory_delete(
     id: i64,
-    memory: tauri::State<'_, MemoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<(), String> {
-    memory.delete(id)
+    persistence.delete_memory_record(id, PERSISTENCE_ADMIN_TIMEOUT)
 }
 
 #[tauri::command]
 pub(crate) fn activity_list(
     limit: Option<u32>,
-    history: tauri::State<'_, HistoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<ActivityHistoryRecord>, String> {
-    history.list(limit.unwrap_or(ACTIVITY_LIST_LIMIT))
+    persistence.list_activity(
+        limit.unwrap_or(ACTIVITY_LIST_LIMIT),
+        PERSISTENCE_ADMIN_TIMEOUT,
+    )
 }
 
 #[tauri::command]
 pub(crate) fn activity_get(
     id: i64,
-    history: tauri::State<'_, HistoryAdminService>,
+    persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Option<ActivityHistoryRecord>, String> {
-    history.get(id)
+    persistence.get_activity(id, PERSISTENCE_ADMIN_TIMEOUT)
 }
 
 #[tauri::command]
