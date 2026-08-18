@@ -8,6 +8,7 @@ use crate::{
     privacy::{PrivacyPolicyService, PrivacyRulesSnapshot},
     runtime::{PetRuntimeSnapshot, RuntimeHandle},
     screen_context::{ScreenContextBroker, ScreenContextSnapshot},
+    worker::{WorkerStatus, WorkerSupervisor},
 };
 
 const MEMORY_LIST_LIMIT: u32 = 50;
@@ -33,6 +34,13 @@ pub(crate) fn pet_interact(
     runtime: tauri::State<'_, RuntimeHandle>,
 ) -> Result<(), String> {
     runtime.dispatch(kind.into_event())
+}
+
+#[tauri::command]
+pub(crate) fn worker_status_get(
+    supervisor: tauri::State<'_, WorkerSupervisor>,
+) -> Vec<WorkerStatus> {
+    supervisor.snapshot()
 }
 
 #[tauri::command]
