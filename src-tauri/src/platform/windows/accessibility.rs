@@ -1,4 +1,4 @@
-use std::{thread, time::Duration};
+use std::time::{Duration, Instant};
 
 use windows::{
     Win32::{
@@ -14,6 +14,7 @@ use windows::{
 use crate::{
     privacy::PrivacyPolicyService,
     screen_context::{AccessibilityContext, ScreenContextBroker, WindowBounds},
+    worker::WorkerSupervisor,
 };
 
 use super::active_window::foreground_app;
@@ -115,18 +116,21 @@ fn bounds_from_rect(rect: RECT) -> Option<WindowBounds> {
 pub(super) fn spawn_accessibility_sensor(
     privacy: PrivacyPolicyService,
     screen_context: ScreenContextBroker,
-) {
-    thread::spawn(move || {
+    supervisor: &WorkerSupervisor,
+) -> Result<(), String> {
+    supervisor.spawn("windows-accessibility", move |token| {
         let mut reader: Option<AccessibilityReader> = None;
-        let mut retry_after: Option<std::time::Instant> = None;
+        let mut retry_after: Option<Instant> = None;
 
-        loop {
+        while !token.is_cancelled() {
             let policy = privacy.snapshot();
             if policy.fail_closed {
                 reader = None;
                 retry_after = None;
                 screen_context.observe_accessibility_blocked();
-                thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                    break;
+                }
                 continue;
             }
 
@@ -136,26 +140,34 @@ pub(super) fn spawn_accessibility_sensor(
                 reader = None;
                 retry_after = None;
                 screen_context.observe_accessibility_disabled();
-                thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                    break;
+                }
                 continue;
             }
 
             let Some(foreground) = foreground_app() else {
-                thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                    break;
+                }
                 continue;
             };
 
             if privacy.is_app_excluded(&foreground.app_id) {
                 screen_context.observe_accessibility_blocked();
-                thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                    break;
+                }
                 continue;
             }
 
             if reader.is_none() {
-                let now = std::time::Instant::now();
+                let now = Instant::now();
                 if retry_after.is_some_and(|deadline| now < deadline) {
                     screen_context.observe_accessibility_unavailable();
-                    thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                    if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                        break;
+                    }
                     continue;
                 }
 
@@ -168,7 +180,9 @@ pub(super) fn spawn_accessibility_sensor(
                         eprintln!("Lenvu accessibility context unavailable: {error}");
                         retry_after = Some(now + ACCESSIBILITY_RETRY_INTERVAL);
                         screen_context.observe_accessibility_unavailable();
-                        thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+                        if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                            break;
+                        }
                         continue;
                     }
                 }
@@ -179,9 +193,13 @@ pub(super) fn spawn_accessibility_sensor(
                 .and_then(|reader| reader.read_focused_element(foreground.process_id));
             screen_context.observe_accessibility_for_app(&foreground.app_id, context);
 
-            thread::sleep(ACCESSIBILITY_POLL_INTERVAL);
+            if token.wait_timeout(ACCESSIBILITY_POLL_INTERVAL) {
+                break;
+            }
         }
-    });
+
+        Ok(())
+    })
 }
 
 #[cfg(test)]
