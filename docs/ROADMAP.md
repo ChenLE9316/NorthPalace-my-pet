@@ -83,7 +83,7 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Runtime manifest source consolidated.
 - [x] Runtime-health contract simplified to implemented semantics.
 - [x] Split `CompanionView.svelte` into section components.
-- [ ] Split `src-tauri/src/lib.rs` composition root.
+- [x] Split `src-tauri/src/lib.rs` composition root into bootstrap / shell / command boundaries.
 - [ ] Common worker lifecycle/supervision.
 - [ ] Replace growth of independent frontend polling loops with bounded shared subscription/event strategy.
 - [ ] Commit verified dependency lockfiles and change normal CI to `npm ci` / Cargo `--locked`.

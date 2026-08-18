@@ -31,7 +31,11 @@ The Domain layer must not depend on Svelte, PixiJS, WebView coordinates, Tauri w
 ```text
 NorthPalace-my-pet.exe
 │
-├─ Rust runtime + application services
+├─ Rust application composition
+│  ├─ lib.rs       → builder + command registration + adapter wiring + shutdown
+│  ├─ bootstrap.rs → local-data / privacy / persistence / Pet Runtime bootstrap
+│  ├─ shell.rs     → tray-native shell behavior
+│  └─ commands.rs  → Tauri application command boundary
 ├─ pet WebView       → transparent / always-on-top / PixiJS
 ├─ companion WebView → Svelte Home / Memory / Activity / Settings
 └─ future workers
@@ -113,19 +117,25 @@ Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank rendere
 
 SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
 
-Memory category and transport contracts now have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
+Memory category and transport contracts have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
 
 ## 11. UI boundary
 
 Svelte owns management UI, not life simulation or per-frame animation. Current Companion sections are Home, Memory, Activity and Settings/Privacy. Pet interaction and Companion opening are separate; the `☾` handle/tray opens the panel.
 
-Companion section extraction is in progress on `main`; new product surfaces should continue moving out of the shell component rather than growing one monolithic view again.
+The Companion shell now delegates section-specific state/UI to `src/lib/ui/companion/*`; new product surfaces should remain isolated instead of growing the shell back into a monolith.
 
-## 12. Worker lifecycle
+## 12. Application composition boundary
+
+`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and bounded final persistence flush. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, while native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
+
+This split keeps future worker supervision from being bolted into one oversized startup function and gives the next consolidation step a stable place for a lifecycle supervisor.
+
+## 13. Worker lifecycle
 
 Current background threads are mostly detached. Before MiniCPM/vision workers are added, introduce common cancellation, shutdown, join/restart and health reporting. Runtime `recovering` should only be introduced with that real mechanism.
 
-## 13. Local AI policy
+## 14. Local AI policy
 
 Text AI remains planned:
 
@@ -135,11 +145,11 @@ northpalace-my-pet.exe → local IPC → northpalace-llm-worker.exe → llama.cp
 
 No hover, petting, walking, sleeping, basic animation or focus reaction may require an LLM call. Future context composition must check structured-context freshness before using observations.
 
-## 14. Vision policy
+## 15. Vision policy
 
 Continuous visual perception is out of scope. Future visual understanding must be separately loadable, opt-in and on-demand behind the same privacy policy.
 
-## 15. Security, validation and reproducibility boundary
+## 16. Security, validation and reproducibility boundary
 
 The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`; the production CSP still needs verification in the first successful Windows bundle/run.
 
@@ -147,6 +157,6 @@ Windows CI guards `main` with tracked-data validation, frontend asset/build vali
 
 Builds are not considered fully reproducible until those lockfiles are committed and normal CI switches to locked installs. CI source compatibility also does not replace a clean target-machine run and RAM/CPU/GPU measurements.
 
-## 16. Documentation authority
+## 17. Documentation authority
 
 For engineering behavior: running code/tests → `ARCHITECTURE.md` → `ROADMAP.md` → README. For visual identity, original source evidence and `LENVU_VISUAL_GROUND_TRUTH.md` remain authoritative.

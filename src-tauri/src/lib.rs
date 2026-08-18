@@ -1,3 +1,4 @@
+mod bootstrap;
 mod commands;
 mod domain;
 mod history_admin;
@@ -8,50 +9,15 @@ mod platform;
 mod privacy;
 mod runtime;
 mod screen_context;
-
-use std::time::Duration;
+mod shell;
 
 use history_admin::HistoryAdminService;
 use memory_admin::MemoryAdminService;
-use persistence::{
-    spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
-};
+use persistence::PersistenceService;
 use privacy::PrivacyPolicyService;
 use runtime::RuntimeHandle;
 use screen_context::ScreenContextBroker;
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
-};
-
-const PET_TICK_INTERVAL: Duration = Duration::from_millis(250);
-const PERSISTENCE_AUTOSAVE_INTERVAL: Duration = Duration::from_secs(30);
-const PERSISTENCE_FINAL_SAVE_TIMEOUT: Duration = Duration::from_secs(2);
-
-fn show_companion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    if let Some(window) = app.get_webview_window("companion") {
-        let _ = window.unminimize();
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
-
-fn toggle_pet_visibility<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
-    let Some(window) = app.get_webview_window("pet") else {
-        return;
-    };
-
-    match window.is_visible() {
-        Ok(true) => {
-            let _ = window.hide();
-        }
-        Ok(false) => {
-            let _ = window.show();
-        }
-        Err(error) => eprintln!("failed to read Lenvu pet-window visibility: {error}"),
-    }
-}
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -60,6 +26,7 @@ pub fn run() {
     let history_admin_service = HistoryAdminService::default();
     let privacy_policy_service = PrivacyPolicyService::default();
     let screen_context_broker = ScreenContextBroker::default();
+
     let builder = tauri::Builder::default()
         .manage(persistence_service.clone())
         .manage(memory_admin_service.clone())
@@ -81,121 +48,16 @@ pub fn run() {
     };
 
     let builder = builder.setup(move |app| {
-        let open_companion = MenuItem::with_id(
+        shell::install_tray(app)?;
+
+        let runtime = bootstrap::initialize_runtime(
             app,
-            "open_companion",
-            "Open Lenvu Companion",
-            true,
-            None::<&str>,
-        )?;
-        let toggle_pet = MenuItem::with_id(
-            app,
-            "toggle_pet",
-            "Show / Hide Lenvu",
-            true,
-            None::<&str>,
-        )?;
-        let quit = MenuItem::with_id(
-            app,
-            "quit",
-            "Quit NorthPalace-my-pet",
-            true,
-            None::<&str>,
-        )?;
-        let tray_menu = Menu::with_items(app, &[&open_companion, &toggle_pet, &quit])?;
-
-        let mut tray = TrayIconBuilder::with_id("lenvu")
-            .tooltip("Lenvu · NorthPalace-my-pet")
-            .menu(&tray_menu)
-            .show_menu_on_left_click(false)
-            .on_menu_event(|app, event| match event.id.as_ref() {
-                "open_companion" => show_companion(app),
-                "toggle_pet" => toggle_pet_visibility(app),
-                "quit" => app.exit(0),
-                _ => {}
-            })
-            .on_tray_icon_event(|tray, event| {
-                if let TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    ..
-                } = event
-                {
-                    show_companion(tray.app_handle());
-                }
-            });
-
-        if let Some(icon) = app.default_window_icon() {
-            tray = tray.icon(icon.clone());
-        }
-        tray.build(app)?;
-
-        let local_data_dir = match app.path().app_local_data_dir() {
-            Ok(data_dir) => Some(data_dir),
-            Err(error) => {
-                eprintln!(
-                    "Lenvu local-data path unavailable; privacy remains fail-closed and persistence is session-only: {error}"
-                );
-                None
-            }
-        };
-
-        if let Some(data_dir) = &local_data_dir {
-            if let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json")) {
-                eprintln!(
-                    "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
-                );
-            }
-        }
-
-        let persistence_bootstrap = if let Some(data_dir) = local_data_dir {
-            let database_path = data_dir.join("lenvu.sqlite3");
-            match PersistenceBootstrap::open(&database_path) {
-                Ok(bootstrap) => {
-                    if let Err(error) = memory_admin_service.install(database_path.clone()) {
-                        eprintln!("Lenvu Memory Browser unavailable: {error}");
-                    }
-                    if let Err(error) = history_admin_service.install(database_path) {
-                        eprintln!("Lenvu Activity History unavailable: {error}");
-                    }
-                    Some(bootstrap)
-                }
-                Err(error) => {
-                    eprintln!(
-                        "Lenvu persistence unavailable; continuing session-only: {error}"
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
-
-        let initial_state = persistence_bootstrap
-            .as_ref()
-            .map(PersistenceBootstrap::initial_state)
-            .unwrap_or_default();
-        let runtime = RuntimeHandle::spawn_with_state(PET_TICK_INTERVAL, initial_state.clone());
+            persistence_service.clone(),
+            memory_admin_service.clone(),
+            history_admin_service.clone(),
+            privacy_policy_service.clone(),
+        );
         app.manage(runtime.clone());
-
-        if let Some(bootstrap) = persistence_bootstrap {
-            let persistence = bootstrap.into_worker();
-            if !persistence.had_saved_state() {
-                if let Err(error) = persistence.queue_save(initial_state) {
-                    eprintln!("Lenvu initial persistence save failed: {error}");
-                }
-            }
-            if let Err(error) = persistence_service.install(persistence.clone()) {
-                eprintln!("Lenvu persistence service install failed: {error}");
-            }
-            spawn_autosave(
-                runtime.clone(),
-                persistence,
-                PERSISTENCE_AUTOSAVE_INTERVAL,
-            );
-        }
-
-        spawn_event_journal(runtime.clone(), persistence_service.clone());
 
         #[cfg(target_os = "windows")]
         {
@@ -303,9 +165,10 @@ pub fn run() {
             return;
         };
 
-        if let Err(error) =
-            persistence.save_and_flush(snapshot.state, PERSISTENCE_FINAL_SAVE_TIMEOUT)
-        {
+        if let Err(error) = persistence.save_and_flush(
+            snapshot.state,
+            bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+        ) {
             eprintln!("Lenvu final persistence save failed: {error}");
         }
     });
