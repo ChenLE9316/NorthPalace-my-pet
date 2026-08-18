@@ -351,6 +351,9 @@ fn join_pending(mut pending: Vec<PendingWorker>, timeout: Duration) -> ShutdownR
 
 fn update_state(state: &Arc<Mutex<WorkerState>>, health: WorkerHealth, last_error: Option<String>) {
     if let Ok(mut state) = state.lock() {
+        if state.health == WorkerHealth::Detached && health != WorkerHealth::Detached {
+            return;
+        }
         state.health = health;
         state.last_error = last_error;
     }
@@ -403,6 +406,29 @@ mod tests {
         assert_eq!(report.joined, vec!["cooperative".to_owned()]);
         assert!(report.detached.is_empty());
         assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);
+    }
+
+    #[test]
+    fn detached_health_remains_sticky_after_worker_returns() {
+        let supervisor = WorkerSupervisor::default();
+        supervisor
+            .spawn("slow", |_token| {
+                thread::sleep(Duration::from_millis(80));
+                Ok(())
+            })
+            .expect("spawn slow worker");
+
+        let report = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_millis(10));
+        assert_eq!(report.detached, vec!["slow".to_owned()]);
+
+        thread::sleep(Duration::from_millis(100));
+        let status = supervisor.snapshot();
+        assert_eq!(status[0].health, WorkerHealth::Detached);
+        assert_eq!(
+            status[0].last_error.as_deref(),
+            Some("worker did not stop before shutdown deadline")
+        );
     }
 
     #[test]
