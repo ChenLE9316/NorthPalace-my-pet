@@ -1,7 +1,6 @@
 use std::{
     ffi::c_void,
     path::Path,
-    ptr,
     thread,
     time::Duration,
 };
@@ -214,12 +213,6 @@ pub fn spawn_active_window_sensor(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn null_path_helper_is_not_used() {
-        let value: *mut c_void = ptr::null_mut();
-        assert!(value.is_null());
-    }
 
     #[test]
     fn rect_to_bounds_preserves_negative_monitor_coordinates() {

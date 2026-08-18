@@ -1,171 +1,99 @@
 # NorthPalace-my-pet Foundation Review
 
-This document records the first architecture review before the project grows into memory, Windows awareness, animation and local AI.
+> **Historical review record.** This document captures the first foundation review and the corrections that originally shaped the project. Many items below have since been implemented or superseded. For current behavior and architecture, use `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`.
 
-## Decisions to keep
+## Decisions that survived the review
 
 - Tauri 2 desktop shell.
 - Rust runtime/core.
 - Svelte + TypeScript for application UI.
 - PixiJS for the pet renderer.
 - SQLite + FTS5 for local persistence/search.
-- MiniCPM5-1B + llama.cpp as an optional local cognition layer.
+- MiniCPM5-1B + llama.cpp as a future optional local cognition layer.
 - Separate LLM worker process.
 - Pet-first, AI-second product philosophy.
-- Target machine remains Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8.
+- Primary target: Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8.
 
-## Corrections required before feature growth
+## Original corrections
 
 ### 1. Runtime clock belongs to Rust
 
-The Pet Brain must not depend on a JavaScript `setInterval` to stay alive. Rust owns monotonic time, simulation ticks and recovery after UI throttling/suspend. Frontend code receives snapshots/events and renders them.
+The Pet Brain must not depend on a JavaScript timer to stay alive. Rust owns monotonic time and semantic simulation ticks. Frontend code renders snapshots and issues commands.
 
-```text
-Rust Runtime Clock
-       |
-       v
-   Pet Runtime
-       |
-       v
-    Pet Brain
-       |
-       +--> snapshots/events --> UI
-```
+**Current status:** implemented.
 
 ### 2. Pet state is parallel, not one activity enum
 
-Movement, posture, attention, emotion, system mode and cognition can coexist.
+Movement, facing, posture, attention, emotion, system mode and cognition can coexist.
 
-```text
-PetState
-|- locomotion: stationary | walk | run | jump
-|- posture: stand | sit | lie | sleep
-|- attention: idle | user | cursor | window | object
-|- emotion: calm | curious | happy | shy | concerned | sleepy
-|- mode: ambient | focus_guard | do_not_disturb | play
-`- cognition: idle | listening | thinking | speaking | remembering
-```
-
-This allows states such as `sit + curious + user attention + focus_guard + cognition idle`.
+**Current status:** implemented as Pet State V2.
 
 ### 3. Behavior Intent is separate from persistent state
 
-Short interactions must survive longer than one simulation tick. A behavior intent carries priority, duration/TTL, interruptibility and a renderer-facing animation intent.
+Short reactions require priority, duration/TTL, interruption semantics and renderer-facing animation intent.
 
-Example:
-
-```json
-{
-  "kind": "receive_pet",
-  "priority": 60,
-  "remaining_ms": 3200,
-  "interruptible": true,
-  "animation": "pet_receive"
-}
-```
+**Current status:** implemented.
 
 ### 4. Domain events form the backbone
 
-Sensors publish facts; Pet Runtime interprets them.
+Sensors publish facts and Pet Runtime interprets them.
 
-Initial events:
-
-- `Tick`
-- `UserIdleChanged`
-- `UserReturned`
-- `CursorEnteredPet`
-- `CursorLeftPet`
-- `PetTouched`
-- `PetPetted`
-- `PetPlayRequested`
-- `FocusModeStarted`
-- `FocusModeEnded`
-- `ActiveWindowChanged`
-- `NotificationReceived`
-- `TimeOfDayChanged`
-- `LLMWorkerStateChanged`
+**Current status:** implemented and expanded with held/drop/facing and Windows context events.
 
 ### 5. UI is not the source of truth
 
-Svelte should issue commands and render state. It must not own simulation time, Pet Brain state, memory rules or platform sensors.
+Svelte issues commands and renders state. It does not own simulation time, persistence policy or Windows sensors.
 
-### 6. Window model
+**Current status:** implemented; frontend polling remains presentation-only.
 
-Logical windows/layers:
+### 6. Window boundaries
 
-1. `pet` — transparent desktop pet overlay.
-2. `bubble` — short-lived context/speech layer.
-3. `companion` — status/chat/memory panel.
-4. `settings` — model/privacy/performance configuration.
-5. `debug` — development-only runtime inspector.
+The review proposed separate logical responsibilities for pet, bubble, companion, settings and debug surfaces.
 
-The pet overlay must remain lightweight when deeper UI is closed.
+**Current status:** `pet` and `companion` are separate native windows. Bubble remains inside the pet overlay. Settings currently lives inside the Companion. A dedicated debug surface is still future work.
 
 ### 7. Transparent does not mean click-through
 
-Windows hit-testing must distinguish the animated Lenvu body from transparent pixels. Transparent areas should pass pointer input to the application/desktop underneath; the pet hit region remains interactive. Hit masks must be compatible with animation frames and DPI scaling.
+Transparent space must pass pointer input through while semantic pet regions remain interactive.
+
+**Current status:** implemented through native selective cursor passthrough with normalized semantic hit regions. Production per-frame masks remain future asset work.
 
 ### 8. Renderer boundary
 
-PixiJS owns high-frequency rendering concerns:
+PixiJS owns high-frequency character presentation; Svelte owns management UI.
 
-- sprite atlases;
-- animation graph;
-- anchor/pivot;
-- effects/particles;
-- hit masks;
-- renderer LOD/FPS policy.
-
-Svelte owns panels/settings, not per-frame pet animation.
+**Current status:** implemented as a renderer/manifest boundary, but the actual character remains a procedural placeholder until production assets are authored.
 
 ### 9. Error state must be explicit
 
-Frontend fallbacks must not silently make runtime failures look like a normal idle pet. Runtime status should expose `ready`, `degraded`, `recovering` or `error`, with detailed diagnostics in development mode.
+Runtime failure must not silently imitate a healthy idle pet.
 
-### 10. Avoid one global lock as the system grows
+**Current status:** runtime-health contract exists, but full recovering/error transition semantics remain consolidation work.
 
-The initial `Mutex<PetBrain>` is acceptable only as scaffolding. The target is a single-owner Pet Runtime actor/task receiving commands/events and publishing immutable snapshots. SQLite, model I/O and Windows sensors must not block the whole Pet Brain lock.
+### 10. Avoid one global Pet Brain lock
 
-## Asset pipeline
+The target was a single-owner Pet Runtime receiving events and publishing immutable snapshots, with SQLite/model/platform work outside that owner.
 
-Reference art and runtime assets are different products.
+**Current status:** implemented for Pet Runtime; background worker lifecycle/supervision still needs consolidation before AI workers are introduced.
 
-```text
-assets/
-|- reference/
-|  |- anatomy/
-|  |- expressions/
-|  |- movement/
-|  |- behavior/
-|  |- abilities/
-|  `- ui-concepts/
-`- runtime/
-   `- lenvu/
-      |- sprites/
-      |- atlases/
-      |- masks/
-      |- effects/
-      `- manifest.json
-```
+## Asset-pipeline decision
 
-The current concept sheets define the visual bible. Production animation must normalize anatomy, scale, anchors and silhouette before frames are assembled.
+Reference art and runtime assets are different products. Original source evidence defines identity; canonical engineering coordinates normalize production; runtime sprites/atlases are downstream outputs.
 
-## Public-release checklist
+The current repository has source provenance, canonical measurement/remap contracts and validation gates. That governance layer is now intentionally frozen unless new source evidence exposes a concrete missing requirement. The next visual work should produce the canonical master and runtime assets rather than additional policy documents.
 
-Before changing the repository to public:
+## Public-release items that remain open
 
-- choose code license;
-- define a separate Lenvu character/artwork license;
-- add dependency lockfiles;
-- add Windows CI build/check;
-- add `SECURITY.md`;
-- restore a restrictive Content Security Policy;
-- document asset provenance/licensing;
-- record first R3 2200G performance baseline;
-- verify no models, private data, local DBs, secrets or logs are tracked.
+- code license;
+- separate character/artwork license;
+- dependency lockfiles;
+- `SECURITY.md`;
+- restrictive CSP;
+- production icon/art;
+- clean Windows bundle validation;
+- Ryzen 3 2200G performance baseline;
+- final tracked-data/privacy audit.
 
 ## Non-negotiable acceptance test
 
-Unload MiniCPM5-1B completely.
-
-Lenvu must still feel alive: movement, sleep/wake, petting, attention, focus behavior, state persistence and ordinary desktop interaction continue without an LLM.
+Unload MiniCPM5-1B and any future vision worker completely. Lenvu still moves, sleeps/wakes, reacts, focuses, persists state and supports ordinary desktop interaction.
