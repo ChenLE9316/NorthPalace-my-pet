@@ -179,6 +179,13 @@ fn run_runtime_loop(
                 .as_ref()
                 .is_some_and(CancellationToken::is_cancelled)
             {
+                while let Ok(event) = event_rx.try_recv() {
+                    brain.handle_event(event);
+                    sequence = sequence.saturating_add(1);
+                }
+                let frozen =
+                    PetRuntimeSnapshot::from_brain(RuntimeHealth::Ready, sequence, &brain);
+                publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), frozen);
                 return;
             }
 
@@ -309,10 +316,11 @@ mod tests {
     }
 
     #[test]
-    fn managed_runtime_freezes_after_producer_phase_shutdown() {
+    fn managed_runtime_freezes_after_runtime_phase_shutdown() {
         let supervisor = WorkerSupervisor::default();
+        let runtime_supervisor = supervisor.in_phase(WorkerPhase::Runtime);
         let runtime = RuntimeHandle::spawn_managed_with_state_and_observer(
-            &supervisor,
+            &runtime_supervisor,
             Duration::from_secs(60),
             PetStateV2::default(),
             None,
@@ -331,7 +339,7 @@ mod tests {
         assert!(runtime.snapshot().expect("processed snapshot").sequence > 0);
 
         let report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
+            .shutdown_phase_and_join(WorkerPhase::Runtime, Duration::from_secs(1));
         assert_eq!(report.joined, vec!["pet-runtime".to_owned()]);
         assert!(report.detached.is_empty());
         assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);
