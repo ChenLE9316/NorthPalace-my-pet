@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "characterId": "lenvu",
   "status": "awaiting_source_faithful_candidate_artwork",
   "candidateKind": "canonical_master_review_sheet",
@@ -8,6 +8,7 @@
     "visualGroundTruth": "docs/LENVU_VISUAL_GROUND_TRUTH.md",
     "masterContract": "assets/runtime/lenvu/source-notes/canonical-master.json",
     "landmarks": "assets/runtime/lenvu/source-notes/master-landmarks.json",
+    "sourceMeasurement": "assets/runtime/lenvu/source-notes/source-measurement.json",
     "referenceManifest": "assets/reference/manifest.json"
   },
   "artifact": {
@@ -30,6 +31,7 @@
   ],
   "review": {
     "sourceReferenceMatched": false,
+    "sourceLandmarksMatched": false,
     "speciesSilhouetteVerified": false,
     "nonChibiProportionsVerified": false,
     "elongatedCanineMuzzleVerified": false,
@@ -55,6 +57,7 @@
     "candidateMayBeUsedAsRuntimeTexture": false,
     "candidateMayRedefineSourceIdentity": false,
     "sourceVisualEvidenceOverridesCandidate": true,
+    "measuredSourceLandmarksRequired": true,
     "approvalRequiredBeforeNormalizedMasterExport": true
   }
 }
