@@ -25,6 +25,16 @@ pub(crate) struct StartupStatus {
     enabled: bool,
 }
 
+async fn run_persistence_admin<T, F>(operation: F) -> Result<T, String>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T, String> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(operation)
+        .await
+        .map_err(|error| format!("persistence admin task failed: {error}"))?
+}
+
 #[tauri::command]
 pub(crate) fn get_pet_snapshot(
     runtime: tauri::State<'_, RuntimeHandle>,
@@ -48,73 +58,85 @@ pub(crate) fn worker_status_get(
 }
 
 #[tauri::command]
-pub(crate) fn memory_list(
+pub(crate) async fn memory_list(
     kind: Option<MemoryKind>,
     limit: Option<u32>,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<MemoryRecord>, String> {
-    persistence.list_memory_records(
-        kind,
-        limit.unwrap_or(MEMORY_LIST_LIMIT),
-        PERSISTENCE_ADMIN_TIMEOUT,
-    )
+    let persistence = persistence.inner().clone();
+    let limit = limit.unwrap_or(MEMORY_LIST_LIMIT);
+    run_persistence_admin(move || {
+        persistence.list_memory_records(kind, limit, PERSISTENCE_ADMIN_TIMEOUT)
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) fn memory_search(
+pub(crate) async fn memory_search(
     query: String,
     limit: Option<u32>,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<MemoryRecord>, String> {
-    persistence.search_memory_records(
-        query,
-        limit.unwrap_or(MEMORY_LIST_LIMIT),
-        PERSISTENCE_ADMIN_TIMEOUT,
-    )
+    let persistence = persistence.inner().clone();
+    let limit = limit.unwrap_or(MEMORY_LIST_LIMIT);
+    run_persistence_admin(move || {
+        persistence.search_memory_records(query, limit, PERSISTENCE_ADMIN_TIMEOUT)
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) fn memory_create(
+pub(crate) async fn memory_create(
     input: MemoryInput,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<i64, String> {
-    persistence.create_memory_record(input, PERSISTENCE_ADMIN_TIMEOUT)
+    let persistence = persistence.inner().clone();
+    run_persistence_admin(move || {
+        persistence.create_memory_record(input, PERSISTENCE_ADMIN_TIMEOUT)
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) fn memory_update(
+pub(crate) async fn memory_update(
     id: i64,
     input: MemoryInput,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<(), String> {
-    persistence.update_memory_record(id, input, PERSISTENCE_ADMIN_TIMEOUT)
+    let persistence = persistence.inner().clone();
+    run_persistence_admin(move || {
+        persistence.update_memory_record(id, input, PERSISTENCE_ADMIN_TIMEOUT)
+    })
+    .await
 }
 
 #[tauri::command]
-pub(crate) fn memory_delete(
+pub(crate) async fn memory_delete(
     id: i64,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<(), String> {
-    persistence.delete_memory_record(id, PERSISTENCE_ADMIN_TIMEOUT)
+    let persistence = persistence.inner().clone();
+    run_persistence_admin(move || persistence.delete_memory_record(id, PERSISTENCE_ADMIN_TIMEOUT))
+        .await
 }
 
 #[tauri::command]
-pub(crate) fn activity_list(
+pub(crate) async fn activity_list(
     limit: Option<u32>,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Vec<ActivityHistoryRecord>, String> {
-    persistence.list_activity(
-        limit.unwrap_or(ACTIVITY_LIST_LIMIT),
-        PERSISTENCE_ADMIN_TIMEOUT,
-    )
+    let persistence = persistence.inner().clone();
+    let limit = limit.unwrap_or(ACTIVITY_LIST_LIMIT);
+    run_persistence_admin(move || persistence.list_activity(limit, PERSISTENCE_ADMIN_TIMEOUT)).await
 }
 
 #[tauri::command]
-pub(crate) fn activity_get(
+pub(crate) async fn activity_get(
     id: i64,
     persistence: tauri::State<'_, PersistenceService>,
 ) -> Result<Option<ActivityHistoryRecord>, String> {
-    persistence.get_activity(id, PERSISTENCE_ADMIN_TIMEOUT)
+    let persistence = persistence.inner().clone();
+    run_persistence_admin(move || persistence.get_activity(id, PERSISTENCE_ADMIN_TIMEOUT)).await
 }
 
 #[tauri::command]
