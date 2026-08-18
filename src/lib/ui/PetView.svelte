@@ -1,14 +1,15 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { PetInteraction } from '../types';
+  import type { PetInteraction, PetRuntimeSnapshot } from '../types';
   import { resolveBubbleCue, type BubbleCue } from '../pet/bubble';
   import { lenvuManifest, type LenvuHitZoneId } from '../pet/manifest';
-  import { fallbackSnapshot, getPetSnapshot, interact } from '../pet/runtime';
+  import { fallbackSnapshot, getPetSnapshot, interact, observePetSnapshots } from '../pet/runtime';
   import { PetRenderer } from '../pet/renderer';
   import {
     configurePetHitRegions,
     getDisplayContext,
     observePetDisplayChanges,
+    publishPetDisplayContext,
     startPetWindowDrag,
     toggleCompanionWindow,
     type CursorHitRegion,
@@ -27,7 +28,6 @@
 
   let snapshot = fallbackSnapshot;
   let animation = 'idle';
-  let snapshotTimer: number | undefined;
   let displayRefreshTimer: number | undefined;
   let bubbleTimer: number | undefined;
   let petCanvas: HTMLDivElement;
@@ -38,9 +38,8 @@
   let hasRuntimeSnapshot = false;
   const lastBubbleShownAt = new Map<string, number>();
 
-  async function refresh() {
+  function applySnapshot(nextSnapshot: PetRuntimeSnapshot) {
     const previousFacing = snapshot.state.facing;
-    const nextSnapshot = await getPetSnapshot();
     const previousForCue = hasRuntimeSnapshot
       ? snapshot
       : { ...nextSnapshot, health: 'ready' as const };
@@ -56,6 +55,10 @@
     if (snapshot.state.facing !== previousFacing) {
       window.requestAnimationFrame(configureNativeHitTest);
     }
+  }
+
+  async function refresh() {
+    applySnapshot(await getPetSnapshot());
   }
 
   function showBubble(cue: BubbleCue) {
@@ -189,7 +192,12 @@
   }
 
   async function refreshDisplayContext() {
-    await getDisplayContext();
+    const context = await getDisplayContext();
+    try {
+      await publishPetDisplayContext(context);
+    } catch (error) {
+      console.debug('Failed to publish pet display context', error);
+    }
     window.requestAnimationFrame(configureNativeHitTest);
   }
 
@@ -205,6 +213,7 @@
     let disposed = false;
     let hitTestFrame = 0;
     let stopDisplayObservation: (() => void) | null = null;
+    let stopSnapshotObservation: (() => void) | null = null;
 
     void (async () => {
       const instance = new PetRenderer();
@@ -226,18 +235,24 @@
       })
       .catch((error) => console.error('Failed to observe pet display changes', error));
 
+    void observePetSnapshots(applySnapshot)
+      .then((stop) => {
+        if (disposed) stop();
+        else stopSnapshotObservation = stop;
+      })
+      .catch((error) => console.error('Failed to observe Pet Runtime snapshots', error));
+
     void refreshDisplayContext();
     void refresh();
-    snapshotTimer = window.setInterval(() => void refresh(), 500);
 
     return () => {
       disposed = true;
       pendingPointer = null;
-      window.clearInterval(snapshotTimer);
       window.clearTimeout(displayRefreshTimer);
       window.clearTimeout(bubbleTimer);
       window.cancelAnimationFrame(hitTestFrame);
       stopDisplayObservation?.();
+      stopSnapshotObservation?.();
       renderer?.destroy();
       renderer = null;
     };
