@@ -47,7 +47,9 @@ NorthPalace-my-pet.exe
 
 ## 4. Pet Runtime ownership
 
-Rust owns semantic simulation time. `RuntimeHandle` exposes one `DomainEvent` input channel, a background Pet Runtime owner, immutable snapshots and low-frequency event observers.
+Rust owns semantic simulation time. `RuntimeHandle` exposes one `DomainEvent` input channel, a background Pet Runtime owner, immutable snapshots, low-frequency domain-event observers and an optional snapshot observer used by the application boundary.
+
+The Tauri bootstrap installs one snapshot observer that emits `pet-runtime-snapshot` to the WebViews. Each WebView performs one command-based cold-start read, then follows pushed snapshots instead of maintaining its own periodic snapshot timer. Direct interactions may still request one explicit refresh as a bounded fallback; there is no background frontend snapshot polling loop.
 
 Runtime health is intentionally truthful:
 
@@ -123,11 +125,15 @@ Memory category and transport contracts have one domain source of truth in `src-
 
 Svelte owns management UI, not life simulation or per-frame animation. Current Companion sections are Home, Memory, Activity and Settings/Privacy. Pet interaction and Companion opening are separate; the `☾` handle/tray opens the panel.
 
-The Companion shell now delegates section-specific state/UI to `src/lib/ui/companion/*`; new product surfaces should remain isolated instead of growing the shell back into a monolith.
+The Companion shell delegates section-specific state/UI to `src/lib/ui/companion/*`; new product surfaces should remain isolated instead of growing the shell back into a monolith.
+
+Runtime state synchronization is event-driven: both WebViews listen to the Rust-owned `pet-runtime-snapshot` stream after an initial cold-start read. Pet-window move/scale changes are already observed natively by the pet WebView; after its debounced display-context refresh, it publishes the resulting `pet-display-context` event so Companion does not maintain a second periodic display-context timer. These streams carry small structured snapshots only and do not move animation frames, screenshots or other high-throughput payloads through the event bus.
 
 ## 12. Application composition boundary
 
 `lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and bounded final persistence flush. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, while native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
+
+`bootstrap.rs` also owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. The Pet Runtime remains unaware of WebView labels and Tauri event types.
 
 This split keeps future worker supervision from being bolted into one oversized startup function and gives the next consolidation step a stable place for a lifecycle supervisor.
 
