@@ -124,7 +124,11 @@ Original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` outrank rendere
 
 ## 10. Persistence and memory domain
 
-SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. A DB-owning worker keeps SQLite I/O away from Pet Brain ticks.
+SQLite is bundled through `rusqlite`. Current structures cover pet state, bounded activity/relationship history, typed memories, FTS5 and hourly interaction rhythm. The production application has one long-lived SQLite owner: the supervised `persistence-db` worker.
+
+Pet-state saves, autosave, domain-event journaling, hourly rhythm writes, future memory-candidate storage, Memory Browser CRUD/search and Activity History list/get all serialize through the same `PersistenceCommand` queue. `memory_admin.rs` and `history_admin.rs` contain input validation, record types and SQL helpers only; they no longer own database paths or open per-command SQLite connections. This keeps SQLite off Pet Brain ticks and avoids a second application-level connection competing with the persistence owner.
+
+The single queue also provides an ordering guarantee for management UI reads: a Memory or Activity query sent after earlier queued writes cannot overtake those writes. Session-only fallback remains explicit; admin commands report persistence/history unavailable when the DB owner was not installed rather than silently opening another connection.
 
 The DB worker, changed-only autosave and domain-event journal are supervised as `persistence-db`, `persistence-autosave` and `persistence-event-journal`, but they belong to different shutdown phases. Autosave is a producer; Pet Runtime has its own runtime phase; the event journal is the journal phase; the DB owner is the persistence phase.
 
@@ -132,7 +136,7 @@ Application exit no longer relies on quiet-time ordering. Platform sensors/contr
 
 The journal phase is cancelled and joined next, allowing its already accepted domain events to reach the still-running persistence worker. After that barrier, the frozen Pet State is sent through `SaveAndFlush`; because the final save command is queued after all journal sends have completed, its acknowledgement also proves that earlier queued persistence work has been processed. The DB phase is cancelled and joined last.
 
-The SQLite worker uses a 2500 ms busy timeout; final-save acknowledgement allows 3 seconds so the application does not declare timeout before SQLite's own bounded lock wait can complete.
+The SQLite worker uses a 2500 ms busy timeout; final-save acknowledgement and management-command acknowledgements use bounded application waits so a wedged DB owner does not block the application indefinitely.
 
 Memory category and transport contracts have one domain source of truth in `src-tauri/src/domain/memory.rs`. `MemoryKind`, `MemoryDraft` and `MemorySearchHit` are shared by persistence and the memory-admin/application boundary rather than being redefined by individual adapters. This removes category drift before the future Memory Evaluator is added.
 
@@ -146,7 +150,7 @@ Runtime state synchronization is event-driven: both WebViews listen to the Rust-
 
 ## 12. Application composition boundary
 
-`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and ordered worker shutdown/final persistence. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
+`lib.rs` is intentionally limited to application composition: managed-service registration, Tauri command registration, Windows adapter wiring, Companion close behavior and ordered worker shutdown/final persistence. `PersistenceService` is the only Tauri-managed SQLite application service; Memory/Activity commands use it rather than registering parallel DB services. Local-data/privacy/persistence/Pet Runtime construction lives in `bootstrap.rs`, lifecycle primitives live in `worker.rs`, native tray behavior lives in `shell.rs` and command handlers live in `commands.rs`.
 
 `bootstrap.rs` owns the Tauri snapshot-event bridge by supplying the Pet Runtime with an application-level observer callback. It assigns Pet Runtime, event journal and DB ownership to phase-scoped supervisor views while leaving Windows adapters and autosave on the default producer phase; persistence code itself therefore does not need to know the whole application shutdown topology.
 
