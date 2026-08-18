@@ -254,7 +254,10 @@ fn publish_snapshot(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{domain::pet_state::Facing, worker::WorkerHealth};
+    use crate::{
+        domain::pet_state::Facing,
+        worker::{WorkerHealth, WorkerPhase},
+    };
 
     #[test]
     fn runtime_starts_from_supplied_state() {
@@ -306,9 +309,9 @@ mod tests {
     }
 
     #[test]
-    fn managed_runtime_stops_with_supervisor() {
+    fn managed_runtime_freezes_after_producer_phase_shutdown() {
         let supervisor = WorkerSupervisor::default();
-        let _runtime = RuntimeHandle::spawn_managed_with_state_and_observer(
+        let runtime = RuntimeHandle::spawn_managed_with_state_and_observer(
             &supervisor,
             Duration::from_secs(60),
             PetStateV2::default(),
@@ -316,9 +319,28 @@ mod tests {
         )
         .expect("managed runtime");
 
-        let report = supervisor.shutdown_and_join(Duration::from_secs(1));
+        runtime
+            .dispatch(DomainEvent::PetPetted)
+            .expect("dispatch before shutdown");
+        for _ in 0..100 {
+            if runtime.snapshot().expect("runtime snapshot").sequence > 0 {
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(runtime.snapshot().expect("processed snapshot").sequence > 0);
+
+        let report = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
         assert_eq!(report.joined, vec!["pet-runtime".to_owned()]);
         assert!(report.detached.is_empty());
         assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);
+
+        let frozen = runtime.snapshot().expect("frozen snapshot");
+        thread::sleep(Duration::from_millis(50));
+        let later = runtime.snapshot().expect("later snapshot");
+        assert_eq!(later.sequence, frozen.sequence);
+        assert_eq!(later.state, frozen.state);
+        assert!(runtime.dispatch(DomainEvent::PetPetted).is_err());
     }
 }
