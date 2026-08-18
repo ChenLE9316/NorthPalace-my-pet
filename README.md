@@ -2,102 +2,138 @@
 
 **Lenvu — local-first Neralune digital companion for Windows.**
 
-NorthPalace-my-pet is a lightweight desktop-pet and local AI companion designed around **AMD Ryzen 3 2200G + 16 GB DRAM + Vega 8**. Lenvu remains a complete interactive desktop creature when every AI worker is unloaded; local AI is an optional cognition layer, not the animation controller and not the source of life.
+NorthPalace-my-pet is a lightweight desktop-pet and local AI companion designed first for **Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8**. Lenvu is meant to feel like a persistent digital lifeform on the desktop, not a chat window wearing a mascot skin.
 
 ![NorthPalace-my-pet system overview](docs/assets/lenvu-system-overview.webp)
 
-> Current development status: **V0.2 — living desktop pet + Persistent Life V2 foundation**. Foundation-level changes are validated on a clean Windows CI runner before they are treated as stable feature-branch baseline.
+> **Product north star:** the original overview above defines the intended product shape: a foreground desktop companion, low-noise interaction, focus support, memory, local AI as an optional cognition layer, and deep management kept outside the ambient pet experience.
 
-## Product principles
+## Non-negotiable acceptance rule
 
-- **Pet first, chat second** — animation, expression and behavior communicate before text.
-- **Always-lightweight** — the ambient desktop pet must remain cheap enough to run all day.
-- **Event driven** — Windows, pointer, focus, time and user interactions become domain events.
-- **Rust owns life-time** — Pet Runtime does not depend on JavaScript simulation timers or an open panel.
-- **Parallel state** — movement, facing, posture, attention, emotion, mode and cognition coexist.
-- **LLM is not the reflex layer** — ordinary pet behavior is instant and fully offline.
-- **Vision is optional** — structured Windows context comes first; screen vision is future, opt-in and on-demand.
-- **Local first** — pet state, relationship, memories, logs and model execution stay on-device by default.
-- **Graceful degradation** — AI, database or sensor failures degrade capabilities without killing Lenvu's ordinary life loop.
+Unload every AI worker completely.
 
-## Current architecture
+Lenvu must still be able to move, idle, observe, sleep/wake, react to petting and play, enter Focus Guard, preserve long-lived state, expose inspectable local memory and perform ordinary desktop interaction. AI may add cognition later; it is not the animation controller and it is not the source of life.
+
+## Current development baseline
+
+The repository is currently a **living desktop-pet / Persistent Life foundation**, not a release candidate and not yet the final visual product.
+
+Implemented today:
+
+- Rust-owned monotonic Pet Runtime with a 250 ms semantic tick;
+- parallel Pet State for locomotion, facing, posture, attention, emotion, mode and cognition;
+- Behavior Intent priority/TTL/interruption instead of one exclusive activity state;
+- deterministic weighted ambient personality selection without an LLM;
+- Windows idle/return, local hour and privacy-gated foreground-app awareness;
+- opt-in bounded Windows UI Automation metadata with no element text/tree dump;
+- native work-area movement, facing, drag/pick-up/drop and selective transparent click-through;
+- deliberate horizontal multi-monitor exploration for ambient `Explore` only;
+- separate transparent `pet` and independent `companion` windows;
+- system tray and opt-in Windows launch-at-login;
+- bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
+- Memory Browser/editor, Activity and Privacy/Settings surfaces;
+- source-measured Lenvu visual ground-truth / canonical landmark pipeline.
+
+Not implemented yet:
+
+- production canonical Lenvu master artwork and sprite/atlas animation graph;
+- final canonical application icon and high-resolution README/reference derivatives;
+- Memory Evaluator and deeper long-term relationship/personality evolution;
+- local text-model worker / llama.cpp / MiniCPM5-1B runtime;
+- optional screen-pixel vision worker;
+- target-machine performance baseline and release packaging hardening.
+
+## Architecture
 
 ```text
-Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8
-|
-+-- Tauri 2 desktop process
-|   +-- Rust Pet Runtime
-|   |   +-- monotonic 250 ms clock
-|   |   +-- Domain Event channel + low-frequency observers
-|   |   +-- PetBrainV2 / parallel Pet State / Behavior Intent
-|   |   `-- immutable Runtime Snapshot
-|   +-- Windows / desktop-space adapters
-|   |   +-- idle + user-return sensor
-|   |   +-- foreground-app identity sensor
-|   |   +-- local-hour sensor
-|   |   +-- monitor / DPI / work-area context
-|   |   +-- selective native cursor passthrough
-|   |   `-- native autonomous + explicit drag window motion
-|   +-- Persistent Life
-|   |   +-- app-local-data / lenvu.sqlite3
-|   |   +-- schema V2 migrations
-|   |   +-- separate DB-owning worker
-|   |   +-- autosave + graceful final flush
-|   |   +-- bounded activity journal + relationship history
-|   |   +-- typed memories + FTS5
-|   |   `-- hourly interaction rhythm
-|   `-- WebView windows
-|       +-- pet       -> transparent / always-on-top / PixiJS
-|       `-- companion -> independent Svelte window
-|
-+-- Lenvu presentation contract
-|   +-- versioned animation manifest
-|   +-- semantic animation resolver
-|   +-- facing-aware semantic hit zones
-|   `-- PixiJS low-power renderer
-|
-`-- Optional AI Workers [planned]
-    +-- Text: llama.cpp -> MiniCPM5-1B GGUF
-    `-- Vision: separate on-demand worker only if pixels are actually needed
+Windows 11
+│
+├─ Tauri 2 desktop process
+│  ├─ Rust Pet Runtime
+│  │  ├─ monotonic clock
+│  │  ├─ Domain Event channel
+│  │  ├─ PetBrainV2
+│  │  ├─ weighted personality policy
+│  │  └─ immutable RuntimeSnapshot
+│  │
+│  ├─ Windows adapters
+│  │  ├─ idle / return
+│  │  ├─ local hour
+│  │  ├─ foreground app + privacy-approved bounds
+│  │  ├─ opt-in bounded accessibility metadata
+│  │  ├─ monitor / DPI / work area
+│  │  ├─ selective cursor passthrough
+│  │  └─ native pet-window movement / drag
+│  │
+│  ├─ PrivacyPolicyService + ScreenContextBroker
+│  │
+│  ├─ Persistent Life
+│  │  ├─ SQLite + WAL
+│  │  ├─ pet state
+│  │  ├─ activity / relationship history
+│  │  ├─ typed memories + FTS5
+│  │  └─ hourly interaction rhythm
+│  │
+│  └─ WebView windows
+│     ├─ pet       → PixiJS presentation
+│     └─ companion → Svelte management UI
+│
+├─ Lenvu presentation contract
+│  ├─ src/lib/pet/lenvu.manifest.json   ← single runtime manifest source
+│  ├─ semantic animation resolver
+│  ├─ facing-aware semantic hit zones
+│  └─ PixiJS renderer
+│
+└─ Optional AI workers [planned]
+   ├─ text   → llama.cpp / MiniCPM5-1B GGUF
+   └─ vision → separately loadable, on-demand only
 ```
 
-## Living behavior implemented now
+The Domain layer does not depend on Svelte, PixiJS, Tauri window coordinates, Win32, SQLite or llama.cpp. Sensors publish facts; privacy gates decide whether sensitive context may cross the boundary; Pet Brain interprets allowed facts; platform controllers perform validated side effects; presentation renders snapshots.
 
-The fully offline path includes:
+## Pet behavior
 
-- idle / observe / sit / lie / sleep / wake;
-- energy and sleep-pressure changes with recovery while sleeping;
-- hover, touch, petting and play;
-- Focus Guard mode;
-- Windows idle/return, foreground-app identity and local-time awareness;
-- deterministic ambient exploration without an LLM;
-- native `walk` / `run` pet-window movement with work-area clamping and edge reversal;
-- domain-level facing synchronized with renderer and semantic hit regions;
-- native transparent click-through outside Lenvu;
-- **pick-up / drag / drop**: a short pointer gesture remains pet/touch, while movement beyond the drag threshold enters a domain-level `held` posture and native window drag;
-- window-moved / scale-factor observation with debounced display/hit-region refresh;
-- SQLite persistence of facing, energy, curiosity, bond and sleep pressure across restarts;
-- relationship history, bounded meaningful-event journal and hourly interaction rhythm.
+The ordinary life loop is intentionally independent of AI:
 
-`held` is a Pet Brain posture, not a Windows-specific state. While held, autonomous locomotion is stopped and ambient behavior cannot overwrite the posture; dropping returns Lenvu to a stable ambient pose or resumes Focus Guard presentation.
+```text
+Observe → Interpret → React → Remember → Bond → Evolve
+```
 
-Transient environment state is intentionally not restored from SQLite. A new session starts with fresh locomotion/posture/mode/cognition/user-idle state, then applies saved long-lived values.
+Current reflex/life behavior includes idle, observe, sit, lie, sleep, wake, touch, petting, play, Focus Guard, pick-up/drag/drop and weighted ambient exploration. Sleeping restores energy and reduces sleep pressure; awake time slowly consumes energy and raises sleep pressure.
 
-The current Lenvu render is still a lightweight procedural placeholder. Production character art will replace it only after anatomy, scale, anchors, atlas bounds and masks are normalized from the reference sheets.
+Movement is a native window side effect driven from semantic locomotion state. The motion controller seeds direction from domain `facing`, respects the current Windows work area, reverses at edges, and only allows autonomous monitor transitions for `Explore` across genuinely adjacent horizontal displays.
 
-## UI/UX interaction layers
+## Renderer and Lenvu identity
 
-1. **Ambient** — Lenvu exists on the desktop without conventional UI.
-2. **Direct pet interaction** — hover, touch, pet, play and pick-up are reflex-layer actions with no AI call.
-3. **Context bubble** — compact status/reaction layer beside Lenvu.
-4. **Companion window** — independent status/interaction surface; hiding it does not stop Pet Runtime.
-5. **Deep management** — model/privacy/memory/performance/settings surfaces remain separate.
+The current PixiJS character remains a **procedural engineering placeholder**. It exists to validate runtime state, animation resolution, power policy, semantic hit zones and window behavior before production assets are ready.
 
-## Persistent Life and memory
+Lenvu has asymmetric identity features, including heterochromia and the left-side gold crescent ornament. Blind whole-character horizontal mirroring is therefore forbidden. The placeholder mirrors only symmetric geometry and semantically repositions identity-bearing features; production assets must use directional artwork or equivalent semantic remapping.
 
-`lenvu.sqlite3` lives under the application's local-data directory. Database work happens on a separate persistence worker; ordinary Pet Brain ticks never wait on SQLite.
+The only authoritative renderer manifest is:
 
-Schema V2 separates:
+```text
+src/lib/pet/lenvu.manifest.json
+```
+
+Reference art, source measurements, canonical master metadata and runtime animation assets remain separate products. The original source evidence outranks generated candidates, inferred coordinates and assistant memory.
+
+See `docs/LENVU_VISUAL_GROUND_TRUTH.md`, `docs/CANONICAL_LENVU.md`, `docs/CANONICAL_LANDMARKS.md` and `docs/ASSET_PIPELINE.md`.
+
+## Privacy and screen context
+
+Privacy is enforced at the Windows sensor boundary, not merely hidden in the UI.
+
+`PrivacyPolicyService` starts fail-closed. Per-app exclusions are stored locally in `privacy-rules.json`. Foreground identity is limited to the executable stem; window titles are not collected by default. Visible DWM bounds are queried only after the app identity passes the privacy gate.
+
+Accessibility context is separately opt-in. It reads only bounded focused-control structural metadata such as control type, enabled/focus/offscreen/password flags and bounds. It does not read Name, Value, HelpText, raw text, screenshots or accessibility-tree dumps. The UI Automation reader unloads when the capability is disabled and retries initialization after transient failures.
+
+Privacy-rule updates are written to a flushed temporary file and replaced through the Windows replace-existing/write-through path so an existing rule file is never intentionally removed before the replacement is ready.
+
+## Persistent life and memory
+
+`lenvu.sqlite3` lives under the application's local-data directory. Database work is isolated from ordinary Pet Brain ticks.
+
+Current schema areas:
 
 ```text
 pet_state
@@ -108,69 +144,83 @@ memory_fts
 rhythm_hourly
 ```
 
-The journal ignores noisy/high-frequency events and is capped at **30 days / 2,000 rows**. Long-term memory supports episodic, semantic, preference and relationship types. FTS5 is the first retrieval path using BM25 relevance plus importance and recency; no vector database is required for the first releases.
+The activity journal is intentionally bounded and ignores high-frequency noise. Long-term memory currently supports episodic, semantic, preference and relationship records with FTS5/BM25 retrieval plus importance/recency metadata. A future Memory Evaluator will decide whether automatic candidates should be stored, merged or discarded.
 
-Storage and judgement are separate. A future Memory Evaluator decides whether a candidate should be stored, merged or discarded. If persistence cannot initialize, Lenvu continues session-only.
+If persistence cannot initialize, Lenvu continues session-only instead of failing the whole pet runtime.
 
-See `docs/PERSISTENCE.md` and `docs/MEMORY_SYSTEM.md`.
+## UI/UX layers
 
-## Vision policy
+1. **Ambient** — Lenvu exists without conventional UI.
+2. **Direct interaction** — hover, touch, pet, play and drag are reflex-layer actions with no AI call.
+3. **Context bubble** — short, low-noise state/reaction cues.
+4. **Companion** — Home, Memory, Activity and Settings.
+5. **Deep management / debug** — model, privacy, performance and developer diagnostics should remain outside the ambient experience.
 
-A vision model is **not required for the first usable releases**. Lenvu first understands the computer through cheap structured signals such as active app identity, idle/return state, pointer interaction, monitor/work-area geometry, focus mode and time.
+Opening the Companion is intentionally separated from petting: the small `☾` handle and system tray open the panel; double-clicking Lenvu is not used as a second hidden command path.
 
-Future screen/image understanding sits behind a separate Screen Context Broker and optional worker. Pet Brain receives normalized observations, never raw screenshots as core state.
+## Validation
 
-See `docs/VISION_SYSTEM.md`.
+Current Windows CI validates the source on `main` with:
+
+- Lenvu asset-contract validation as part of the frontend production build;
+- Rust formatting check;
+- Rust Clippy with warnings treated as errors;
+- Rust/Tauri unit tests on Windows.
+
+The repository still needs dependency lockfiles before builds can be considered fully reproducible. CI also does not replace a clean executable/bundle test and RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
+
+## Next engineering sequence
+
+```text
+Consolidation
+  ↓
+reproducible dependency locks
+  ↓
+canonical Lenvu production master
+  ↓
+Idle / Walk / Sit / Sleep production assets
+  ↓
+PixiJS sprite/atlas renderer
+  ↓
+target-machine build + performance baseline
+  ↓
+Memory Evaluator / relationship evolution
+  ↓
+MiniCPM5-1B isolated text worker
+```
+
+Do not expand the visual-policy/measurement layer further unless source evidence exposes a concrete missing contract. The current guardrails are sufficient; the next visual work should produce assets.
 
 ## Repository layout
 
 ```text
 NorthPalace-my-pet/
-+-- .github/workflows/      Windows CI
-+-- assets/
-|   +-- reference/          source/reference character material
-|   `-- runtime/            optimized production runtime assets
-+-- docs/                   living architecture/product specifications
-+-- public/                 UI-served resources
-+-- src/                    Svelte + PixiJS presentation
-+-- src-tauri/              Rust runtime + persistence + Tauri/Windows integration
-+-- README.md
-+-- package.json
-`-- vite.config.ts
+├─ .github/workflows/      Windows CI
+├─ assets/
+│  ├─ reference/           source/reference character material
+│  └─ runtime/             canonical/runtime asset work area
+├─ docs/                   architecture and product contracts
+├─ public/                 UI-served static resources
+├─ scripts/                asset validation
+├─ src/                    Svelte + PixiJS presentation
+├─ src-tauri/              Rust runtime, persistence and Windows integration
+├─ README.md
+├─ package.json
+└─ vite.config.ts
 ```
 
-## Validation rule
+## Documentation authority
 
-Feature-branch foundation changes must pass:
+When documents disagree, use this maintenance order:
 
-- Svelte + PixiJS production build;
-- Rust/Tauri compilation and unit tests;
-- Windows platform/domain tests;
-- SQLite migration/state/journal/FTS5/rhythm tests.
+```text
+running code / tests
+        ↓
+docs/ARCHITECTURE.md
+        ↓
+docs/ROADMAP.md
+        ↓
+README summary
+```
 
-CI proves clean-runner source compatibility. It does **not** replace executable/performance validation on the actual Ryzen 3 2200G + Vega 8 target machine.
-
-## Next milestones
-
-- normalize the canonical production Lenvu master and import high-resolution reference sheets;
-- replace the procedural renderer with a production PixiJS sprite/atlas graph;
-- define deliberate multi-monitor autonomous movement behavior;
-- add tray/startup controls;
-- build the user-facing Memory Browser/editor and Memory Evaluator;
-- add low-noise context bubbles and privacy exclusions;
-- benchmark the target machine before committing to MiniCPM5-1B runtime/context defaults.
-
-## Living design documents
-
-- `docs/ARCHITECTURE.md`
-- `docs/FOUNDATION_REVIEW.md`
-- `docs/UI_UX.md`
-- `docs/PET_BRAIN.md`
-- `docs/PERSISTENCE.md`
-- `docs/MEMORY_SYSTEM.md`
-- `docs/CHARACTER_BIBLE.md`
-- `docs/ASSET_PIPELINE.md`
-- `docs/DESKTOP_WINDOW.md`
-- `docs/MODEL_RUNTIME.md`
-- `docs/VISION_SYSTEM.md`
-- `docs/ROADMAP.md`
+Visual identity is a separate exception: original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md` remain authoritative over generated candidates and renderer placeholders.

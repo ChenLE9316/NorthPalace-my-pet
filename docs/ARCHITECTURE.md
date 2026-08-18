@@ -1,310 +1,361 @@
 # NorthPalace-my-pet Architecture
 
-## 1. Target
+## 1. Scope and invariants
 
-Primary target: **Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8 iGPU**.
+Primary runtime target: **Windows 11 / Ryzen 3 2200G / 16 GB DRAM / Vega 8 iGPU**.
 
-NorthPalace-my-pet is an always-running desktop life/companion system. Idle cost matters more than peak benchmark performance, so expensive subsystems — especially text/vision AI — remain optional and independently unloadable.
+NorthPalace-my-pet is an always-running desktop life/companion system. Idle cost and predictable degradation matter more than peak throughput. Expensive subsystems, especially text and vision AI, must remain optional and independently unloadable.
 
-The product rule is **Pet first, AI second**: unloading every AI worker must not stop Lenvu's movement, sleep/wake rhythm, direct interaction, focus behavior, persistence, memory management or ordinary Windows awareness.
+The core rule is **Pet first, AI second**. Removing every AI worker must not stop Lenvu's movement, sleep/wake rhythm, direct interaction, Focus Guard, persistence, inspectable memory or ordinary structured Windows awareness.
 
-## 2. Current layer model
+## 2. Layer model
 
 ```text
-Windows 11
-│
-├─ Tauri 2 Desktop Process
-│  ├─ Rust Pet Runtime (single owner)
-│  │  ├─ monotonic runtime clock
-│  │  ├─ Domain Event channel
-│  │  ├─ PetBrainV2
-│  │  └─ immutable RuntimeSnapshot
-│  │
-│  ├─ Windows adapters
-│  │  ├─ idle / return sensor
-│  │  ├─ active-app identity + visible-bounds sensor
-│  │  ├─ local-hour sensor
-│  │  ├─ display / DPI / work-area context
-│  │  ├─ native cursor click-through controller
-│  │  └─ pet-window motion controller
-│  │
-│  ├─ PrivacyPolicyService
-│  │  ├─ fail-closed startup state
-│  │  ├─ local privacy-rules.json
-│  │  └─ per-app context gate
-│  │
-│  ├─ ScreenContextBroker
-│  │  ├─ active app identity or privacy-blocked state
-│  │  ├─ privacy-approved visible window bounds
-│  │  ├─ user idle milliseconds
-│  │  ├─ local hour
-│  │  └─ on-demand immutable snapshot
-│  │
-│  ├─ Local persistence
-│  │  ├─ SQLite + WAL
-│  │  ├─ activity / relationship history
-│  │  ├─ typed long-term memory
-│  │  └─ FTS5 retrieval
-│  │
-│  ├─ Native shell UX
-│  │  ├─ System Tray
-│  │  └─ opt-in Windows launch-at-login
-│  │
-│  └─ Managed WebView windows
-│     ├─ pet       → transparent, always-on-top, PixiJS
-│     └─ companion → independent Svelte window
-│
-├─ Presentation
-│  ├─ Lenvu manifest / semantic animation resolver
-│  ├─ PixiJS pet renderer
-│  ├─ Context Bubble
-│  └─ Svelte Companion UI
-│     ├─ Home
-│     ├─ Memory
-│     ├─ Activity
-│     └─ Settings
-│
-└─ Optional AI Workers (later)
-   ├─ text: llama.cpp → MiniCPM5-1B GGUF
-   └─ vision: on-demand separate worker only if needed
+Presentation
+PixiJS Pet / Context Bubble / Svelte Companion
+─────────────────────────────────────────────
+Application
+Tauri commands / Screen Context Broker / services / controllers
+─────────────────────────────────────────────
+Domain
+PetBrainV2 / Pet State / Behavior Intent / Personality / Domain Events
+─────────────────────────────────────────────
+Infrastructure
+Windows adapters / SQLite / filesystem / future llama.cpp workers
 ```
 
-The **Domain layer must not depend on Svelte, PixiJS, Win32, Tauri window coordinates, SQLite or llama.cpp**. Platform modules translate operating-system facts/actions around the domain rather than becoming the domain.
+The Domain layer must not depend on Svelte, PixiJS, WebView coordinates, Tauri windows, Win32, SQLite or llama.cpp.
 
-## 3. Runtime ownership
+## 3. Process and window topology
 
-### Rust Pet Runtime
+```text
+NorthPalace-my-pet.exe
+│
+├─ Rust runtime + application services
+│
+├─ pet WebView
+│  └─ transparent / always-on-top / PixiJS
+│
+├─ companion WebView
+│  └─ Svelte Home / Memory / Activity / Settings
+│
+└─ future workers
+   ├─ northpalace-llm-worker.exe
+   └─ optional vision worker
+```
 
-Rust owns Lenvu's simulation clock and mutable Pet Brain. Other threads/components send `DomainEvent`s through a channel and read immutable snapshots. WebView timers may poll snapshots for presentation, but they do not advance simulation time.
+`pet` and `companion` share the same Rust application runtime but not UI lifecycle. Hiding/closing the Companion does not stop Lenvu. A close request on the Companion is converted to hide.
 
-### Pet Brain
+The pet window contains only the character renderer, compact context bubble and a small Companion handle. Transparent space is selectively click-through through a native cursor controller. The pet remains reachable inside semantic hit regions.
 
-`PetBrainV2` owns semantic state such as locomotion, posture, attention, emotion, mode and cognition. Short reactions are represented with `BehaviorIntent` rather than being collapsed into one exclusive activity enum.
+## 4. Pet Runtime ownership
 
-Ambient behavior uses a deterministic weighted personality selector driven by current curiosity, energy, sleep pressure, bond, user idle time and local hour. This creates variation without making ordinary movement depend on an LLM.
+Rust owns semantic simulation time. `RuntimeHandle` exposes:
 
-### Windows platform controllers
+- a single `DomainEvent` input channel;
+- a background Pet Runtime owner;
+- immutable `PetRuntimeSnapshot` reads;
+- low-frequency domain-event observers for persistence/history.
 
-Platform controllers consume snapshots and/or produce domain events:
+The frontend may poll or later subscribe for presentation, but it never advances Pet Brain time.
 
-- idle sensor → `UserIdleChanged` / `UserReturned` and current idle value into Screen Context Broker;
-- active-app sensor → process identity → privacy gate → allowed-only visible DWM frame bounds → Screen Context Broker; `ActiveWindowChanged` is emitted only for allowed identity transitions;
-- local-hour sensor → `TimeOfDayChanged` and broker hour;
-- motion controller → turns `walk/run` locomotion into native pet-window displacement while clamping to the current work area;
-- cursor hit-test controller → toggles native cursor passthrough using normalized semantic interaction regions.
+`PetRuntimeSnapshot` currently contains runtime health, sequence, parallel Pet State and an optional Behavior Intent.
 
-Moving/resizing the same allowed foreground window updates broker geometry without repeatedly emitting `ActiveWindowChanged`, so Pet Brain is not spammed by geometry-only changes.
+## 5. Parallel Pet State
 
-Native window coordinates and Win32 cursor details stay outside Pet Brain.
+Pet State dimensions intentionally coexist:
 
-## 4. Privacy boundary
+```text
+locomotion  stationary / walk / run / jump
+facing      left / right
+posture     stand / sit / lie / sleep / held
+attention   idle / user / cursor / window / object
+emotion     calm / curious / happy / shy / concerned / sleepy / focused
+mode        ambient / focus_guard / do_not_disturb / play
+cognition   idle / listening / thinking / speaking / remembering
+```
 
-Foreground app identity is intentionally limited to the process executable stem. The active-window adapter does **not** collect window titles by default.
+Long-lived scalar state currently includes energy, curiosity, bond and sleep pressure. `user_idle_ms` and `ai_available` are transient environment/runtime values.
 
-The privacy path is:
+`held` is a domain posture, not a Windows-only flag. While held, ambient logic and autonomous locomotion cannot overwrite it.
+
+## 6. Behavior Intent and personality
+
+Short actions are represented separately from persistent state. `BehaviorIntent` carries kind, priority, remaining lifetime, interruption policy and semantic animation name.
+
+Ordinary ambient variation is produced by a deterministic weighted `PersonalityProfile`, using current energy, curiosity, bond, sleep pressure, user-idle duration, time and decision index. This provides repeatable personality variation without an LLM.
+
+The selector may produce actions such as `Explore`, `Observe`, `Sit` or `Stay`. Focus Guard, held posture, sleep/rest and explicit interactions take precedence over ambient personality choices.
+
+## 7. Domain Event backbone
+
+Current events include:
+
+```text
+Tick
+UserIdleChanged
+UserReturned
+CursorEnteredPet
+CursorLeftPet
+PetTouched
+PetPetted
+PetPlayRequested
+PetPickedUp
+PetDropped
+FocusModeStarted
+FocusModeEnded
+ActiveWindowChanged
+NotificationReceived
+TimeOfDayChanged
+LlmWorkerStateChanged
+PetFacingChanged
+```
+
+Sensors publish facts. Privacy gates decide whether sensitive context can cross a capability boundary. Pet Brain interprets allowed facts. Application/platform controllers perform validated side effects.
+
+## 8. Windows adapters
+
+Current Windows modules include:
+
+- idle/return sensor;
+- local-hour sensor;
+- foreground executable identity + visible DWM bounds;
+- display/monitor/DPI/work-area context;
+- bounded optional UI Automation metadata;
+- selective cursor passthrough;
+- native pet-window motion/drag.
+
+Adapters remain outside the Domain layer.
+
+### 8.1 Native movement
+
+`walk` and `run` locomotion are translated into horizontal window displacement at DPI-scaled logical speed. The controller:
+
+- seeds motion direction from domain `facing` instead of forcing a startup direction;
+- clamps Lenvu to Windows work areas;
+- reverses at horizontal edges;
+- preserves negative desktop coordinates;
+- allows autonomous monitor transitions only when the active Behavior Intent is `Explore`;
+- selects genuinely adjacent horizontal displays with sufficient vertical overlap;
+- rejects large monitor gaps and vertical-stack teleporting;
+- keeps non-Explore interactions on the current display;
+- does not use native vertical movement for semantic `jump` yet.
+
+Explicit user drag is separate from autonomous motion and maps to domain `PetPickedUp` / `PetDropped`.
+
+### 8.2 Selective click-through
+
+The frontend publishes normalized semantic hit regions. A low-cost native cursor loop decides whether the transparent pet window should ignore cursor events. Empty startup regions intentionally keep the window interactive until the WebView has published valid geometry.
+
+Hit regions are facing-aware. They are not derived from transparent pixels yet; production sprite masks can replace/augment semantic regions later.
+
+## 9. Privacy boundary
+
+`PrivacyPolicyService` starts fail-closed. Until the local rule store is initialized safely, sensitive structured context is blocked.
+
+Foreground-app path:
 
 ```text
 GetForegroundWindow
       ↓
-process app id only
+process executable stem
       ↓
 PrivacyPolicyService
-      ├─ excluded / fail-closed
-      │      ↓
-      │   identity blocked
-      │   window bounds not queried
-      │   broker id/bounds cleared
-      │   no ActiveWindowChanged
-      │
+      ├─ blocked / fail-closed
+      │      └─ no identity, no bounds, no Domain Event
       └─ allowed
              ↓
-      DWM visible frame bounds
+       visible DWM frame bounds
              ↓
-      ScreenContextBroker
+       ScreenContextBroker
              ↓
-      ActiveWindowChanged (identity transition only)
+       ActiveWindowChanged on identity transition
 ```
 
-`PrivacyPolicyService` starts fail-closed. Until its local rule file has been safely initialized, all active-app identity is treated as blocked. A corrupt rule file therefore reduces awareness instead of silently disabling privacy.
+Window titles are not collected by default. DWM bounds are not queried until the app has passed the exclusion gate.
 
-The deny list is stored separately in `privacy-rules.json`; it is not copied into SQLite, Memory or Activity History. The Settings UI only shows rules the user explicitly created and does not maintain a recent-app inventory.
+Rules live in `privacy-rules.json`, separate from SQLite/Memory/Activity. Updates are serialized to a temporary file, flushed, then installed through a replace-existing/write-through filesystem path on Windows. In-memory policy changes are rolled back when persistence fails.
 
-Window geometry is treated as context data under the same gate: the sensor does not ask DWM for visible frame bounds until the foreground process identity has passed the exclusion policy.
+## 10. Bounded accessibility context
 
-This service is also the intended common gate for future structured accessibility context and optional capture.
+Windows UI Automation is implemented as a separately opt-in structured-context capability behind the same privacy gate.
 
-## 5. Screen Context Broker
+The collector may expose only bounded metadata for the currently focused control:
 
-`ScreenContextBroker` is the application-level boundary between low-cost environment sensors and future AI/context composition.
+- control type ID;
+- enabled;
+- keyboard focusable;
+- has keyboard focus;
+- offscreen;
+- password flag;
+- bounding rectangle.
 
-V1 contains only structured values available without visual capture:
+It does **not** read Name, Value, HelpText, raw control text, window titles or accessibility-tree dumps.
+
+The reader is not initialized while the capability is disabled. Disabling it drops the COM/UI Automation reader. Transient initialization failure marks context unavailable and retries after a bounded backoff instead of remaining broken until restart.
+
+## 11. Screen Context Broker
+
+`ScreenContextBroker` is the application boundary between cheap structured sensors and future context/AI composition.
+
+Current snapshot includes:
 
 ```text
-ScreenContextSnapshot
-├─ activeAppId: string | null
-├─ activeAppState
-│  ├─ unknown
-│  ├─ available
-│  └─ privacy_blocked
-├─ activeWindowBounds: WindowBounds | null
-│  ├─ x
-│  ├─ y
-│  ├─ width
-│  └─ height
-├─ userIdleMs
-├─ localHour
-└─ sequence
+activeAppId
+activeAppState
+activeWindowBounds
+accessibilityState
+accessibility
+userIdleMs
+localHour
+sequence
 ```
 
-An excluded app never appears as an app id or geometry in the snapshot. When privacy rules change while that application remains in the foreground, the sensor re-evaluates the in-memory gate on its next normal one-second tick and clears stale identity and bounds.
+Excluded apps never expose identity, bounds or accessibility metadata. Switching applications invalidates stale accessibility context, and stale accessibility results for a previous process are ignored.
 
-For allowed applications, the active-window adapter uses the visible DWM frame rectangle and preserves negative desktop coordinates so monitors positioned left/up of the primary display remain representable.
+The broker has no screenshot buffer, OCR data, window-title history or persistence.
 
-The broker has no screenshot buffer, no OCR data, no window-title history and no persistence. `screen_context_get` is an on-demand snapshot command; the normal Companion UI does not continuously poll it.
+Future AI composition should add observation freshness/timestamps before depending on these signals for higher-stakes interpretation.
 
-Future context can extend the broker with bounded accessibility metadata, but that capability must be independently opt-in and pass the same app privacy boundary first.
+## 12. Renderer and asset boundary
 
-## 6. Window boundaries
-
-### `pet`
-
-The pet window is a small transparent always-on-top overlay. It contains only:
-
-- PixiJS Lenvu renderer;
-- compact Context Bubble;
-- small Companion toggle handle.
-
-Transparent/non-interactive regions are native click-through; semantic Lenvu/handle regions remain interactive. The native cursor sensor can restore interaction when the cursor re-enters a hit zone, so click-through does not permanently make the pet unreachable.
-
-### `companion`
-
-The Companion is a separate managed window. It can be shown/hidden independently. A close request is converted to hide so Pet Runtime continues and the panel can reopen without rebuilding Lenvu's life state.
-
-Current lazy sections are `Home`, `Memory`, `Activity` and `Settings`. Memory/Activity/Settings management I/O is loaded when the relevant surface is opened rather than becoming an idle background workload.
-
-### Native shell
-
-The tray provides open Companion, show/hide Lenvu and explicit quit actions. Windows launch-at-login is opt-in and controlled through the official Tauri autostart integration; the operating-system registration is treated as source of truth.
-
-### Future windows
-
-- dedicated deeper settings surface if the current Settings tab becomes too dense;
-- `debug` — development-only event/state diagnostics.
-
-## 7. Renderer / asset boundary
-
-Pet Brain emits semantic state and Behavior Intents. It never knows sprite filenames.
+Pet Brain never knows sprite filenames.
 
 ```text
 PetRuntimeSnapshot
-      │
-      ▼
+      ↓
 resolveAnimation()
-      │
-      ▼
-lenvu.manifest.json
-      │
-      ├─ animation profile / FPS budget
-      ├─ semantic hit zones
-      ├─ anchor / nominal size
-      └─ future atlas asset path
-      │
-      ▼
+      ↓
+src/lib/pet/lenvu.manifest.json
+      ↓
 PixiJS Renderer
 ```
 
-The current renderer is deliberately procedural/vector-based. Production assets will be normalized through `docs/CHARACTER_BIBLE.md` and `docs/ASSET_PIPELINE.md` before replacing the placeholder.
+`src/lib/pet/lenvu.manifest.json` is the **single authoritative runtime renderer manifest**. A second hand-maintained public manifest is intentionally not kept.
 
-## 8. Event-driven backbone
+The current renderer is procedural and temporary. It validates state-to-animation mapping, normal/low-power FPS policy, semantic hit regions, focus presentation and window integration.
 
-Current/defined events include:
+Lenvu has asymmetric identity features. Whole-root blind horizontal mirroring is forbidden. Placeholder symmetric geometry may mirror, but identity-bearing layers such as heterochromia and the left-side crescent ornament must remain semantically correct. Production rendering should use directional assets or explicit semantic remapping.
 
-- `Tick`
-- `UserIdleChanged`
-- `UserReturned`
-- `CursorEnteredPet`
-- `CursorLeftPet`
-- `PetTouched`
-- `PetPetted`
-- `PetPlayRequested`
-- `PetPickedUp`
-- `PetDropped`
-- `FocusModeStarted`
-- `FocusModeEnded`
-- `ActiveWindowChanged`
-- `NotificationReceived`
-- `TimeOfDayChanged`
-- `LlmWorkerStateChanged`
-- `PetFacingChanged`
+Visual identity authority is defined separately by original source evidence and `docs/LENVU_VISUAL_GROUND_TRUTH.md`. Generated candidates and canonical coordinates cannot redefine source identity.
 
-Sensors publish facts. Privacy gates decide whether sensitive context may cross a capability boundary. Pet Brain interprets allowed facts. Platform/application controllers perform validated side effects. Presentation renders snapshots.
+## 13. Persistence
 
-## 9. Movement boundary
+SQLite is bundled through `rusqlite`; no system SQLite installation is required.
 
-Window movement is an infrastructure/application concern rather than an animation trick. `walk` and `run` locomotion drive horizontal native movement at DPI-scaled speed. The current controller deliberately:
-
-- stays on the current monitor;
-- respects the monitor work area/taskbar boundary;
-- reverses at horizontal edges;
-- does not yet autonomously cross monitors;
-- does not move the native window vertically for `jump`.
-
-A deliberate multi-monitor movement policy remains future work.
-
-## 10. Persistence and memory
-
-SQLite is the only database required for V1. It is bundled through `rusqlite`, so the target machine does not require a system SQLite installation.
-
-Current persistent structures include pet state, bounded activity/relationship history, typed long-term memories, FTS5 search and a small hourly interaction rhythm profile.
-
-Long-term memory categories are:
-
-- episodic — events worth remembering;
-- semantic — stable learned facts;
-- preference — user preferences;
-- relationship — bond/history between user and Lenvu.
-
-V1 retrieval uses FTS5 + metadata + recency + importance. A vector database remains out of scope until evidence shows it is necessary.
-
-Privacy rules deliberately remain outside this memory database.
-
-## 11. AI policy
-
-MiniCPM5-1B is the planned local text cognition layer. Long context is a capability ceiling, not an instruction to keep a large KV cache resident all day.
-
-Future prompt composition should be selective:
+Current persistent structures:
 
 ```text
-Lenvu identity
-+ current pet state
-+ privacy-approved ScreenContextSnapshot
-+ relevant memories
-+ recent conversation
-+ current request
+pet_state
+activity_journal
+relationship_events
+memories
+memory_fts
+rhythm_hourly
 ```
 
-No cursor movement, animation frame, hover event, walking, sleeping or basic pet reaction may require an LLM call. Vision remains a separately-loadable future worker behind the Screen Context Broker and the same privacy gate.
+A DB-owning persistence worker keeps SQLite I/O away from Pet Brain ticks. Current policy includes WAL, schema migrations, changed-only autosave, bounded final-save acknowledgement, session-only fallback, a 30-day / 2,000-row activity cap, typed memories and FTS5 retrieval.
 
-## 12. Resource policy
+Transient runtime state such as posture, locomotion, mode, cognition and current idle time is intentionally reset on restart; long-lived state is restored into fresh runtime defaults.
 
-The first performance budgets are design targets, not measured guarantees:
+Known cleanup debt: memory-domain types are still duplicated between persistence/admin layers and should be consolidated before the Memory Evaluator grows the model.
 
-- Rust runtime and sensors should remain inexpensive enough for all-day use;
-- no new polling loop was added for Screen Context Broker — it consumes existing sensor observations;
-- active-window bounds reuse the same one-second foreground observation loop;
-- PixiJS uses animation-specific normal/low-power FPS caps;
-- Companion UI can be hidden independently from the pet overlay;
-- Memory/Activity/Settings management reads are lazy;
-- AI model memory is separately budgeted and unloadable;
-- glow/particles can scale down under pressure;
-- telemetry/debug tracing must be bounded and rotate.
+## 14. UI boundary
 
-## 13. Failure policy
+Svelte owns management UI, not life simulation or per-frame animation.
 
-- text/vision AI failure → AI unavailable, pet continues;
-- database failure → temporary session state + diagnostics;
-- privacy-rule initialization failure → active-app identity and bounds are blocked fail-closed;
-- DWM bounds lookup failure → identity may remain available, bounds become unavailable; no screenshot fallback is attempted;
-- renderer/asset failure → fallback procedural/placeholder presentation;
-- one Windows sensor failure → disable/degrade that sensor, not Pet Brain;
-- runtime command/channel failure → surface `degraded/recovering/error`, do not silently imitate healthy idle state.
+Current Companion sections:
+
+- Home;
+- Memory;
+- Activity;
+- Settings/Privacy.
+
+Management reads are lazy where practical. Technical runtime fields are still visible in the development UI and should later move behind a dedicated debug/developer surface.
+
+Pet interaction and Companion opening are separate: the `☾` handle/tray opens the panel; double-clicking Lenvu is not used as an overlapping hidden gesture.
+
+Known cleanup debt: `CompanionView.svelte` has grown into a large orchestration component and should be split into section components before more product surfaces are added.
+
+## 15. Runtime health and worker lifecycle
+
+Runtime health exposes `ready`, `degraded`, `recovering` and `error`, but the full recovery state machine is not yet implemented across all workers. This contract should not be treated as complete merely because all enum values exist.
+
+Current background threads are mostly detached. Before adding MiniCPM/vision workers, introduce a common worker lifecycle/supervision model for cancellation, shutdown, join/restart and health reporting.
+
+## 16. Local AI policy
+
+Text AI remains planned, not part of the ordinary pet runtime.
+
+Target topology:
+
+```text
+northpalace-my-pet.exe
+        │
+        │ local IPC
+        ↓
+northpalace-llm-worker.exe
+        │
+        ↓
+llama.cpp
+        │
+        ↓
+MiniCPM5-1B GGUF
+```
+
+The worker must be unloadable. Prompt composition should be selective and use identity + current state + privacy-approved fresh structured context + relevant memory + recent conversation + current request.
+
+No hover, petting, walking, sleeping, basic animation or focus reaction may require an LLM call.
+
+## 17. Vision policy
+
+Continuous visual perception is out of scope. Structured Windows context is the default cheap path.
+
+If pixels become necessary, future vision must be a separately-loadable, opt-in, on-demand worker behind the same per-app privacy policy, with visible capture indication and no screenshot history by default. Pet Brain should receive normalized observations, never raw screenshots as core state.
+
+## 18. Resource policy
+
+The first resource rules are design constraints until measured on the target machine:
+
+- keep Rust runtime/sensors cheap enough for all-day use;
+- keep expensive capability workers unloadable;
+- cap presentation FPS by animation state;
+- keep Companion hidden independently from Pet Runtime;
+- avoid adding a polling loop for every new UI feature;
+- keep logs/history bounded;
+- benchmark before choosing permanent LLM context/KV-cache defaults.
+
+## 19. Failure policy
+
+- text/vision failure → AI unavailable, ordinary pet continues;
+- SQLite/local-data failure → session-only life state + diagnostics;
+- privacy initialization failure → sensitive context blocked fail-closed;
+- DWM bounds failure → identity can remain allowed while geometry is unavailable;
+- UI Automation initialization failure → unavailable + bounded retry;
+- renderer/production-asset failure → procedural fallback during development;
+- one Windows sensor failure → degrade that capability, not Pet Brain;
+- runtime channel failure → explicit unhealthy runtime state rather than fake healthy idle.
+
+## 20. Validation and release boundary
+
+Windows CI should guard `main` with frontend asset/build validation, Rust formatting, Clippy and tests. Dependency lockfiles are still required before the build is fully reproducible.
+
+CI source compatibility is not the same as product validation. Before release, run a clean executable/bundle build and measure idle RAM/CPU/GPU on the actual Ryzen 3 2200G + Vega 8 target.
+
+Other release blockers include code/art licensing, `SECURITY.md`, restrictive CSP, production icon/art, dependency locks and a final tracked-data audit.
+
+## 21. Documentation maintenance order
+
+For engineering behavior:
+
+```text
+running code + tests
+        ↓
+ARCHITECTURE.md
+        ↓
+ROADMAP.md
+        ↓
+README.md
+```
+
+For Lenvu visual identity, original source evidence and `LENVU_VISUAL_GROUND_TRUTH.md` override renderer placeholders, generated candidates and inferred coordinates.
