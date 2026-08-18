@@ -29,6 +29,7 @@ Implemented today:
 - native work-area movement, facing, drag/pick-up/drop and selective transparent click-through;
 - deliberate horizontal multi-monitor exploration for ambient `Explore` only;
 - separate transparent `pet` and independent `companion` windows;
+- event-driven runtime snapshot and pet display-context synchronization across WebViews without independent background UI polling;
 - system tray and opt-in Windows launch-at-login;
 - bundled SQLite persistence, schema migrations, activity/relationship history, FTS5 memory and hourly rhythm;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
@@ -173,6 +174,8 @@ The repository still needs dependency lockfiles before builds can be considered 
 
 ```text
 Consolidation
+  ↓
+common worker lifecycle / supervision
   ↓
 reproducible dependency locks
   ↓
