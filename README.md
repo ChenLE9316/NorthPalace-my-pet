@@ -34,6 +34,7 @@ Implemented today:
 - system tray and opt-in Windows launch-at-login;
 - one supervised SQLite owner for pet state, journal, rhythm, Memory Browser CRUD/search and Activity History queries;
 - ordered producer → runtime → journal → persistence shutdown, including accepted-event drain, frozen final Pet State and acknowledged final flush;
+- committed clean-runner npm/Cargo lockfiles with locked normal CI and bundle dependency resolution;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -175,21 +176,14 @@ Worker health is exposed through the backend `worker_status_get` command for fut
 
 ## Validation
 
-Current Windows CI validates the source on `main` with:
+`package-lock.json` and `src-tauri/Cargo.lock` are committed from a clean Windows runner. Normal Windows CI now uses `npm ci`, verifies the Cargo lock with `cargo metadata --locked`, and runs Clippy/tests with Cargo `--locked` in addition to asset/build, tracked-data and formatting checks. The manual Windows Bundle workflow consumes the same committed locks rather than generating independent dependency candidates.
 
-- Lenvu asset-contract validation as part of the frontend production build;
-- Rust formatting check;
-- Rust Clippy with warnings treated as errors;
-- Rust/Tauri unit tests on Windows.
-
-The repository still needs dependency lockfiles before builds can be considered fully reproducible. CI also does not replace a clean executable/bundle test and RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
+This closes dependency-resolution reproducibility. It does not replace the still-required successful clean executable/NSIS run, production CSP verification, or RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
 
 ## Next engineering sequence
 
 ```text
-Consolidation
-  ↓
-reproducible dependency locks
+Windows validation evidence / clean bundle
   ↓
 canonical Lenvu production master
   ↓
@@ -210,7 +204,7 @@ Do not expand the visual-policy/measurement layer further unless source evidence
 
 ```text
 NorthPalace-my-pet/
-├─ .github/workflows/      Windows CI
+├─ .github/workflows/      Windows CI / manual bundle
 ├─ assets/
 │  ├─ reference/           source/reference character material
 │  └─ runtime/             canonical/runtime asset work area
@@ -219,7 +213,8 @@ NorthPalace-my-pet/
 ├─ scripts/                asset validation
 ├─ src/                    Svelte + PixiJS presentation
 ├─ src-tauri/              Rust runtime, supervision, persistence and Windows integration
-├─ README.md
+│  └─ Cargo.lock           committed Rust dependency graph
+├─ package-lock.json       committed npm dependency graph
 ├─ package.json
 └─ vite.config.ts
 ```
