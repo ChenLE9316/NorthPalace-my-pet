@@ -133,9 +133,19 @@ struct SupervisorInner {
     workers: Mutex<Vec<ManagedWorker>>,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct WorkerSupervisor {
     inner: Arc<SupervisorInner>,
+    default_phase: WorkerPhase,
+}
+
+impl Default for WorkerSupervisor {
+    fn default() -> Self {
+        Self {
+            inner: Arc::new(SupervisorInner::default()),
+            default_phase: WorkerPhase::Producers,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -147,11 +157,18 @@ pub struct ShutdownReport {
 type PendingWorker = (String, Arc<Mutex<WorkerState>>, JoinHandle<()>);
 
 impl WorkerSupervisor {
+    pub fn in_phase(&self, phase: WorkerPhase) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+            default_phase: phase,
+        }
+    }
+
     pub fn spawn<F>(&self, name: impl Into<String>, worker: F) -> Result<(), String>
     where
         F: FnOnce(CancellationToken) -> Result<(), String> + Send + 'static,
     {
-        self.spawn_in_phase(WorkerPhase::Producers, name, worker)
+        self.spawn_in_phase(self.default_phase, name, worker)
     }
 
     pub fn spawn_in_phase<F>(
@@ -375,11 +392,12 @@ mod tests {
     #[test]
     fn phased_shutdown_leaves_later_phase_running() {
         let supervisor = WorkerSupervisor::default();
+        let journal_supervisor = supervisor.in_phase(WorkerPhase::Journal);
         let (started_tx, started_rx) = mpsc::sync_channel(2);
 
         let producer_started = started_tx.clone();
         supervisor
-            .spawn_in_phase(WorkerPhase::Producers, "producer", move |token| {
+            .spawn("producer", move |token| {
                 producer_started
                     .send("producer")
                     .map_err(|error| error.to_string())?;
@@ -388,8 +406,8 @@ mod tests {
             })
             .expect("spawn producer");
 
-        supervisor
-            .spawn_in_phase(WorkerPhase::Journal, "journal", move |token| {
+        journal_supervisor
+            .spawn("journal", move |token| {
                 started_tx
                     .send("journal")
                     .map_err(|error| error.to_string())?;
