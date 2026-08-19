@@ -29,20 +29,21 @@ jobs:
           node-version: 24
           package-manager-cache: false
 
-      - name: Create review-only JPEG base64 preview from tracked source
+      - name: Create tiny inspection-only JPEG base64 preview
         shell: pwsh
         run: |
           npm install --no-save --package-lock=false --no-audit --no-fund sharp@0.34.4
           @'
           import fs from 'node:fs';
+          import crypto from 'node:crypto';
           import sharp from 'sharp';
 
           const source = 'assets/reference/anatomy/lenvu-anatomy-reference.webp';
           const image = sharp(source);
           const metadata = await image.metadata();
           const jpeg = await image
-            .resize({ width: 512, withoutEnlargement: true })
-            .jpeg({ quality: 92, chromaSubsampling: '4:4:4' })
+            .resize({ width: 192, withoutEnlargement: true })
+            .jpeg({ quality: 84, chromaSubsampling: '4:4:4' })
             .toBuffer();
           const base64 = jpeg.toString('base64').match(/.{1,76}/g)?.join('\n') ?? '';
           const header = [
@@ -50,20 +51,20 @@ jobs:
             `sourceWidth=${metadata.width}`,
             `sourceHeight=${metadata.height}`,
             `previewFormat=jpeg`,
-            `previewWidth=512`,
-            `previewSha256=${(await import('node:crypto')).createHash('sha256').update(jpeg).digest('hex')}`,
+            `previewWidth=192`,
+            `previewSha256=${crypto.createHash('sha256').update(jpeg).digest('hex')}`,
             '---BASE64---',
           ].join('\n');
-          fs.writeFileSync('docs/LENVU_SOURCE_PREVIEW.b64', `${header}\n${base64}\n`, 'utf8');
+          fs.writeFileSync('docs/LENVU_SOURCE_TINY.b64', `${header}\n${base64}\n`, 'utf8');
           '@ | Set-Content make-preview.mjs -Encoding utf8
           node make-preview.mjs
           Remove-Item make-preview.mjs
 
-      - name: Commit temporary preview bridge
+      - name: Commit temporary tiny preview bridge
         shell: pwsh
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/LENVU_SOURCE_PREVIEW.b64
-          git commit -m "chore: stage Lenvu source preview bridge"
+          git add docs/LENVU_SOURCE_TINY.b64
+          git commit -m "chore: stage tiny Lenvu source preview"
           git push origin HEAD:main
