@@ -18,6 +18,7 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Add manual Windows NSIS bundle workflow and upload build artifacts for inspection.
 - [x] Generate and verify npm/Cargo lockfiles on a clean Windows runner, then commit them to `main`.
 - [x] Switch normal Windows CI and bundle dependency resolution to committed locks (`npm ci` / Cargo `--locked` verification).
+- [x] Build a clean GitHub-hosted Windows NSIS bundle and keep the release executable alive through an 8-second smoke launch (`docs/WINDOWS_BUNDLE_BASELINE.md`).
 - [ ] Observe the first successful manual Windows bundle run.
 - [ ] Clean executable/bundle run on target Windows machine.
 - [ ] RAM / idle CPU / GPU baseline on Ryzen 3 2200G + Vega 8.
@@ -120,7 +121,7 @@ Do not start until consolidation/reproducibility and target-machine baseline are
 - [x] Commit verified `package-lock.json` + `Cargo.lock` from clean-runner dependency resolution.
 - [x] Add `SECURITY.md` with pre-release vulnerability/privacy reporting guidance.
 - [x] Configure a restrictive production CSP for local bundle resources and Tauri IPC; keep Vite development CSP explicitly disabled.
-- [ ] Verify the production CSP in the first successful Windows bundle/run.
+- [ ] Verify the production CSP in the first successful Windows bundle/run with UI-level behavior checks.
 - [ ] Production derivatives/icon/character assets.
 - [ ] Successful clean Windows bundle plus target performance baseline.
 - [ ] Final manual tracked-data/secrets/private-data audit before visibility/release change.
