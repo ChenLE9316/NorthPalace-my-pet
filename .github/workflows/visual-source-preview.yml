@@ -42,8 +42,8 @@ jobs:
           const image = sharp(source);
           const metadata = await image.metadata();
           const jpeg = await image
-            .resize({ width: 192, withoutEnlargement: true })
-            .jpeg({ quality: 84, chromaSubsampling: '4:4:4' })
+            .resize({ width: 96, withoutEnlargement: true })
+            .jpeg({ quality: 72, chromaSubsampling: '4:2:0' })
             .toBuffer();
           const base64 = jpeg.toString('base64').match(/.{1,76}/g)?.join('\n') ?? '';
           const header = [
@@ -51,7 +51,7 @@ jobs:
             `sourceWidth=${metadata.width}`,
             `sourceHeight=${metadata.height}`,
             `previewFormat=jpeg`,
-            `previewWidth=192`,
+            `previewWidth=96`,
             `previewSha256=${crypto.createHash('sha256').update(jpeg).digest('hex')}`,
             '---BASE64---',
           ].join('\n');
@@ -66,5 +66,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add docs/LENVU_SOURCE_TINY.b64
-          git commit -m "chore: stage tiny Lenvu source preview"
+          git commit -m "chore: stage 96px Lenvu source preview"
           git push origin HEAD:main
