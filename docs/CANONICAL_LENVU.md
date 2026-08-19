@@ -9,12 +9,12 @@ This document freezes the **production coordinate, identity and mirroring contra
 - Contract version: `1`
 - Character: `Lenvu`
 - Species: `Neralune`
-- Production master state: **contract frozen; normalized master artwork still pending**
+- Production master state: **source measurement complete; normalized master artwork still pending**
 - Visual ground truth: `docs/LENVU_VISUAL_GROUND_TRUTH.md`
 - Primary anatomy evidence: `assets/reference/anatomy/lenvu-anatomy-reference.webp`
 - README visual context: `docs/assets/lenvu-system-overview.webp`
 - Runtime consumer: `src/lib/pet/lenvu.manifest.json`
-- Landmark state: **provisional normalization targets; original high-resolution source measurement still required before master approval**
+- Landmark state: **measured from the original high-resolution anatomy source and normalized in `assets/runtime/lenvu/source-notes/master-landmarks.json`**
 
 This milestone does **not** mark the production sprite/atlas as complete.
 
@@ -48,9 +48,9 @@ The coordinates above are production starting contracts, not visual-source facts
 
 ### 3.1 Landmark measurement status
 
-`assets/runtime/lenvu/source-notes/master-landmarks.json` is deliberately **provisional** until measured against the original high-resolution source artwork.
+`assets/runtime/lenvu/source-notes/source-measurement.json` and `assets/runtime/lenvu/source-notes/master-landmarks.json` now record the completed measurement pass against the original high-resolution anatomy source. The stored landmark values are source-measured normalization evidence, not measurements inferred from a generated candidate.
 
-Its current front/profile/back coordinates are engineering normalization targets inferred from the source sheet; they are not claims of exact pixel tracing and they are not allowed to define Lenvu's identity. The approval order is:
+The approval order remains:
 
 ```text
 original high-resolution image evidence
@@ -64,7 +64,7 @@ review/promotion
 runtime animation assets
 ```
 
-A generated candidate cannot be used to retroactively change source landmarks or visual identity. `candidate.review.approved=true` and `runtimeAssetReady=true` are invalid while landmark provenance remains `inferred_not_pixel_traced`; the asset validator enforces this.
+A generated candidate cannot be used to retroactively change source landmarks or visual identity. If a candidate visibly conflicts with the measured source or Visual Ground Truth, the candidate is rejected; the source contract is not rewritten around it.
 
 ## 4. Identity asymmetry — never blindly mirror
 
@@ -188,7 +188,7 @@ A future `canonical-master` artwork milestone is complete only when:
 - [ ] species/silhouette matches the primary anatomy evidence;
 - [ ] head/body ratio is non-chibi and muzzle remains canine;
 - [ ] slate-gray/white fur distribution is preserved;
-- [ ] original high-resolution source landmarks have been measured and recorded;
+- [x] original high-resolution source landmarks have been measured and recorded;
 - [ ] all required views share one body scale and ground line;
 - [ ] anatomical right-eye cyan / left-eye violet are verified;
 - [ ] anatomical left-horn gold accent is verified;
