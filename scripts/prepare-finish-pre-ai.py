@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# This file is intentionally temporary. Touching it retriggers the clean Windows finish gate from
+# the latest main after any evidence-only bot commit, avoiding a non-fast-forward success push.
 root = Path(__file__).resolve().parents[1]
 base = root / "scripts/finish-pre-ai.py"
 text = base.read_text(encoding="utf-8")
@@ -9,8 +11,6 @@ if text.count(queue_block) != 1:
     raise RuntimeError("queue_memory precondition block changed")
 text = text.replace(queue_block, queue_block.replace("expected=2", "expected=1"))
 
-# README validation wording advanced after the base patch was authored; the current-state finalizer
-# owns that paragraph now, so remove only the obsolete literal from the temporary base script.
 start_marker = '''literal(\n    "README.md",\n    "`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate'''
 next_marker = '''literal(\n    "README.md",\n    "canonical Lenvu production master'''
 start = text.find(start_marker)
@@ -30,8 +30,6 @@ if text.count(needle) != 1:
 text = text.replace(needle, chained)
 base.write_text(text, encoding="utf-8", newline="\n")
 
-# The workflow still invokes this historical path after the base patch. Make it an explicit no-op;
-# all semantic hardening now runs once from the stable scripts above.
 (root / "scripts/finish-pre-ai-followup.py").write_text(
     'print("Legacy follow-up disabled; stable hardening already applied by base patch.")\n',
     encoding="utf-8",
