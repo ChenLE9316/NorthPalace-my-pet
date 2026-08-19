@@ -1,6 +1,6 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: 13f88b61c28f045e37fde199070f38e923841ade
+- Source commit: d2135ed4bcdf8253ba489b5b43ad87f2f880da77
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
@@ -17,13 +17,15 @@
 
 ## Patch
 ``text
-Corrected queue_memory patch precondition for this clean-runner worktree.
+Corrected finish-patch preconditions for the current repository state.
+Pre-AI finish patch applied.
+Current-state README semantics finalized.
 Traceback (most recent call last):
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai.py", line 952, in <module>
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 128, in <module>
     literal(
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai.py", line 23, in literal
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in literal
     raise RuntimeError(f"{path}: expected {expected} match(es), found {count}: {old!r}")
-RuntimeError: README.md: expected 1 match(es), found 0: '`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate and `docs/VALIDATION_BASELINE.md` records the clean frontend/Rust gate. `docs/WINDOWS_BUNDLE_BASELINE.md` records a clean GitHub-hosted Windows release/NSIS build, artifact discovery and bounded release-executable smoke launch. The manual Windows Bundle workflow consumes the same committed dependency graphs rather than generating independent candidates.\n'
+RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: '            "INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)\n             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",\n'
 ``
 
 ## Svelte TS6
