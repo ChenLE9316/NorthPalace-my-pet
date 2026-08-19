@@ -250,11 +250,13 @@ Continuous visual perception is out of scope. Future visual understanding must b
 
 The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`; the production CSP still needs verification in the first successful Windows bundle/run.
 
-`package-lock.json` and `src-tauri/Cargo.lock` are committed from a clean `windows-latest` bootstrap run after that runner verified `npm ci` and `cargo metadata --locked`. The one-time bootstrap workflow removed itself in the same bot commit, so dependency-resolution bootstrap logic is not a permanent maintenance surface.
+`package-lock.json` and `src-tauri/Cargo.lock` are committed from clean `windows-latest` resolution/validation runs. Frontend diagnostics are also locked: the ordinary Svelte checker runs against TypeScript 6.0.3, while `svelte-check --tsgo` uses a TypeScript 7.0.2 npm alias. Both are configured with `--fail-on-warnings`; `vite/client` and Node types are explicit, while `skipLibCheck` isolates third-party Pixi/WebGPU declaration-merge conflicts instead of suppressing project-source diagnostics.
 
-Normal Windows CI now installs frontend dependencies with `npm ci`, verifies the Cargo lockfile with `cargo metadata --locked`, and runs Clippy/tests with Cargo `--locked`; source formatting and tracked-data guards remain part of the same gate. The manual Windows Bundle workflow consumes the same committed locks, verifies Cargo metadata under `--locked`, builds the NSIS/executable artifact, and no longer generates independent lockfile candidates.
+Normal Windows CI installs frontend dependencies with `npm ci`, runs both zero-warning Svelte gates, builds the Svelte/PixiJS frontend, verifies the Cargo graph with `cargo metadata --locked`, checks Rust formatting, runs Clippy with `-D warnings`, and runs Rust tests with Cargo `--locked`. `docs/SVELTE_DIAGNOSTIC_BASELINE.md` records a clean Windows run for both Svelte/TypeScript paths; `docs/VALIDATION_BASELINE.md` records a clean Windows run for frontend build plus Rust formatting/Clippy/tests.
 
-Dependency resolution is therefore reproducible at the repository/CI boundary. This does **not** yet establish a successful clean Windows NSIS run, production CSP verification, or target-machine RAM/CPU/GPU performance; those remain separate acceptance gates.
+The manual Windows Bundle workflow consumes the same committed locks, verifies Cargo metadata under `--locked`, builds the NSIS/executable artifact, and does not generate an independent dependency graph.
+
+Dependency resolution and source-level validation are therefore reproducible at the repository/CI boundary. This does **not** yet establish a successful clean Windows NSIS run, production CSP verification, or target-machine RAM/CPU/GPU performance; those remain separate acceptance gates.
 
 ## 17. Documentation authority
 
