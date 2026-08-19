@@ -1,0 +1,207 @@
+name: Final Svelte Diagnostic Gate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/svelte-diagnostic-final.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-svelte-diagnostics
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Prepare diagnostic toolchain and source fixes
+        id: prepare
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm install --save-dev --save-exact typescript@6.0.3 "@typescript/native@npm:typescript@7.0.2" svelte-check@4.7.4 @types/node@24 2>&1 | Tee-Object prepare.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm pkg set "scripts.check:svelte=svelte-check --fail-on-warnings --config ./vite.config.ts --tsconfig ./tsconfig.json"
+          npm pkg set "scripts.check:svelte:tsgo=svelte-check --tsgo --fail-on-warnings --config ./vite.config.ts --tsconfig ./tsconfig.json"
+
+          @'
+          import json
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f"{path}: expected one match for {old!r}, found {count}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+          def replace_last(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              index = text.rfind(old)
+              if index < 0:
+                  raise RuntimeError(f"{path}: final {old!r} not found")
+              p.write_text(text[:index] + new + text[index + len(old):], encoding="utf-8", newline="\n")
+
+          tsconfig_path = Path("tsconfig.json")
+          tsconfig = json.loads(tsconfig_path.read_text(encoding="utf-8"))
+          tsconfig["compilerOptions"]["types"] = ["vite/client", "node"]
+          tsconfig_path.write_text(json.dumps(tsconfig, indent=2) + "\n", encoding="utf-8", newline="\n")
+
+          companion = "src/lib/ui/CompanionView.svelte"
+          replace_once(
+              companion,
+              '<nav class="companion-tabs" role="tablist" aria-label="Companion 功能">',
+              '<div class="companion-tabs" role="tablist" aria-label="Companion 功能">',
+          )
+          replace_once(companion, 'role="tab"\n        aria-selected={activeSection === \'home\'}', 'id="tab-home"\n        role="tab"\n        aria-controls="panel-home"\n        aria-selected={activeSection === \'home\'}')
+          replace_once(companion, 'role="tab"\n        aria-selected={activeSection === \'memory\'}', 'id="tab-memory"\n        role="tab"\n        aria-controls="panel-memory"\n        aria-selected={activeSection === \'memory\'}')
+          replace_once(companion, 'role="tab"\n        aria-selected={activeSection === \'activity\'}', 'id="tab-activity"\n        role="tab"\n        aria-controls="panel-activity"\n        aria-selected={activeSection === \'activity\'}')
+          replace_once(companion, 'role="tab"\n        aria-selected={activeSection === \'settings\'}', 'id="tab-settings"\n        role="tab"\n        aria-controls="panel-settings"\n        aria-selected={activeSection === \'settings\'}')
+          replace_once(companion, '</nav>', '</div>')
+
+          panels = [
+              ("src/lib/ui/companion/HomeSection.svelte", '<section class="companion-section home-section" role="tabpanel" aria-label="Home">', '<div id="panel-home" class="companion-section home-section" role="tabpanel" aria-labelledby="tab-home">'),
+              ("src/lib/ui/companion/MemorySection.svelte", '<section class="companion-section" role="tabpanel" aria-label="Memory">', '<div id="panel-memory" class="companion-section" role="tabpanel" aria-labelledby="tab-memory">'),
+              ("src/lib/ui/companion/ActivitySection.svelte", '<section class="companion-section" role="tabpanel" aria-label="Activity">', '<div id="panel-activity" class="companion-section" role="tabpanel" aria-labelledby="tab-activity">'),
+              ("src/lib/ui/companion/SettingsSection.svelte", '<section class="companion-section" role="tabpanel" aria-label="Settings">', '<div id="panel-settings" class="companion-section" role="tabpanel" aria-labelledby="tab-settings">'),
+          ]
+          for path, old, new in panels:
+              replace_once(path, old, new)
+              replace_last(path, '</section>', '</div>')
+          '@ | Set-Content svelte_gate_patch.py -Encoding utf8
+          python svelte_gate_patch.py
+          $code = $LASTEXITCODE
+          Remove-Item svelte_gate_patch.py
+          exit $code
+
+      - name: Verify clean install
+        id: npm_ci
+        if: steps.prepare.outcome == 'success'
+        continue-on-error: true
+        run: npm ci --no-audit --no-fund
+
+      - name: Svelte TS6 zero-warning gate
+        id: ts6
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run check:svelte 2>&1 | Tee-Object svelte-ts6.log
+          exit $LASTEXITCODE
+
+      - name: Svelte TS7 tsgo zero-warning gate
+        id: ts7
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run check:svelte:tsgo 2>&1 | Tee-Object svelte-ts7.log
+          exit $LASTEXITCODE
+
+      - name: Build and repository guard
+        id: build
+        if: steps.npm_ci.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run build 2>&1 | Tee-Object build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run validate:repo
+          exit $LASTEXITCODE
+
+      - name: Publish result
+        if: always()
+        shell: pwsh
+        run: |
+          $ok = (
+            "${{ steps.prepare.outcome }}" -eq "success" -and
+            "${{ steps.npm_ci.outcome }}" -eq "success" -and
+            "${{ steps.ts6.outcome }}" -eq "success" -and
+            "${{ steps.ts7.outcome }}" -eq "success" -and
+            "${{ steps.build.outcome }}" -eq "success"
+          )
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ($ok) {
+            $timestamp = (Get-Date).ToUniversalTime().ToString("o")
+            $report = @(
+              "# Svelte Diagnostic Baseline",
+              "",
+              "Machine-generated on a clean GitHub-hosted windows-latest runner.",
+              "",
+              "- Validated working-tree parent: $env:GITHUB_SHA",
+              "- Recorded at (UTC): $timestamp",
+              "- Node.js: $((node --version | Out-String).Trim())",
+              "- npm: $((npm --version | Out-String).Trim())",
+              "- TypeScript language service: 6.0.3",
+              "- TypeScript tsgo alias: 7.0.2",
+              "- svelte-check: 4.7.4",
+              "",
+              "| Check | Outcome |",
+              "|---|---|",
+              "| npm ci | success |",
+              "| svelte-check / TypeScript 6 / fail-on-warnings | success |",
+              "| svelte-check --tsgo / TypeScript 7 / fail-on-warnings | success |",
+              "| Vite production build | success |",
+              "| tracked local/private data guard | success |"
+            )
+            $report | Set-Content docs/SVELTE_DIAGNOSTIC_BASELINE.md -Encoding utf8
+            if (Test-Path docs/SVELTE_DIAGNOSTICS.md) { git rm docs/SVELTE_DIAGNOSTICS.md }
+            git add package.json package-lock.json tsconfig.json src/lib/ui docs/SVELTE_DIAGNOSTIC_BASELINE.md
+            git commit -m "fix: close Svelte TS6 and TS7 diagnostic gate"
+            git push origin HEAD:main
+            exit 0
+          }
+
+          $ts6 = if (Test-Path svelte-ts6.log) { (Get-Content svelte-ts6.log -Tail 220) -join "`n" } else { "not run" }
+          $ts7 = if (Test-Path svelte-ts7.log) { (Get-Content svelte-ts7.log -Tail 220) -join "`n" } else { "not run" }
+          $build = if (Test-Path build.log) { (Get-Content build.log -Tail 100) -join "`n" } else { "not run" }
+          git restore package.json package-lock.json tsconfig.json src/lib/ui
+          $diag = @(
+            "# Svelte Diagnostic Final",
+            "",
+            "- Source commit: $env:GITHUB_SHA",
+            "- prepare: ${{ steps.prepare.outcome }}",
+            "- npm ci: ${{ steps.npm_ci.outcome }}",
+            "- TS6: ${{ steps.ts6.outcome }}",
+            "- TS7 tsgo: ${{ steps.ts7.outcome }}",
+            "- build/repo: ${{ steps.build.outcome }}",
+            "",
+            "## TS6",
+            "````text",
+            $ts6,
+            "````",
+            "",
+            "## TS7 tsgo",
+            "````text",
+            $ts7,
+            "````",
+            "",
+            "## Build",
+            "````text",
+            $build,
+            "````"
+          )
+          $diag | Set-Content docs/SVELTE_DIAGNOSTICS.md -Encoding utf8
+          git add docs/SVELTE_DIAGNOSTICS.md
+          git commit -m "ci: record final Svelte diagnostics"
+          git push origin HEAD:main
