@@ -35,6 +35,12 @@ jobs:
       - name: Install locked frontend dependencies
         run: npm ci --no-audit --no-fund
 
+      - name: Check Svelte with TypeScript 6
+        run: npm run check:svelte
+
+      - name: Check Svelte with TypeScript 7 tsgo
+        run: npm run check:svelte:tsgo
+
       - name: Build Svelte and PixiJS frontend
         run: npm run build
 
