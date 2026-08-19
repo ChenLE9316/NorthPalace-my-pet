@@ -43,7 +43,11 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: |
-          python scripts/finish-pre-ai.py 2>&1 | Tee-Object patch.log
+          python scripts/prepare-finish-pre-ai.py 2>&1 | Tee-Object patch.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/finish-pre-ai.py 2>&1 | Tee-Object -Append patch.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python scripts/finish-pre-ai-followup.py 2>&1 | Tee-Object -Append patch.log
           exit $LASTEXITCODE
 
       - name: Install locked frontend dependencies
@@ -63,6 +67,24 @@ jobs:
         if: steps.patch.outcome == 'success'
         continue-on-error: true
         run: npm run validate:secrets
+
+      - name: Parse target benchmark harness with Windows PowerShell 5.1
+        id: target_script
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts/measure-target-baseline.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            exit 1
+          }
 
       - name: Check Svelte TypeScript 6
         id: svelte6
@@ -139,6 +161,7 @@ jobs:
             "${{ steps.npm_ci.outcome }}" -eq "success" -and
             "${{ steps.tracked.outcome }}" -eq "success" -and
             "${{ steps.secrets.outcome }}" -eq "success" -and
+            "${{ steps.target_script.outcome }}" -eq "success" -and
             "${{ steps.svelte6.outcome }}" -eq "success" -and
             "${{ steps.svelte7.outcome }}" -eq "success" -and
             "${{ steps.frontend.outcome }}" -eq "success" -and
@@ -168,10 +191,11 @@ jobs:
               "",
               "| Check | Outcome |",
               "|---|---|",
-              "| reviewed finish patch | success |",
+              "| reviewed + hardened finish patch | success |",
               "| npm ci | success |",
               "| tracked-data guard | success |",
               "| credential-like source guard | success |",
+              "| target benchmark Windows PowerShell 5.1 parse | success |",
               "| Svelte TS6 fail-on-warnings | success |",
               "| Svelte TS7 tsgo fail-on-warnings | success |",
               "| frontend + Lenvu asset validation | success |",
@@ -180,7 +204,7 @@ jobs:
               "| cargo clippy -D warnings | success |",
               "| cargo test --locked | success |",
               "",
-              "This baseline validates the deterministic Memory Evaluator, persistence-owner backup, deep worker diagnostics, CSP smoke instrumentation, secret guard, target benchmark harness, and source-derived visual evidence additions. Production bundle/CSP runtime evidence is recorded separately by the permanent Windows Bundle workflow."
+              "This baseline validates the deterministic Memory Evaluator with durable manual/automatic provenance, persistence-owner backup, deep worker diagnostics, CSP smoke instrumentation, secret guard, target benchmark harness, and source-derived visual evidence additions. Production bundle/CSP runtime evidence is recorded separately by the permanent Windows Bundle workflow."
             )
             $report | Set-Content docs/PRE_AI_FINISH_BASELINE.md -Encoding utf8
             if (Test-Path docs/PRE_AI_FINISH_DIAGNOSTICS.md) { git rm docs/PRE_AI_FINISH_DIAGNOSTICS.md }
@@ -190,12 +214,12 @@ jobs:
             exit 0
           }
 
-          $patch = if (Test-Path patch.log) { (Get-Content patch.log -Tail 160) -join "`n" } else { "not run" }
+          $patch = if (Test-Path patch.log) { (Get-Content patch.log -Tail 220) -join "`n" } else { "not run" }
           $svelte6 = if (Test-Path svelte6.log) { (Get-Content svelte6.log -Tail 120) -join "`n" } else { "not run" }
           $svelte7 = if (Test-Path svelte7.log) { (Get-Content svelte7.log -Tail 120) -join "`n" } else { "not run" }
           $frontend = if (Test-Path frontend.log) { (Get-Content frontend.log -Tail 120) -join "`n" } else { "not run" }
           $clippy = if (Test-Path clippy.log) { (Get-Content clippy.log -Tail 220) -join "`n" } else { "not run" }
-          $tests = if (Test-Path tests.log) { (Get-Content tests.log -Tail 160) -join "`n" } else { "not run" }
+          $tests = if (Test-Path tests.log) { (Get-Content tests.log -Tail 180) -join "`n" } else { "not run" }
           git reset --hard HEAD
           git clean -fd
           $report = @(
@@ -206,6 +230,7 @@ jobs:
             "- npm ci: ${{ steps.npm_ci.outcome }}",
             "- tracked: ${{ steps.tracked.outcome }}",
             "- secrets: ${{ steps.secrets.outcome }}",
+            "- target PowerShell parse: ${{ steps.target_script.outcome }}",
             "- Svelte TS6: ${{ steps.svelte6.outcome }}",
             "- Svelte TS7: ${{ steps.svelte7.outcome }}",
             "- frontend: ${{ steps.frontend.outcome }}",
