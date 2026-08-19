@@ -248,15 +248,15 @@ Continuous visual perception is out of scope. Future visual understanding must b
 
 ## 16. Security, validation and reproducibility boundary
 
-The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`; the production CSP still needs verification in the first successful Windows bundle/run.
+The production Tauri bundle uses a restrictive CSP limited to local resources and Tauri IPC. Vite development explicitly uses `devCsp: null`. A clean hosted-Windows release executable now launches successfully through a bounded smoke window, but production CSP acceptance still requires UI-level verification of the bundled pet/Companion/resource/IPC paths rather than treating process survival alone as sufficient.
 
 `package-lock.json` and `src-tauri/Cargo.lock` are committed from clean `windows-latest` resolution/validation runs. Frontend diagnostics are also locked: the ordinary Svelte checker runs against TypeScript 6.0.3, while `svelte-check --tsgo` uses a TypeScript 7.0.2 npm alias. Both are configured with `--fail-on-warnings`; `vite/client` and Node types are explicit, while `skipLibCheck` isolates third-party Pixi/WebGPU declaration-merge conflicts instead of suppressing project-source diagnostics.
 
 Normal Windows CI installs frontend dependencies with `npm ci`, runs both zero-warning Svelte gates, builds the Svelte/PixiJS frontend, verifies the Cargo graph with `cargo metadata --locked`, checks Rust formatting, runs Clippy with `-D warnings`, and runs Rust tests with Cargo `--locked`. `docs/SVELTE_DIAGNOSTIC_BASELINE.md` records a clean Windows run for both Svelte/TypeScript paths; `docs/VALIDATION_BASELINE.md` records a clean Windows run for frontend build plus Rust formatting/Clippy/tests.
 
-The manual Windows Bundle workflow consumes the same committed locks, verifies Cargo metadata under `--locked`, builds the NSIS/executable artifact, and does not generate an independent dependency graph.
+The permanent manual Windows Bundle workflow consumes the same committed locks, verifies Cargo metadata under `--locked`, builds the NSIS/executable artifact, and does not generate an independent dependency graph. Separately, `docs/WINDOWS_BUNDLE_BASELINE.md` records a successful clean GitHub-hosted Windows Tauri release + NSIS build, artifact discovery and an 8-second release-executable smoke launch with SHA-256 hashes for both produced executables.
 
-Dependency resolution and source-level validation are therefore reproducible at the repository/CI boundary. This does **not** yet establish a successful clean Windows NSIS run, production CSP verification, or target-machine RAM/CPU/GPU performance; those remain separate acceptance gates.
+Dependency resolution, source-level validation and clean hosted-Windows release/NSIS buildability are therefore reproducible at the repository/CI boundary. Remaining acceptance is product/runtime specific: observe the permanent manual bundle workflow at least once, verify production CSP and UI behavior in the bundled application, and measure RAM/idle CPU/GPU plus long-run behavior on the actual Ryzen 3 2200G + Vega 8 target machine.
 
 ## 17. Documentation authority
 
