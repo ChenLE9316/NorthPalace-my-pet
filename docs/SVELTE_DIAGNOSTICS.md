@@ -1,455 +1,448 @@
-# Svelte Diagnostic Bootstrap
+# Svelte Diagnostic Final
 
-- Source commit: 1873b0a7cd4696f7c5ba92d42685dd8eeb574ffc
-- resolve: success
+- Source commit: 8aadc7c9a35a0f46b9478748d506f608bcb3e8d7
+- prepare: success
 - npm ci: success
-- TS6 svelte-check: failure
-- TS7 tsgo svelte-check: failure
-- build: success
-- tracked-data guard: success
+- TS6: failure
+- TS7 tsgo: failure
+- build/repo: success
 
-## Resolve
+## TS6
 ``text
-
-added 63 packages, and audited 64 packages in 11s
-
-14 packages are looking for funding
-  run `npm fund` for details
-
-found 0 vulnerabilities
-``
-
-## TS6 svelte-check
-``text
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:13:35
-[31mError[39m: Cannot find name 'node:http2'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { Agent, ClientRequest, ClientRequestArgs, OutgoingHttpHeaders, ServerResponse } from "node:http";
-import { Http2SecureServer } from [35m"node:http2"[36m;
-import * as fs from "node:fs";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:14:21
-[31mError[39m: Cannot find name 'node:fs'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { Http2SecureServer } from "node:http2";
-import * as fs from [35m"node:fs"[36m;
-import { EventEmitter } from "node:events";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:15:30
-[31mError[39m: Cannot find name 'node:events'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport * as fs from "node:fs";
-import { EventEmitter } from [35m"node:events"[36m;
-import { Server as HttpsServer, ServerOptions as HttpsServerOptions } from "node:https";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:16:76
-[31mError[39m: Cannot find name 'node:https'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { EventEmitter } from "node:events";
-import { Server as HttpsServer, ServerOptions as HttpsServerOptions } from [35m"node:https"[36m;
-import * as net from "node:net";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:17:22
-[31mError[39m: Cannot find name 'node:net'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { Server as HttpsServer, ServerOptions as HttpsServerOptions } from "node:https";
-import * as net from [35m"node:net"[36m;
-import { Duplex, DuplexOptions, Stream } from "node:stream";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:18:47
-[31mError[39m: Cannot find name 'node:stream'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport * as net from "node:net";
-import { Duplex, DuplexOptions, Stream } from [35m"node:stream"[36m;
-import { FetchFunction, FetchFunctionOptions, FetchResult, FetchResult as moduleRunner_FetchResult, ModuleEvaluator, ModuleRunner, ModuleRunnerHmr, ModuleRunnerOptions } from "vite/module-runner";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:21:38
-[31mError[39m: Cannot find name 'node:tls'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { DepsOptimizerEsbuildOptions, EsbuildTarget, EsbuildTransformOptions, EsbuildTransformOptions as esbuildOptions_EsbuildTransformOptions, EsbuildTransformResult } from "#types/internal/esbuildOptions";
-import { SecureContextOptions } from [35m"node:tls"[36m;
-import { URL as url_URL } from "node:url";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:22:32
-[31mError[39m: Cannot find name 'node:url'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { SecureContextOptions } from "node:tls";
-import { URL as url_URL } from [35m"node:url"[36m;
-import { ZlibOptions } from "node:zlib";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:23:29
-[31mError[39m: Cannot find name 'node:zlib'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mimport { URL as url_URL } from "node:url";
-import { ZlibOptions } from [35m"node:zlib"[36m;
-import { ChunkMetadata, CustomPluginOptionsVite } from "#types/metadata";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:285:35
-[31mError[39m: Cannot find namespace 'NodeJS'. 
-[36m  }
-  export interface Server extends [35mNodeJS[36m.EventEmitter {
-    (req: http.IncomingMessage, res: http.ServerResponse, next?: Function): void;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:347:9
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  passphrase?: string;
-  pfx?: [35mBuffer[36m | string;
-  cert?: string;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:463:105
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36mtype PassFunctions<TIncomingMessage extends typeof http.IncomingMessage = typeof http.IncomingMessage, TServerResponse extends typeof http.ServerResponse = typeof http.ServerResponse, TError = Error> = {
-  ws: (req: InstanceType<TIncomingMessage>, socket: net.Socket, options: NormalizedServerOptions, head: [35mBuffer[36m | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-  web: (req: InstanceType<TIncomingMessage>, res: InstanceType<TServerResponse>, options: NormalizedServerOptions, head: Buffer | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:464:122
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  ws: (req: InstanceType<TIncomingMessage>, socket: net.Socket, options: NormalizedServerOptions, head: Buffer | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-  web: (req: InstanceType<TIncomingMessage>, res: InstanceType<TServerResponse>, options: NormalizedServerOptions, head: [35mBuffer[36m | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-};[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1336:40
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  constructor(address: string | url_URL, protocols?: string | string[], options?: WebSocket.ClientOptions | ClientRequestArgs);
-  close(code?: number, data?: string | [35mBuffer[36m): void;
-  ping(data?: any, mask?: boolean, cb?: (err: Error) => void): void;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1368:72
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  // Events
-  on(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  on(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1373:64
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  on(event: 'open', listener: (this: WebSocket) => void): this;
-  on(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  on(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1376:74
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  on(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  once(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  once(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1381:66
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  once(event: 'open', listener: (this: WebSocket) => void): this;
-  once(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  once(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1384:73
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  once(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  off(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  off(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1389:65
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  off(event: 'open', listener: (this: WebSocket) => void): this;
-  off(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  off(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1392:64
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  off(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  addListener(event: 'close', listener: (code: number, reason: [35mBuffer[36m) => void): this;
-  addListener(event: 'error', listener: (err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1397:56
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  addListener(event: 'open', listener: () => void): this;
-  addListener(event: 'ping' | 'pong', listener: (data: [35mBuffer[36m) => void): this;
-  addListener(event: 'unexpected-response', listener: (request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1400:67
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  addListener(event: string | symbol, listener: (...args: any[]) => void): this;
-  removeListener(event: 'close', listener: (code: number, reason: [35mBuffer[36m) => void): this;
-  removeListener(event: 'error', listener: (err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1405:59
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m  removeListener(event: 'open', listener: () => void): this;
-  removeListener(event: 'ping' | 'pong', listener: (data: [35mBuffer[36m) => void): this;
-  removeListener(event: 'unexpected-response', listener: (request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1415:18
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:1907:3
+[31mError[39m: Subsequent property declarations must have the same type.  Property 'buffers' must be of type '(GPUVertexBufferLayout | null)[] | undefined', but here has type 'Iterable<GPUVertexBufferLayout | null | undefined> | undefined'. 
 [36m   */
-  type RawData = [35mBuffer[36m | ArrayBuffer | Buffer[];
+  [35mbuffers[36m?: Iterable<
+    | GPUVertexBufferLayout[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2135:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPU' must be of type '{ new (): GPU; prototype: GPU; }', but here has type '{ new (): never; prototype: GPU; }'. 
+[36m
+declare var [35mGPU[36m: {
+  prototype: GPU;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2176:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUAdapter' must be of type '{ new (): GPUAdapter; prototype: GPUAdapter; }', but here has type '{ new (): never; prototype: GPUAdapter; }'. 
+[36m
+declare var [35mGPUAdapter[36m: {
+  prototype: GPUAdapter;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2216:12
+[31mError[39m: All declarations of 'subgroupMinSize' must have identical modifiers. 
+[36m   */
+  readonly [35msubgroupMinSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1415:41
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2216:12
+[31mError[39m: Subsequent property declarations must have the same type.  Property 'subgroupMinSize' must be of type 'number', but here has type 'number | undefined'. 
 [36m   */
-  type RawData = Buffer | ArrayBuffer | [35mBuffer[36m[];
+  readonly [35msubgroupMinSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1419:24
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2224:12
+[31mError[39m: All declarations of 'subgroupMaxSize' must have identical modifiers. 
 [36m   */
-  type Data = string | [35mBuffer[36m | ArrayBuffer | Buffer[];
+  readonly [35msubgroupMaxSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1419:47
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2224:12
+[31mError[39m: Subsequent property declarations must have the same type.  Property 'subgroupMaxSize' must be of type 'number', but here has type 'number | undefined'. 
 [36m   */
-  type Data = string | Buffer | ArrayBuffer | [35mBuffer[36m[];
+  readonly [35msubgroupMaxSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1423:39
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m   */
-  type CertMeta = string | string[] | [35mBuffer[36m | Buffer[];
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2231:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUAdapterInfo' must be of type '{ new (): GPUAdapterInfo; prototype: GPUAdapterInfo; }', but here has type '{ new (): never; prototype: GPUAdapterInfo; }'. 
+[36m
+declare var [35mGPUAdapterInfo[36m: {
+  prototype: GPUAdapterInfo;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1423:48
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m   */
-  type CertMeta = string | string[] | Buffer | [35mBuffer[36m[];
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2242:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBindGroup' must be of type '{ new (): GPUBindGroup; prototype: GPUBindGroup; }', but here has type '{ new (): never; prototype: GPUBindGroup; }'. 
+[36m
+declare var [35mGPUBindGroup[36m: {
+  prototype: GPUBindGroup;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1447:25
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m    followRedirects?: boolean | undefined;
-    generateMask?(mask: [35mBuffer[36m): void;
-    handshakeTimeout?: number | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2253:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBindGroupLayout' must be of type '{ new (): GPUBindGroupLayout; prototype: GPUBindGroupLayout; }', but here has type '{ new (): never; prototype: GPUBindGroupLayout; }'. 
+[36m
+declare var [35mGPUBindGroupLayout[36m: {
+  prototype: GPUBindGroupLayout;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1478:20
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m      strategy?: number | undefined;
-      dictionary?: [35mBuffer[36m | Buffer[] | DataView | undefined;
-      info?: boolean | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2309:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBuffer' must be of type '{ new (): GPUBuffer; prototype: GPUBuffer; }', but here has type '{ new (): never; prototype: GPUBuffer; }'. 
+[36m
+declare var [35mGPUBuffer[36m: {
+  prototype: GPUBuffer;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1478:29
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m      strategy?: number | undefined;
-      dictionary?: Buffer | [35mBuffer[36m[] | DataView | undefined;
-      info?: boolean | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2354:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCanvasContext' must be of type '{ new (): GPUCanvasContext; prototype: GPUCanvasContext; }', but here has type '{ new (): never; prototype: GPUCanvasContext; }'. 
+[36m
+declare var [35mGPUCanvasContext[36m: {
+  prototype: GPUCanvasContext;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1538:79
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m    close(cb?: (err?: Error) => void): void;
-    handleUpgrade(request: http.IncomingMessage, socket: Duplex, upgradeHead: [35mBuffer[36m, callback: (client: T, request: http.IncomingMessage) => void): void;
-    shouldHandle(request: http.IncomingMessage): boolean | Promise<boolean>;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2365:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCommandBuffer' must be of type '{ new (): GPUCommandBuffer; prototype: GPUCommandBuffer; }', but here has type '{ new (): never; prototype: GPUCommandBuffer; }'. 
+[36m
+declare var [35mGPUCommandBuffer[36m: {
+  prototype: GPUCommandBuffer;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:2126:61
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m   */
-  assetsInlineLimit?: number | ((filePath: string, content: [35mBuffer[36m) => boolean | undefined);
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2483:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCommandEncoder' must be of type '{ new (): GPUCommandEncoder; prototype: GPUCommandEncoder; }', but here has type '{ new (): never; prototype: GPUCommandEncoder; }'. 
+[36m
+declare var [35mGPUCommandEncoder[36m: {
+  prototype: GPUCommandEncoder;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:3972:89
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. 
-[36m}
-declare function send(req: http.IncomingMessage, res: ServerResponse, content: string | [35mBuffer[36m, type: string, options: SendOptions): void;
-//#endregion[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2494:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCompilationInfo' must be of type '{ new (): GPUCompilationInfo; prototype: GPUCompilationInfo; }', but here has type '{ new (): never; prototype: GPUCompilationInfo; }'. 
+[36m
+declare var [35mGPUCompilationInfo[36m: {
+  prototype: GPUCompilationInfo;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2554:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCompilationMessage' must be of type '{ new (): GPUCompilationMessage; prototype: GPUCompilationMessage; }', but here has type '{ new (): never; prototype: GPUCompilationMessage; }'. 
+[36m
+declare var [35mGPUCompilationMessage[36m: {
+  prototype: GPUCompilationMessage;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2605:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUComputePassEncoder' must be of type '{ new (): GPUComputePassEncoder; prototype: GPUComputePassEncoder; }', but here has type '{ new (): never; prototype: GPUComputePassEncoder; }'. 
+[36m
+declare var [35mGPUComputePassEncoder[36m: {
+  prototype: GPUComputePassEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2617:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUComputePipeline' must be of type '{ new (): GPUComputePipeline; prototype: GPUComputePipeline; }', but here has type '{ new (): never; prototype: GPUComputePipeline; }'. 
+[36m
+declare var [35mGPUComputePipeline[36m: {
+  prototype: GPUComputePipeline;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2804:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUDevice' must be of type '{ new (): GPUDevice; prototype: GPUDevice; }', but here has type '{ new (): never; prototype: GPUDevice; }'. 
+[36m
+declare var [35mGPUDevice[36m: {
+  prototype: GPUDevice;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2816:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUDeviceLostInfo' must be of type '{ new (): GPUDeviceLostInfo; prototype: GPUDeviceLostInfo; }', but here has type '{ new (): never; prototype: GPUDeviceLostInfo; }'. 
+[36m
+declare var [35mGPUDeviceLostInfo[36m: {
+  prototype: GPUDeviceLostInfo;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2840:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUError' must be of type '{ new (): GPUError; prototype: GPUError; }', but here has type '{ new (): never; prototype: GPUError; }'. 
+[36m
+declare var [35mGPUError[36m: {
+  prototype: GPUError;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2851:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUExternalTexture' must be of type '{ new (): GPUExternalTexture; prototype: GPUExternalTexture; }', but here has type '{ new (): never; prototype: GPUExternalTexture; }'. 
+[36m
+declare var [35mGPUExternalTexture[36m: {
+  prototype: GPUExternalTexture;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2897:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUPipelineError' must be of type '{ new (message: string, options: GPUPipelineErrorInit): GPUPipelineError; prototype: GPUPipelineError; }', but here has type '{ new (message: string | undefined, options: GPUPipelineErrorInit): GPUPipelineError; prototype: GPUPipelineError; }'. 
+[36m
+declare var [35mGPUPipelineError[36m: {
+  prototype: GPUPipelineError;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2913:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUPipelineLayout' must be of type '{ new (): GPUPipelineLayout; prototype: GPUPipelineLayout; }', but here has type '{ new (): never; prototype: GPUPipelineLayout; }'. 
+[36m
+declare var [35mGPUPipelineLayout[36m: {
+  prototype: GPUPipelineLayout;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2936:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUQuerySet' must be of type '{ new (): GPUQuerySet; prototype: GPUQuerySet; }', but here has type '{ new (): never; prototype: GPUQuerySet; }'. 
+[36m
+declare var [35mGPUQuerySet[36m: {
+  prototype: GPUQuerySet;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3012:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUQueue' must be of type '{ new (): GPUQueue; prototype: GPUQueue; }', but here has type '{ new (): never; prototype: GPUQueue; }'. 
+[36m
+declare var [35mGPUQueue[36m: {
+  prototype: GPUQueue;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3023:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderBundle' must be of type '{ new (): GPURenderBundle; prototype: GPURenderBundle; }', but here has type '{ new (): never; prototype: GPURenderBundle; }'. 
+[36m
+declare var [35mGPURenderBundle[36m: {
+  prototype: GPURenderBundle;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3045:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderBundleEncoder' must be of type '{ new (): GPURenderBundleEncoder; prototype: GPURenderBundleEncoder; }', but here has type '{ new (): never; prototype: GPURenderBundleEncoder; }'. 
+[36m
+declare var [35mGPURenderBundleEncoder[36m: {
+  prototype: GPURenderBundleEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3136:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderPassEncoder' must be of type '{ new (): GPURenderPassEncoder; prototype: GPURenderPassEncoder; }', but here has type '{ new (): never; prototype: GPURenderPassEncoder; }'. 
+[36m
+declare var [35mGPURenderPassEncoder[36m: {
+  prototype: GPURenderPassEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3148:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderPipeline' must be of type '{ new (): GPURenderPipeline; prototype: GPURenderPipeline; }', but here has type '{ new (): never; prototype: GPURenderPipeline; }'. 
+[36m
+declare var [35mGPURenderPipeline[36m: {
+  prototype: GPURenderPipeline;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3159:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUSampler' must be of type '{ new (): GPUSampler; prototype: GPUSampler; }', but here has type '{ new (): never; prototype: GPUSampler; }'. 
+[36m
+declare var [35mGPUSampler[36m: {
+  prototype: GPUSampler;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3176:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUShaderModule' must be of type '{ new (): GPUShaderModule; prototype: GPUShaderModule; }', but here has type '{ new (): never; prototype: GPUShaderModule; }'. 
+[36m
+declare var [35mGPUShaderModule[36m: {
+  prototype: GPUShaderModule;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3241:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUSupportedLimits' must be of type '{ new (): GPUSupportedLimits; prototype: GPUSupportedLimits; }', but here has type '{ new (): never; prototype: GPUSupportedLimits; }'. 
+[36m
+declare var [35mGPUSupportedLimits[36m: {
+  prototype: GPUSupportedLimits;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3311:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUTexture' must be of type '{ new (): GPUTexture; prototype: GPUTexture; }', but here has type '{ new (): never; prototype: GPUTexture; }'. 
+[36m
+declare var [35mGPUTexture[36m: {
+  prototype: GPUTexture;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3322:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUTextureView' must be of type '{ new (): GPUTextureView; prototype: GPUTextureView; }', but here has type '{ new (): never; prototype: GPUTextureView; }'. 
+[36m
+declare var [35mGPUTextureView[36m: {
+  prototype: GPUTextureView;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\pixi.js\lib\events\FederatedPointerEvent.d.ts[39m:48:22
+[31mError[39m: Class 'FederatedPointerEvent' incorrectly implements interface 'PointerEvent'.
+  Property 'persistentDeviceId' is missing in type 'FederatedPointerEvent' but required in type 'PointerEvent'. 
+[36m */
+export declare class [35mFederatedPointerEvent[36m extends FederatedMouseEvent implements PointerEvent {
+    /**[39m
 
 ====================================
-[31msvelte-check found 93 errors and 5 warnings in 12 files
+[31msvelte-check found 52 errors and 0 warnings in 4 files
 [39m
 ``
 
-## TS7 tsgo svelte-check
+## TS7 tsgo
 ``text
-import { EventEmitter } from "node:events";[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:15:30
-[31mError[39m: Cannot find name 'node:events'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport * as fs from "node:fs";
-import { EventEmitter } from [35m"node:events"[36m;
-import { Server as HttpsServer, ServerOptions as HttpsServerOptions } from "node:https";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:16:76
-[31mError[39m: Cannot find name 'node:https'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport { EventEmitter } from "node:events";
-import { Server as HttpsServer, ServerOptions as HttpsServerOptions } from [35m"node:https"[36m;
-import * as net from "node:net";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:17:22
-[31mError[39m: Cannot find name 'node:net'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport { Server as HttpsServer, ServerOptions as HttpsServerOptions } from "node:https";
-import * as net from [35m"node:net"[36m;
-import { Duplex, DuplexOptions, Stream } from "node:stream";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:18:47
-[31mError[39m: Cannot find name 'node:stream'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport * as net from "node:net";
-import { Duplex, DuplexOptions, Stream } from [35m"node:stream"[36m;
-import { FetchFunction, FetchFunctionOptions, FetchResult, FetchResult as moduleRunner_FetchResult, ModuleEvaluator, ModuleRunner, ModuleRunnerHmr, ModuleRunnerOptions } from "vite/module-runner";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:21:38
-[31mError[39m: Cannot find name 'node:tls'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport { DepsOptimizerEsbuildOptions, EsbuildTarget, EsbuildTransformOptions, EsbuildTransformOptions as esbuildOptions_EsbuildTransformOptions, EsbuildTransformResult } from "#types/internal/esbuildOptions";
-import { SecureContextOptions } from [35m"node:tls"[36m;
-import { URL as url_URL } from "node:url";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:22:32
-[31mError[39m: Cannot find name 'node:url'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport { SecureContextOptions } from "node:tls";
-import { URL as url_URL } from [35m"node:url"[36m;
-import { ZlibOptions } from "node:zlib";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:23:29
-[31mError[39m: Cannot find name 'node:zlib'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mimport { URL as url_URL } from "node:url";
-import { ZlibOptions } from [35m"node:zlib"[36m;
-import { ChunkMetadata, CustomPluginOptionsVite } from "#types/metadata";[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:285:35
-[31mError[39m: Cannot find namespace 'NodeJS'. (ts)
-[36m  }
-  export interface Server extends [35mNodeJS[36m.EventEmitter {
-    (req: http.IncomingMessage, res: http.ServerResponse, next?: Function): void;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:347:9
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  passphrase?: string;
-  pfx?: [35mBuffer[36m | string;
-  cert?: string;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:463:105
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36mtype PassFunctions<TIncomingMessage extends typeof http.IncomingMessage = typeof http.IncomingMessage, TServerResponse extends typeof http.ServerResponse = typeof http.ServerResponse, TError = Error> = {
-  ws: (req: InstanceType<TIncomingMessage>, socket: net.Socket, options: NormalizedServerOptions, head: [35mBuffer[36m | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-  web: (req: InstanceType<TIncomingMessage>, res: InstanceType<TServerResponse>, options: NormalizedServerOptions, head: Buffer | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:464:122
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  ws: (req: InstanceType<TIncomingMessage>, socket: net.Socket, options: NormalizedServerOptions, head: Buffer | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-  web: (req: InstanceType<TIncomingMessage>, res: InstanceType<TServerResponse>, options: NormalizedServerOptions, head: [35mBuffer[36m | undefined, server: ProxyServer<TIncomingMessage, TServerResponse, TError>, cb?: ErrorCallback<TIncomingMessage, TServerResponse, TError>) => unknown;
-};[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1336:40
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  constructor(address: string | url_URL, protocols?: string | string[], options?: WebSocket.ClientOptions | ClientRequestArgs);
-  close(code?: number, data?: string | [35mBuffer[36m): void;
-  ping(data?: any, mask?: boolean, cb?: (err: Error) => void): void;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1368:72
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  // Events
-  on(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  on(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1373:64
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  on(event: 'open', listener: (this: WebSocket) => void): this;
-  on(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  on(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1376:74
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  on(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  once(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  once(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1381:66
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  once(event: 'open', listener: (this: WebSocket) => void): this;
-  once(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  once(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1384:73
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  once(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  off(event: 'close', listener: (this: WebSocket, code: number, reason: [35mBuffer[36m) => void): this;
-  off(event: 'error', listener: (this: WebSocket, err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1389:65
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  off(event: 'open', listener: (this: WebSocket) => void): this;
-  off(event: 'ping' | 'pong', listener: (this: WebSocket, data: [35mBuffer[36m) => void): this;
-  off(event: 'unexpected-response', listener: (this: WebSocket, request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1392:64
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  off(event: string | symbol, listener: (this: WebSocket, ...args: any[]) => void): this;
-  addListener(event: 'close', listener: (code: number, reason: [35mBuffer[36m) => void): this;
-  addListener(event: 'error', listener: (err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1397:56
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  addListener(event: 'open', listener: () => void): this;
-  addListener(event: 'ping' | 'pong', listener: (data: [35mBuffer[36m) => void): this;
-  addListener(event: 'unexpected-response', listener: (request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1400:67
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  addListener(event: string | symbol, listener: (...args: any[]) => void): this;
-  removeListener(event: 'close', listener: (code: number, reason: [35mBuffer[36m) => void): this;
-  removeListener(event: 'error', listener: (err: Error) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1405:59
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m  removeListener(event: 'open', listener: () => void): this;
-  removeListener(event: 'ping' | 'pong', listener: (data: [35mBuffer[36m) => void): this;
-  removeListener(event: 'unexpected-response', listener: (request: ClientRequest, response: http.IncomingMessage) => void): this;[39m
-
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1415:18
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2216:12
+[31mError[39m: All declarations of 'subgroupMinSize' must have identical modifiers. (ts)
 [36m   */
-  type RawData = [35mBuffer[36m | ArrayBuffer | Buffer[];
+  readonly [35msubgroupMinSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1415:41
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2216:12
+[31mError[39m: Subsequent property declarations must have the same type.  Property 'subgroupMinSize' must be of type 'number', but here has type 'number | undefined'. (ts)
 [36m   */
-  type RawData = Buffer | ArrayBuffer | [35mBuffer[36m[];
+  readonly [35msubgroupMinSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1419:24
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2224:12
+[31mError[39m: All declarations of 'subgroupMaxSize' must have identical modifiers. (ts)
 [36m   */
-  type Data = string | [35mBuffer[36m | ArrayBuffer | Buffer[];
+  readonly [35msubgroupMaxSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1419:47
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2224:12
+[31mError[39m: Subsequent property declarations must have the same type.  Property 'subgroupMaxSize' must be of type 'number', but here has type 'number | undefined'. (ts)
 [36m   */
-  type Data = string | Buffer | ArrayBuffer | [35mBuffer[36m[];
+  readonly [35msubgroupMaxSize[36m?: number;
   /**[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1423:39
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m   */
-  type CertMeta = string | string[] | [35mBuffer[36m | Buffer[];
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2231:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUAdapterInfo' must be of type '{ new (): GPUAdapterInfo; prototype: GPUAdapterInfo; }', but here has type '{ new (): never; prototype: GPUAdapterInfo; }'. (ts)
+[36m
+declare var [35mGPUAdapterInfo[36m: {
+  prototype: GPUAdapterInfo;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1423:48
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m   */
-  type CertMeta = string | string[] | Buffer | [35mBuffer[36m[];
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2242:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBindGroup' must be of type '{ new (): GPUBindGroup; prototype: GPUBindGroup; }', but here has type '{ new (): never; prototype: GPUBindGroup; }'. (ts)
+[36m
+declare var [35mGPUBindGroup[36m: {
+  prototype: GPUBindGroup;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1447:25
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m    followRedirects?: boolean | undefined;
-    generateMask?(mask: [35mBuffer[36m): void;
-    handshakeTimeout?: number | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2253:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBindGroupLayout' must be of type '{ new (): GPUBindGroupLayout; prototype: GPUBindGroupLayout; }', but here has type '{ new (): never; prototype: GPUBindGroupLayout; }'. (ts)
+[36m
+declare var [35mGPUBindGroupLayout[36m: {
+  prototype: GPUBindGroupLayout;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1478:20
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m      strategy?: number | undefined;
-      dictionary?: [35mBuffer[36m | Buffer[] | DataView | undefined;
-      info?: boolean | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2309:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUBuffer' must be of type '{ new (): GPUBuffer; prototype: GPUBuffer; }', but here has type '{ new (): never; prototype: GPUBuffer; }'. (ts)
+[36m
+declare var [35mGPUBuffer[36m: {
+  prototype: GPUBuffer;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1478:29
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m      strategy?: number | undefined;
-      dictionary?: Buffer | [35mBuffer[36m[] | DataView | undefined;
-      info?: boolean | undefined;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2354:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCanvasContext' must be of type '{ new (): GPUCanvasContext; prototype: GPUCanvasContext; }', but here has type '{ new (): never; prototype: GPUCanvasContext; }'. (ts)
+[36m
+declare var [35mGPUCanvasContext[36m: {
+  prototype: GPUCanvasContext;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:1538:79
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m    close(cb?: (err?: Error) => void): void;
-    handleUpgrade(request: http.IncomingMessage, socket: Duplex, upgradeHead: [35mBuffer[36m, callback: (client: T, request: http.IncomingMessage) => void): void;
-    shouldHandle(request: http.IncomingMessage): boolean | Promise<boolean>;[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2365:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCommandBuffer' must be of type '{ new (): GPUCommandBuffer; prototype: GPUCommandBuffer; }', but here has type '{ new (): never; prototype: GPUCommandBuffer; }'. (ts)
+[36m
+declare var [35mGPUCommandBuffer[36m: {
+  prototype: GPUCommandBuffer;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:2126:61
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m   */
-  assetsInlineLimit?: number | ((filePath: string, content: [35mBuffer[36m) => boolean | undefined);
-  /**[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2483:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCommandEncoder' must be of type '{ new (): GPUCommandEncoder; prototype: GPUCommandEncoder; }', but here has type '{ new (): never; prototype: GPUCommandEncoder; }'. (ts)
+[36m
+declare var [35mGPUCommandEncoder[36m: {
+  prototype: GPUCommandEncoder;[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\vite\dist\node\index.d.ts[39m:3972:89
-[31mError[39m: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig. (ts)
-[36m}
-declare function send(req: http.IncomingMessage, res: ServerResponse, content: string | [35mBuffer[36m, type: string, options: SendOptions): void;
-//#endregion[39m
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2494:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCompilationInfo' must be of type '{ new (): GPUCompilationInfo; prototype: GPUCompilationInfo; }', but here has type '{ new (): never; prototype: GPUCompilationInfo; }'. (ts)
+[36m
+declare var [35mGPUCompilationInfo[36m: {
+  prototype: GPUCompilationInfo;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2554:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUCompilationMessage' must be of type '{ new (): GPUCompilationMessage; prototype: GPUCompilationMessage; }', but here has type '{ new (): never; prototype: GPUCompilationMessage; }'. (ts)
+[36m
+declare var [35mGPUCompilationMessage[36m: {
+  prototype: GPUCompilationMessage;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2605:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUComputePassEncoder' must be of type '{ new (): GPUComputePassEncoder; prototype: GPUComputePassEncoder; }', but here has type '{ new (): never; prototype: GPUComputePassEncoder; }'. (ts)
+[36m
+declare var [35mGPUComputePassEncoder[36m: {
+  prototype: GPUComputePassEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2617:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUComputePipeline' must be of type '{ new (): GPUComputePipeline; prototype: GPUComputePipeline; }', but here has type '{ new (): never; prototype: GPUComputePipeline; }'. (ts)
+[36m
+declare var [35mGPUComputePipeline[36m: {
+  prototype: GPUComputePipeline;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2804:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUDevice' must be of type '{ new (): GPUDevice; prototype: GPUDevice; }', but here has type '{ new (): never; prototype: GPUDevice; }'. (ts)
+[36m
+declare var [35mGPUDevice[36m: {
+  prototype: GPUDevice;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2816:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUDeviceLostInfo' must be of type '{ new (): GPUDeviceLostInfo; prototype: GPUDeviceLostInfo; }', but here has type '{ new (): never; prototype: GPUDeviceLostInfo; }'. (ts)
+[36m
+declare var [35mGPUDeviceLostInfo[36m: {
+  prototype: GPUDeviceLostInfo;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2840:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUError' must be of type '{ new (): GPUError; prototype: GPUError; }', but here has type '{ new (): never; prototype: GPUError; }'. (ts)
+[36m
+declare var [35mGPUError[36m: {
+  prototype: GPUError;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2851:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUExternalTexture' must be of type '{ new (): GPUExternalTexture; prototype: GPUExternalTexture; }', but here has type '{ new (): never; prototype: GPUExternalTexture; }'. (ts)
+[36m
+declare var [35mGPUExternalTexture[36m: {
+  prototype: GPUExternalTexture;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2897:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUPipelineError' must be of type '{ new (message: string, options: GPUPipelineErrorInit): GPUPipelineError; prototype: GPUPipelineError; }', but here has type '{ new (message: string | undefined, options: GPUPipelineErrorInit): GPUPipelineError; prototype: GPUPipelineError; }'. (ts)
+[36m
+declare var [35mGPUPipelineError[36m: {
+  prototype: GPUPipelineError;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2913:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUPipelineLayout' must be of type '{ new (): GPUPipelineLayout; prototype: GPUPipelineLayout; }', but here has type '{ new (): never; prototype: GPUPipelineLayout; }'. (ts)
+[36m
+declare var [35mGPUPipelineLayout[36m: {
+  prototype: GPUPipelineLayout;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:2936:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUQuerySet' must be of type '{ new (): GPUQuerySet; prototype: GPUQuerySet; }', but here has type '{ new (): never; prototype: GPUQuerySet; }'. (ts)
+[36m
+declare var [35mGPUQuerySet[36m: {
+  prototype: GPUQuerySet;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3012:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUQueue' must be of type '{ new (): GPUQueue; prototype: GPUQueue; }', but here has type '{ new (): never; prototype: GPUQueue; }'. (ts)
+[36m
+declare var [35mGPUQueue[36m: {
+  prototype: GPUQueue;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3023:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderBundle' must be of type '{ new (): GPURenderBundle; prototype: GPURenderBundle; }', but here has type '{ new (): never; prototype: GPURenderBundle; }'. (ts)
+[36m
+declare var [35mGPURenderBundle[36m: {
+  prototype: GPURenderBundle;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3045:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderBundleEncoder' must be of type '{ new (): GPURenderBundleEncoder; prototype: GPURenderBundleEncoder; }', but here has type '{ new (): never; prototype: GPURenderBundleEncoder; }'. (ts)
+[36m
+declare var [35mGPURenderBundleEncoder[36m: {
+  prototype: GPURenderBundleEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3136:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderPassEncoder' must be of type '{ new (): GPURenderPassEncoder; prototype: GPURenderPassEncoder; }', but here has type '{ new (): never; prototype: GPURenderPassEncoder; }'. (ts)
+[36m
+declare var [35mGPURenderPassEncoder[36m: {
+  prototype: GPURenderPassEncoder;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3148:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPURenderPipeline' must be of type '{ new (): GPURenderPipeline; prototype: GPURenderPipeline; }', but here has type '{ new (): never; prototype: GPURenderPipeline; }'. (ts)
+[36m
+declare var [35mGPURenderPipeline[36m: {
+  prototype: GPURenderPipeline;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3159:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUSampler' must be of type '{ new (): GPUSampler; prototype: GPUSampler; }', but here has type '{ new (): never; prototype: GPUSampler; }'. (ts)
+[36m
+declare var [35mGPUSampler[36m: {
+  prototype: GPUSampler;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3176:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUShaderModule' must be of type '{ new (): GPUShaderModule; prototype: GPUShaderModule; }', but here has type '{ new (): never; prototype: GPUShaderModule; }'. (ts)
+[36m
+declare var [35mGPUShaderModule[36m: {
+  prototype: GPUShaderModule;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3181:6
+[31mError[39m: Duplicate identifier 'GPUSupportedFeatures'. (ts)
+[36m
+type [35mGPUSupportedFeatures[36m =
+  ReadonlySet<string>;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3241:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUSupportedLimits' must be of type '{ new (): GPUSupportedLimits; prototype: GPUSupportedLimits; }', but here has type '{ new (): never; prototype: GPUSupportedLimits; }'. (ts)
+[36m
+declare var [35mGPUSupportedLimits[36m: {
+  prototype: GPUSupportedLimits;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3311:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUTexture' must be of type '{ new (): GPUTexture; prototype: GPUTexture; }', but here has type '{ new (): never; prototype: GPUTexture; }'. (ts)
+[36m
+declare var [35mGPUTexture[36m: {
+  prototype: GPUTexture;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3322:13
+[31mError[39m: Subsequent variable declarations must have the same type.  Variable 'GPUTextureView' must be of type '{ new (): GPUTextureView; prototype: GPUTextureView; }', but here has type '{ new (): never; prototype: GPUTextureView; }'. (ts)
+[36m
+declare var [35mGPUTextureView[36m: {
+  prototype: GPUTextureView;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\@webgpu\types\dist\index.d.ts[39m:3359:6
+[31mError[39m: Duplicate identifier 'WGSLLanguageFeatures'. (ts)
+[36m
+type [35mWGSLLanguageFeatures[36m =
+  ReadonlySet<string>;[39m
+
+d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32mnode_modules\pixi.js\lib\events\FederatedPointerEvent.d.ts[39m:48:22
+[31mError[39m: Class 'FederatedPointerEvent' incorrectly implements interface 'PointerEvent'. (ts)
+[36m */
+export declare class [35mFederatedPointerEvent[36m extends FederatedMouseEvent implements PointerEvent {
+    /**[39m
 
 d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32msrc\lib\pet\bubble.ts[39m:15:3
 [31mError[39m: Object literal may only specify known properties, and 'recovering' does not exist in type 'Record<"degraded" | "error", string>'. (ts)
@@ -457,13 +450,8 @@ d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32msrc\lib\pet\bubble.ts[39m:15:3
   [35mrecovering[36m: '等我一下，我正在恢復。',
   error: '我遇到一點問題，但 Pet Runtime 不會假裝沒事。',[39m
 
-d:\a\NorthPalace-my-pet\NorthPalace-my-pet\[32msrc\main.ts[39m:1:8
-[31mError[39m: Cannot find module or type declarations for side-effect import of './app.css'. (ts)
-[36mimport [35m'./app.css'[36m;
-import App from './App.svelte';[39m
-
 ====================================
-[31msvelte-check found 225 errors and 5 warnings in 12 files
+[31msvelte-check found 184 errors and 0 warnings in 4 files
 [39m
 ``
 
@@ -478,49 +466,9 @@ import App from './App.svelte';[39m
 > node scripts/validate-lenvu-assets.mjs
 
 [Lenvu asset contract] OK — 14 animation profiles, 1 reference asset(s), sourcePixels=measured+remapped, candidate=awaiting_source_faithful_candidate_artwork, productionReady=false
-5:10:26 AM [vite-plugin-svelte] no Svelte config found at D:/a/NorthPalace-my-pet/NorthPalace-my-pet - using default configuration.
+5:15:15 AM [vite-plugin-svelte] no Svelte config found at D:/a/NorthPalace-my-pet/NorthPalace-my-pet - using default configuration.
 [36mvite v8.2.0 [32mbuilding client environment for production...[36m[39m
 [2K
-5:10:26 AM [vite-plugin-svelte] src/lib/ui/CompanionView.svelte:120:4 Non-interactive element `<nav>` cannot have interactive role 'tablist'
-https://svelte.dev/e/a11y_no_noninteractive_element_to_interactive_role
-118:     </section>
-119: 
-120:     <nav class="companion-tabs" role="tablist" aria-label="Companion 功能">
-               ^
-121:       <button
-122:         role="tab"
-5:10:26 AM [vite-plugin-svelte] src/lib/ui/companion/SettingsSection.svelte:59:0 Non-interactive element `<section>` cannot have interactive role 'tabpanel'
-https://svelte.dev/e/a11y_no_noninteractive_element_to_interactive_role
-57: </script>
-58: 
-59: <section class="companion-section" role="tabpanel" aria-label="Settings">
-              ^
-60:   <section class="settings-panel">
-61:     <div class="section-heading">
-5:10:26 AM [vite-plugin-svelte] src/lib/ui/companion/HomeSection.svelte:13:0 Non-interactive element `<section>` cannot have interactive role 'tabpanel'
-https://svelte.dev/e/a11y_no_noninteractive_element_to_interactive_role
-11: </script>
-12: 
-13: <section class="companion-section home-section" role="tabpanel" aria-label="Home">
-              ^
-14:   <div class="section-heading section-heading--compact">
-15:     <div>
-5:10:27 AM [vite-plugin-svelte] src/lib/ui/companion/MemorySection.svelte:156:0 Non-interactive element `<section>` cannot have interactive role 'tabpanel'
-https://svelte.dev/e/a11y_no_noninteractive_element_to_interactive_role
-154: </script>
-155: 
-156: <section class="companion-section" role="tabpanel" aria-label="Memory">
-               ^
-157:   <section class="memory-panel">
-158:     <div class="section-heading">
-5:10:27 AM [vite-plugin-svelte] src/lib/ui/companion/ActivitySection.svelte:71:0 Non-interactive element `<section>` cannot have interactive role 'tabpanel'
-https://svelte.dev/e/a11y_no_noninteractive_element_to_interactive_role
-69: </script>
-70: 
-71: <section class="companion-section" role="tabpanel" aria-label="Activity">
-              ^
-72:   <section class="activity-panel">
-73:     <div class="section-heading">
 transforming...✓ 839 modules transformed.
 rendering chunks...
 computing gzip size...
@@ -537,7 +485,7 @@ dist/assets/browserAll-BzSnKDMY.js                 42.63 kB │ gzip: 11.16 kB �
 dist/assets/RenderTargetSystem-DI_S-4H-.js         71.11 kB │ gzip: 20.19 kB │ map:   262.25 kB
 dist/assets/CanvasRenderer-MeLDGdTD.js             87.39 kB │ gzip: 27.41 kB │ map:   463.14 kB
 dist/assets/Geometry-CUD3NC1u.js                  101.64 kB │ gzip: 31.16 kB │ map:   499.93 kB
-dist/assets/index-By8D--0g.js                     209.77 kB │ gzip: 64.63 kB │ map: 1,095.94 kB
+dist/assets/index-TL9cjoZn.js                     210.03 kB │ gzip: 64.69 kB │ map: 1,094.86 kB
 
-[32m✓ built in 764ms[39m
+[32m✓ built in 734ms[39m
 ``
