@@ -1,6 +1,6 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: d2135ed4bcdf8253ba489b5b43ad87f2f880da77
+- Source commit: 4ae98281093f245f56a3cf600b50cf7951f82178
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
@@ -17,15 +17,15 @@
 
 ## Patch
 ``text
-Corrected finish-patch preconditions for the current repository state.
+Corrected finish-patch preconditions and selected robust semantic hardening v2.
 Pre-AI finish patch applied.
 Current-state README semantics finalized.
 Traceback (most recent call last):
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 128, in <module>
-    literal(
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in literal
-    raise RuntimeError(f"{path}: expected {expected} match(es), found {count}: {old!r}")
-RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: '            "INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)\n             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",\n'
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 119, in <module>
+    replace(
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in replace
+    raise RuntimeError(f"{path}: expected {count} match(es), found {actual}: {old!r}")
+RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 2: 'INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)'
 ``
 
 ## Svelte TS6
