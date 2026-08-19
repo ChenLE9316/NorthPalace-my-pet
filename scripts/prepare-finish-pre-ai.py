@@ -23,6 +23,7 @@ needle = 'print("Pre-AI finish patch applied.")\n'
 chained = needle + '''\nimport runpy
 runpy.run_path(str(ROOT / "scripts/finish-pre-ai-finalize.py"), run_name="__main__")
 runpy.run_path(str(ROOT / "scripts/finish-pre-ai-hardening.py"), run_name="__main__")
+runpy.run_path(str(ROOT / "scripts/finish-pre-ai-gate-fix.py"), run_name="__main__")
 '''
 if text.count(needle) != 1:
     raise RuntimeError("could not chain stable pre-AI finalizers")
@@ -30,11 +31,11 @@ text = text.replace(needle, chained)
 base.write_text(text, encoding="utf-8", newline="\n")
 
 # The workflow still invokes this historical path after the base patch. Make it an explicit no-op;
-# all semantic hardening now runs once from the stable v3 script above.
+# all semantic hardening now runs once from the stable scripts above.
 (root / "scripts/finish-pre-ai-followup.py").write_text(
     'print("Legacy follow-up disabled; stable hardening already applied by base patch.")\n',
     encoding="utf-8",
     newline="\n",
 )
 
-print("Prepared simplified base + stable hardening patch chain.")
+print("Prepared simplified base + hardening + final gate-fix patch chain.")
