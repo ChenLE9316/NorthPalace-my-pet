@@ -1,10 +1,11 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: 0f5fea615b9136e91cedcf51b288872d58257ace
+- Source commit: 13f88b61c28f045e37fde199070f38e923841ade
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
 - secrets: skipped
+- target PowerShell parse: skipped
 - Svelte TS6: skipped
 - Svelte TS7: skipped
 - frontend: skipped
@@ -16,12 +17,13 @@
 
 ## Patch
 ``text
+Corrected queue_memory patch precondition for this clean-runner worktree.
 Traceback (most recent call last):
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai.py", line 367, in <module>
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai.py", line 952, in <module>
     literal(
   File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai.py", line 23, in literal
     raise RuntimeError(f"{path}: expected {expected} match(es), found {count}: {old!r}")
-RuntimeError: src-tauri/src/persistence.rs: expected 2 match(es), found 1: '    #[allow(dead_code)]\n    pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {\n        self.tx\n            .send(PersistenceCommand::StoreMemory(memory))\n            .map_err(|_| "persistence worker channel is unavailable".to_owned())\n    }\n\n'
+RuntimeError: README.md: expected 1 match(es), found 0: '`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate and `docs/VALIDATION_BASELINE.md` records the clean frontend/Rust gate. `docs/WINDOWS_BUNDLE_BASELINE.md` records a clean GitHub-hosted Windows release/NSIS build, artifact discovery and bounded release-executable smoke launch. The manual Windows Bundle workflow consumes the same committed dependency graphs rather than generating independent candidates.\n'
 ``
 
 ## Svelte TS6
