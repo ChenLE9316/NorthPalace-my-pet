@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <clipPath id="sourceCrop" clipPathUnits="userSpaceOnUse">
+      <rect x="880" y="15" width="205" height="510"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" fill="none"/>
+  <g transform="matrix(1.710185567010 0 0 1.710185567010 -1167.402226804124 8.445360824742)" clip-path="url(#sourceCrop)">
+    <image href="../../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+  </g>
+  <line x1="0" y1="880.64" x2="1024" y2="880.64" stroke="#43d7e8" stroke-width="1" stroke-dasharray="8 8" opacity="0.45"/>
+  <metadata>source-derived review staging only; backNeutral sourceTopY=25 sourceGroundY=510 sourceRootX=982 targetTopY=0.05 targetGroundY=0.86 targetRootX=0.5</metadata>
+</svg>
