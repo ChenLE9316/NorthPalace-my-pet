@@ -38,19 +38,30 @@ jobs:
         continue-on-error: true
         shell: powershell
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'scripts/measure-target-baseline.ps1'),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          $lines = @()
-          foreach ($error in @($errors)) {
-            $lines += ("{0}:{1}:{2}: {3}" -f $error.Extent.StartLineNumber, $error.Extent.StartColumnNumber, $error.ErrorId, $error.Message)
+          $detail = @()
+          $failed = $false
+          try {
+            $target = (Resolve-Path 'scripts/measure-target-baseline.ps1').Path
+            $parseTokens = $null
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $target,
+              [ref]$parseTokens,
+              [ref]$parseErrors
+            ) | Out-Null
+            foreach ($parseError in @($parseErrors)) {
+              $detail += ("{0}:{1}:{2}: {3}" -f $parseError.Extent.StartLineNumber, $parseError.Extent.StartColumnNumber, $parseError.ErrorId, $parseError.Message)
+            }
+            if (@($parseErrors).Count -gt 0) { $failed = $true }
+            if ($detail.Count -eq 0) { $detail += 'no parser errors' }
           }
-          $lines | Set-Content target-parser.log -Encoding utf8
-          if ($errors.Count -gt 0) { exit 1 }
+          catch {
+            $failed = $true
+            $detail += ("exception: {0}: {1}" -f $_.Exception.GetType().FullName, $_.Exception.Message)
+            $detail += ("position: {0}" -f $_.InvocationInfo.PositionMessage)
+          }
+          $detail | Set-Content target-parser.log -Encoding utf8
+          if ($failed) { exit 1 }
 
       - name: Record parser diagnostics
         if: always()
