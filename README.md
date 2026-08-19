@@ -35,6 +35,7 @@ Implemented today:
 - one supervised SQLite owner for pet state, journal, rhythm, Memory Browser CRUD/search and Activity History queries;
 - ordered producer → runtime → journal → persistence shutdown, including accepted-event drain, frozen final Pet State and acknowledged final flush;
 - committed clean-runner npm/Cargo lockfiles with locked normal CI and bundle dependency resolution;
+- clean Windows source validation for zero-warning Svelte TS6 + TS7 `--tsgo`, frontend build, Rust fmt/Clippy/tests and tracked-data guard;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -176,14 +177,16 @@ Worker health is exposed through the backend `worker_status_get` command for fut
 
 ## Validation
 
-`package-lock.json` and `src-tauri/Cargo.lock` are committed from a clean Windows runner. Normal Windows CI now uses `npm ci`, verifies the Cargo lock with `cargo metadata --locked`, and runs Clippy/tests with Cargo `--locked` in addition to asset/build, tracked-data and formatting checks. The manual Windows Bundle workflow consumes the same committed locks rather than generating independent dependency candidates.
+`package-lock.json` and `src-tauri/Cargo.lock` are committed from clean Windows runners. Normal Windows CI uses `npm ci`, runs zero-warning Svelte diagnostics against TypeScript 6 and the TypeScript 7 `--tsgo` alias, builds the Svelte/PixiJS frontend, verifies Cargo metadata under `--locked`, checks Rust formatting, runs Clippy with `-D warnings`, and runs Rust tests with locked dependencies.
 
-This closes dependency-resolution reproducibility. It does not replace the still-required successful clean executable/NSIS run, production CSP verification, or RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
+`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate and `docs/VALIDATION_BASELINE.md` records the clean frontend/Rust gate. The manual Windows Bundle workflow consumes the same committed dependency graphs rather than generating independent candidates.
+
+Source-level validation and dependency-resolution reproducibility are therefore closed. They do not replace the still-required successful clean executable/NSIS bundle run, production CSP verification, or RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
 
 ## Next engineering sequence
 
 ```text
-Windows validation evidence / clean bundle
+clean Windows NSIS bundle
   ↓
 canonical Lenvu production master
   ↓
