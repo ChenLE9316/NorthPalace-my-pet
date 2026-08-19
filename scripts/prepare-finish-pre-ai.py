@@ -9,7 +9,6 @@ if text.count(queue_block) != 1:
     raise RuntimeError("queue_memory precondition block changed")
 text = text.replace(queue_block, queue_block.replace("expected=2", "expected=1"))
 
-# README bundle wording advanced after the first finish patch was drafted.
 start_marker = '''literal(\n    "README.md",\n    "`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate'''
 next_marker = '''literal(\n    "README.md",\n    "canonical Lenvu production master'''
 start = text.find(start_marker)
@@ -25,11 +24,10 @@ if text.count(needle) != 1:
 text = text.replace(needle, replacement)
 path.write_text(text, encoding="utf-8", newline="\n")
 
-# Materialize the robust follow-up inside the runner. The evaluator uses the same INSERT columns
-# once in production and once in its manual-authority test, so both column lists gain `origin`;
-# the two VALUES clauses remain distinct and are tagged automatic/manual respectively.
 robust = root / "scripts/finish-pre-ai-followup-v2.py"
 robust_text = robust.read_text(encoding="utf-8")
+
+# Both evaluator INSERT column lists gain durable origin. Values remain separately tagged below.
 old_call = '''replace(\n    "src-tauri/src/memory_evaluator.rs",\n    "INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)",\n    "INSERT INTO memories (kind, content, importance, source_event_id, origin, created_at_ms, updated_at_ms)",\n)'''
 new_call = old_call[:-1] + '    count=2,\n)'
 if robust_text.count(old_call) != 1:
@@ -42,9 +40,25 @@ if robust_text.count(manual_anchor) != 1:
     raise RuntimeError("could not add evaluator manual-origin seed")
 robust_text = robust_text.replace(manual_anchor, manual_patch)
 
+# SQL schema rewrites match only the stable column token, never Rust string-line escaping.
+for path_name in ["src-tauri/src/memory_evaluator.rs", "src-tauri/src/memory_admin.rs"]:
+    old = f'''replace(\n    "{path_name}",\n    ''' + "'''" + '''                   source_event_id INTEGER,\n                   created_at_ms INTEGER NOT NULL,\n''' + "'''" + ''',\n    ''' + "'''" + '''                   source_event_id INTEGER,\n                   origin TEXT NOT NULL DEFAULT 'manual',\n                   created_at_ms INTEGER NOT NULL,\n''' + "'''" + ''',\n)'''
+    new = f'''replace(\n    "{path_name}",\n    "source_event_id INTEGER,",\n    "source_event_id INTEGER, origin TEXT NOT NULL DEFAULT 'manual',",\n)'''
+    if robust_text.count(old) != 1:
+        raise RuntimeError(f"could not simplify schema origin rewrite for {path_name}")
+    robust_text = robust_text.replace(old, new)
+
+persistence_old_start = '''replace(\n    "src-tauri/src/persistence.rs",\n    "source_event_id INTEGER,",\n    "source_event_id INTEGER,'''
+p_start = robust_text.find(persistence_old_start)
+p_end = robust_text.find("\n)\nreplace(\n    \"src-tauri/src/persistence.rs\",\n    \"PRAGMA user_version = 2;\"", p_start)
+if p_start < 0 or p_end < 0:
+    raise RuntimeError("could not isolate persistence origin schema rewrite")
+persistence_new = '''replace(\n    "src-tauri/src/persistence.rs",\n    "source_event_id INTEGER,",\n    "source_event_id INTEGER, origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'automatic')),",\n    count=2,\n)'''
+robust_text = robust_text[:p_start] + persistence_new + robust_text[p_end + 2:]
+
 (root / "scripts/finish-pre-ai-followup.py").write_text(
     robust_text,
     encoding="utf-8",
     newline="\n",
 )
-print("Corrected current-state finish patch and materialized origin-safe semantic hardening.")
+print("Corrected finish patch and removed newline-sensitive SQLite schema rewrites.")
