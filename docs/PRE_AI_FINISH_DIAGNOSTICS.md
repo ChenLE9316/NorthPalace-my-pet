@@ -1,6 +1,6 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: 4ae98281093f245f56a3cf600b50cf7951f82178
+- Source commit: 6d447c774dcb70177d2803e3c5d2af73e830e739
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
@@ -25,7 +25,7 @@ Traceback (most recent call last):
     replace(
   File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in replace
     raise RuntimeError(f"{path}: expected {count} match(es), found {actual}: {old!r}")
-RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 2: 'INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)'
+RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: 'INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)\\n\\\\n             VALUES (?1, ?2, ?3, ?4, ?5, ?5)'
 ``
 
 ## Svelte TS6
