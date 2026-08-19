@@ -1,6 +1,6 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: 70a61135878e2654581537f565135ec49b0c0107
+- Source commit: e85749ca153afa32d3551964d29cdc3336bc2a10
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
@@ -17,15 +17,10 @@
 
 ## Patch
 ``text
-Corrected current-state finish patch and materialized origin-safe semantic hardening.
-Pre-AI finish patch applied.
-Current-state README semantics finalized.
 Traceback (most recent call last):
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 162, in <module>
-    replace(
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in replace
-    raise RuntimeError(f"{path}: expected {count} match(es), found {actual}: {old!r}")
-RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: '                   source_event_id INTEGER,\n                   created_at_ms INTEGER NOT NULL,'
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\prepare-finish-pre-ai.py", line 48, in <module>
+    raise RuntimeError(f"could not simplify schema origin rewrite for {path_name}")
+RuntimeError: could not simplify schema origin rewrite for src-tauri/src/memory_evaluator.rs
 ``
 
 ## Svelte TS6
