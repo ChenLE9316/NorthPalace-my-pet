@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "characterId": "lenvu",
-  "status": "awaiting_source_faithful_candidate_artwork",
+  "status": "source_normalization_staging_ready_candidate_artwork_pending",
   "candidateKind": "canonical_master_review_sheet",
   "runtimeAsset": false,
   "authority": {
@@ -10,6 +10,26 @@
     "landmarks": "assets/runtime/lenvu/source-notes/master-landmarks.json",
     "sourceMeasurement": "assets/runtime/lenvu/source-notes/source-measurement.json",
     "referenceManifest": "assets/reference/manifest.json"
+  },
+  "sourceDerivedStaging": {
+    "method": "direct_source_crop_plus_measured_authoring_space_transform",
+    "redrawn": false,
+    "generatedArtwork": false,
+    "productionArtwork": false,
+    "contactSheet": "assets/runtime/lenvu/master/review/lenvu-source-normalization-contact-sheet-v1.svg",
+    "normalizedViews": {
+      "front": "assets/runtime/lenvu/master/review/source-normalized/front-neutral-source-v1.svg",
+      "leftProfile": "assets/runtime/lenvu/master/review/source-normalized/left-profile-source-v1.svg",
+      "back": "assets/runtime/lenvu/master/review/source-normalized/back-neutral-source-v1.svg"
+    },
+    "authoringCanvas": {
+      "width": 1024,
+      "height": 1024,
+      "targetTopY": 0.05,
+      "targetGroundY": 0.86,
+      "targetRootX": 0.5
+    },
+    "note": "These files are source-derived alignment/review aids only. They do not satisfy the canonical master artwork gate and must never be wired into the runtime manifest as production textures."
   },
   "artifact": {
     "path": "assets/runtime/lenvu/master/review/lenvu-canonical-master-review-v1.webp",
