@@ -1,0 +1,240 @@
+name: Finish Pre-AI Foundation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/finish-pre-ai.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: finish-pre-ai-foundation
+  cancel-in-progress: true
+
+jobs:
+  finish:
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+
+      - name: Apply reviewed finish patch
+        id: patch
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          python scripts/finish-pre-ai.py 2>&1 | Tee-Object patch.log
+          exit $LASTEXITCODE
+
+      - name: Install locked frontend dependencies
+        id: npm_ci
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate tracked repository data
+        id: tracked
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: npm run validate:repo
+
+      - name: Validate tracked source secrets
+        id: secrets
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: npm run validate:secrets
+
+      - name: Check Svelte TypeScript 6
+        id: svelte6
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run check:svelte 2>&1 | Tee-Object svelte6.log
+          exit $LASTEXITCODE
+
+      - name: Check Svelte TypeScript 7 tsgo
+        id: svelte7
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run check:svelte:tsgo 2>&1 | Tee-Object svelte7.log
+          exit $LASTEXITCODE
+
+      - name: Build frontend and validate Lenvu assets
+        id: frontend
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          npm run build 2>&1 | Tee-Object frontend.log
+          exit $LASTEXITCODE
+
+      - name: Format Rust
+        id: fmt
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Verify Rust formatting
+        id: fmt_check
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check 2>&1 | Tee-Object fmt.log
+          exit $LASTEXITCODE
+
+      - name: Verify locked Cargo graph
+        id: cargo_lock
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        run: cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > NUL
+
+      - name: Verify Clippy
+        id: clippy
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings 2>&1 | Tee-Object clippy.log
+          exit $LASTEXITCODE
+
+      - name: Test Rust
+        id: tests
+        if: steps.patch.outcome == 'success'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          cargo test --locked --manifest-path src-tauri/Cargo.toml 2>&1 | Tee-Object tests.log
+          exit $LASTEXITCODE
+
+      - name: Publish result
+        if: always()
+        shell: pwsh
+        run: |
+          $success = (
+            "${{ steps.patch.outcome }}" -eq "success" -and
+            "${{ steps.npm_ci.outcome }}" -eq "success" -and
+            "${{ steps.tracked.outcome }}" -eq "success" -and
+            "${{ steps.secrets.outcome }}" -eq "success" -and
+            "${{ steps.svelte6.outcome }}" -eq "success" -and
+            "${{ steps.svelte7.outcome }}" -eq "success" -and
+            "${{ steps.frontend.outcome }}" -eq "success" -and
+            "${{ steps.fmt.outcome }}" -eq "success" -and
+            "${{ steps.fmt_check.outcome }}" -eq "success" -and
+            "${{ steps.cargo_lock.outcome }}" -eq "success" -and
+            "${{ steps.clippy.outcome }}" -eq "success" -and
+            "${{ steps.tests.outcome }}" -eq "success"
+          )
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if ($success) {
+            $timestamp = (Get-Date).ToUniversalTime().ToString("o")
+            $report = @(
+              "# Pre-AI Finish Baseline",
+              "",
+              "Machine-generated on a clean GitHub-hosted windows-latest runner.",
+              "",
+              "- Source commit: $env:GITHUB_SHA",
+              "- Recorded at (UTC): $timestamp",
+              "- Node.js: $((node --version | Out-String).Trim())",
+              "- npm: $((npm --version | Out-String).Trim())",
+              "- rustc: $((rustc --version | Out-String).Trim())",
+              "- cargo: $((cargo --version | Out-String).Trim())",
+              "",
+              "| Check | Outcome |",
+              "|---|---|",
+              "| reviewed finish patch | success |",
+              "| npm ci | success |",
+              "| tracked-data guard | success |",
+              "| credential-like source guard | success |",
+              "| Svelte TS6 fail-on-warnings | success |",
+              "| Svelte TS7 tsgo fail-on-warnings | success |",
+              "| frontend + Lenvu asset validation | success |",
+              "| cargo fmt --check | success |",
+              "| cargo metadata --locked | success |",
+              "| cargo clippy -D warnings | success |",
+              "| cargo test --locked | success |",
+              "",
+              "This baseline validates the deterministic Memory Evaluator, persistence-owner backup, deep worker diagnostics, CSP smoke instrumentation, secret guard, target benchmark harness, and source-derived visual evidence additions. Production bundle/CSP runtime evidence is recorded separately by the permanent Windows Bundle workflow."
+            )
+            $report | Set-Content docs/PRE_AI_FINISH_BASELINE.md -Encoding utf8
+            if (Test-Path docs/PRE_AI_FINISH_DIAGNOSTICS.md) { git rm docs/PRE_AI_FINISH_DIAGNOSTICS.md }
+            git add -A
+            git commit -m "feat: finish pre-AI local foundation"
+            git push origin HEAD:main
+            exit 0
+          }
+
+          $patch = if (Test-Path patch.log) { (Get-Content patch.log -Tail 160) -join "`n" } else { "not run" }
+          $svelte6 = if (Test-Path svelte6.log) { (Get-Content svelte6.log -Tail 120) -join "`n" } else { "not run" }
+          $svelte7 = if (Test-Path svelte7.log) { (Get-Content svelte7.log -Tail 120) -join "`n" } else { "not run" }
+          $frontend = if (Test-Path frontend.log) { (Get-Content frontend.log -Tail 120) -join "`n" } else { "not run" }
+          $clippy = if (Test-Path clippy.log) { (Get-Content clippy.log -Tail 220) -join "`n" } else { "not run" }
+          $tests = if (Test-Path tests.log) { (Get-Content tests.log -Tail 160) -join "`n" } else { "not run" }
+          git reset --hard HEAD
+          git clean -fd
+          $report = @(
+            "# Pre-AI Finish Diagnostics",
+            "",
+            "- Source commit: $env:GITHUB_SHA",
+            "- patch: ${{ steps.patch.outcome }}",
+            "- npm ci: ${{ steps.npm_ci.outcome }}",
+            "- tracked: ${{ steps.tracked.outcome }}",
+            "- secrets: ${{ steps.secrets.outcome }}",
+            "- Svelte TS6: ${{ steps.svelte6.outcome }}",
+            "- Svelte TS7: ${{ steps.svelte7.outcome }}",
+            "- frontend: ${{ steps.frontend.outcome }}",
+            "- fmt: ${{ steps.fmt.outcome }}",
+            "- fmt check: ${{ steps.fmt_check.outcome }}",
+            "- Cargo lock: ${{ steps.cargo_lock.outcome }}",
+            "- Clippy: ${{ steps.clippy.outcome }}",
+            "- tests: ${{ steps.tests.outcome }}",
+            "",
+            "## Patch",
+            "````text", $patch, "````",
+            "",
+            "## Svelte TS6",
+            "````text", $svelte6, "````",
+            "",
+            "## Svelte TS7",
+            "````text", $svelte7, "````",
+            "",
+            "## Frontend",
+            "````text", $frontend, "````",
+            "",
+            "## Clippy",
+            "````text", $clippy, "````",
+            "",
+            "## Tests",
+            "````text", $tests, "````"
+          )
+          $report | Set-Content docs/PRE_AI_FINISH_DIAGNOSTICS.md -Encoding utf8
+          git add docs/PRE_AI_FINISH_DIAGNOSTICS.md
+          git commit -m "ci: record pre-AI finish diagnostics"
+          git push origin HEAD:main
+          exit 1
