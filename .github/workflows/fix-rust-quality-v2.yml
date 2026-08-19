@@ -131,31 +131,31 @@ jobs:
             $npm = (npm --version | Out-String).Trim()
             $rustc = (rustc --version | Out-String).Trim()
             $cargo = (cargo --version | Out-String).Trim()
-            $report = @"
-# Windows Validation Baseline
-
-Machine-generated on a clean GitHub-hosted windows-latest runner after the Rust quality-gate repair.
-
-- Validated working-tree parent: $env:GITHUB_SHA
-- Recorded at (UTC): $timestamp
-- Node.js: $node
-- npm: $npm
-- rustc: $rustc
-- cargo: $cargo
-
-| Check | Outcome |
-|---|---|
-| tracked local/private data guard | success |
-| npm ci from committed package-lock.json | success |
-| Svelte / PixiJS production build | success |
-| cargo metadata --locked | success |
-| cargo fmt --check | success |
-| cargo clippy --locked --all-targets -- -D warnings | success |
-| cargo test --locked | success |
-
-This is source-validation evidence only. NSIS execution/bundle verification and Ryzen 3 2200G target-machine performance remain separate acceptance gates.
-"@
-            Set-Content docs/VALIDATION_BASELINE.md -Value $report -Encoding utf8
+            $report = @(
+              "# Windows Validation Baseline",
+              "",
+              "Machine-generated on a clean GitHub-hosted windows-latest runner after the Rust quality-gate repair.",
+              "",
+              "- Validated working-tree parent: $env:GITHUB_SHA",
+              "- Recorded at (UTC): $timestamp",
+              "- Node.js: $node",
+              "- npm: $npm",
+              "- rustc: $rustc",
+              "- cargo: $cargo",
+              "",
+              "| Check | Outcome |",
+              "|---|---|",
+              "| tracked local/private data guard | success |",
+              "| npm ci from committed package-lock.json | success |",
+              "| Svelte / PixiJS production build | success |",
+              "| cargo metadata --locked | success |",
+              "| cargo fmt --check | success |",
+              "| cargo clippy --locked --all-targets -- -D warnings | success |",
+              "| cargo test --locked | success |",
+              "",
+              "This is source-validation evidence only. NSIS execution/bundle verification and Ryzen 3 2200G target-machine performance remain separate acceptance gates."
+            )
+            $report | Set-Content docs/VALIDATION_BASELINE.md -Encoding utf8
             if (Test-Path docs/CI_DIAGNOSTICS.md) { git rm docs/CI_DIAGNOSTICS.md }
             if (Test-Path docs/RUST_QUALITY_REPAIR.md) { git rm docs/RUST_QUALITY_REPAIR.md }
             git add src-tauri docs/VALIDATION_BASELINE.md
@@ -170,42 +170,42 @@ This is source-validation evidence only. NSIS execution/bundle verification and 
           $clippy = if (Test-Path clippy.log) { (Get-Content clippy.log -Tail 220) -join "`n" } else { "not run or no output" }
           $tests = if (Test-Path tests.log) { (Get-Content tests.log -Tail 120) -join "`n" } else { "not run or no output" }
           $timestamp = (Get-Date).ToUniversalTime().ToString("o")
-          $failure = @"
-# Rust Quality Repair Diagnostics
-
-- Source commit: $env:GITHUB_SHA
-- Recorded at (UTC): $timestamp
-- patch: ${{ steps.patch.outcome }}
-- rustfmt: ${{ steps.fmt.outcome }}
-- rustfmt check: ${{ steps.fmt_check.outcome }}
-- cargo lock: ${{ steps.cargo_lock.outcome }}
-- Clippy: ${{ steps.clippy.outcome }}
-- tests: ${{ steps.tests.outcome }}
-- npm ci: ${{ steps.npm_ci.outcome }}
-- frontend build: ${{ steps.frontend.outcome }}
-- tracked-data guard: ${{ steps.tracked.outcome }}
-
-## Repair step
-````text
-$repair
-````
-
-## rustfmt check
-````text
-$fmt
-````
-
-## Clippy
-````text
-$clippy
-````
-
-## Tests
-````text
-$tests
-````
-"@
-          Set-Content docs/RUST_QUALITY_REPAIR.md -Value $failure -Encoding utf8
+          $failure = @(
+            "# Rust Quality Repair Diagnostics",
+            "",
+            "- Source commit: $env:GITHUB_SHA",
+            "- Recorded at (UTC): $timestamp",
+            "- patch: ${{ steps.patch.outcome }}",
+            "- rustfmt: ${{ steps.fmt.outcome }}",
+            "- rustfmt check: ${{ steps.fmt_check.outcome }}",
+            "- cargo lock: ${{ steps.cargo_lock.outcome }}",
+            "- Clippy: ${{ steps.clippy.outcome }}",
+            "- tests: ${{ steps.tests.outcome }}",
+            "- npm ci: ${{ steps.npm_ci.outcome }}",
+            "- frontend build: ${{ steps.frontend.outcome }}",
+            "- tracked-data guard: ${{ steps.tracked.outcome }}",
+            "",
+            "## Repair step",
+            "````text",
+            $repair,
+            "````",
+            "",
+            "## rustfmt check",
+            "````text",
+            $fmt,
+            "````",
+            "",
+            "## Clippy",
+            "````text",
+            $clippy,
+            "````",
+            "",
+            "## Tests",
+            "````text",
+            $tests,
+            "````"
+          )
+          $failure | Set-Content docs/RUST_QUALITY_REPAIR.md -Encoding utf8
           git add docs/RUST_QUALITY_REPAIR.md
           git commit -m "ci: record Rust repair diagnostics v2"
           git push origin HEAD:main
