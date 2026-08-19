@@ -27,8 +27,17 @@ text = text.replace(needle, replacement)
 path.write_text(text, encoding="utf-8", newline="\n")
 
 # Replace the first brittle follow-up implementation only inside the clean runner worktree.
+# The evaluator contains the same INSERT column-list in production code and in a test seed, so
+# narrow the origin rewrite to the parameterized production INSERT + VALUES pair. This keeps
+# the manual-authority test seed untouched and gives the precondition exactly one match.
 robust = root / "scripts/finish-pre-ai-followup-v2.py"
+robust_text = robust.read_text(encoding="utf-8")
+brittle = '''replace(\n    "src-tauri/src/memory_evaluator.rs",\n    "INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)",\n    "INSERT INTO memories (kind, content, importance, source_event_id, origin, created_at_ms, updated_at_ms)",\n)\nreplace(\n    "src-tauri/src/memory_evaluator.rs",\n    "VALUES (?1, ?2, ?3, ?4, ?5, ?5)",\n    "VALUES (?1, ?2, ?3, ?4, 'automatic', ?5, ?5)",\n)'''
+precise = '''replace(\n    "src-tauri/src/memory_evaluator.rs",\n    "INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)\\\\n\\\\\\\\n             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",\n    "INSERT INTO memories (kind, content, importance, source_event_id, origin, created_at_ms, updated_at_ms)\\\\n\\\\\\\\n             VALUES (?1, ?2, ?3, ?4, 'automatic', ?5, ?5)",\n)'''
+if robust_text.count(brittle) != 1:
+    raise RuntimeError("could not narrow evaluator production INSERT precondition")
+robust_text = robust_text.replace(brittle, precise)
 followup = root / "scripts/finish-pre-ai-followup.py"
-followup.write_text(robust.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+followup.write_text(robust_text, encoding="utf-8", newline="\n")
 
 print("Corrected finish-patch preconditions and selected robust semantic hardening v2.")
