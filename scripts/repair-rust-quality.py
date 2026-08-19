@@ -82,7 +82,23 @@ literal(
 ''',
 )
 
-# Domain contract is intentionally ahead of a future object-attention producer.
+# Keep future-facing Pet State contracts without weakening the global -D warnings gate.
+literal(
+    "src-tauri/src/domain/pet_state.rs",
+    '''    Stationary,
+    Walk,
+    Run,
+    Jump,
+''',
+    '''    Stationary,
+    Walk,
+    // Reserved for production locomotion/animation families not yet emitted by PetBrainV2.
+    #[allow(dead_code)]
+    Run,
+    #[allow(dead_code)]
+    Jump,
+''',
+)
 literal(
     "src-tauri/src/domain/pet_state.rs",
     '''    Window,
@@ -92,6 +108,65 @@ literal(
     // Reserved for future object-level structured attention; current producers stop at window/cursor.
     #[allow(dead_code)]
     Object,
+''',
+)
+literal(
+    "src-tauri/src/domain/pet_state.rs",
+    '''    Calm,
+    Curious,
+    Happy,
+    Shy,
+    Concerned,
+    Sleepy,
+''',
+    '''    Calm,
+    Curious,
+    Happy,
+    // Reserved for deeper personality/relationship reactions.
+    #[allow(dead_code)]
+    Shy,
+    #[allow(dead_code)]
+    Concerned,
+    Sleepy,
+''',
+)
+literal(
+    "src-tauri/src/domain/pet_state.rs",
+    '''    Idle,
+    Listening,
+    Thinking,
+    Speaking,
+    Remembering,
+''',
+    '''    Idle,
+    // Reserved for the future unloadable cognition layer; AI is intentionally not implemented yet.
+    #[allow(dead_code)]
+    Listening,
+    #[allow(dead_code)]
+    Thinking,
+    #[allow(dead_code)]
+    Speaking,
+    #[allow(dead_code)]
+    Remembering,
+''',
+)
+
+# Facing is now needed only by the PetBrainV2 tests after state-initializer cleanup.
+literal(
+    "src-tauri/src/domain/pet_v2.rs",
+    '''    pet_state::{Attention, Emotion, Facing, Locomotion, PetMode, PetStateV2, Posture},
+''',
+    '''    pet_state::{Attention, Emotion, Locomotion, PetMode, PetStateV2, Posture},
+''',
+)
+literal(
+    "src-tauri/src/domain/pet_v2.rs",
+    '''mod tests {
+    use super::*;
+''',
+    '''mod tests {
+    use super::*;
+    use crate::domain::pet_state::Facing;
 ''',
 )
 
