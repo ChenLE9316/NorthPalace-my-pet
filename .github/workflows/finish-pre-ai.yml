@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - .github/workflows/finish-pre-ai.yml
+      - scripts/prepare-finish-pre-ai.py
+      - scripts/finish-pre-ai.py
+      - scripts/finish-pre-ai-followup.py
+      - scripts/finish-pre-ai-finalize.py
 
 permissions:
   contents: write
