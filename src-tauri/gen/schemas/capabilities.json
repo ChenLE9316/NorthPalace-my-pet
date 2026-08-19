@@ -1,1 +1,0 @@
-{"pet-window":{"identifier":"pet-window","description":"Window permissions required by the interactive Lenvu pet overlay.","local":true,"windows":["pet"],"permissions":["core:window:default","core:window:allow-start-dragging"]}}
