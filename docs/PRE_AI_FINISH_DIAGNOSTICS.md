@@ -1,6 +1,6 @@
 # Pre-AI Finish Diagnostics
 
-- Source commit: 6d447c774dcb70177d2803e3c5d2af73e830e739
+- Source commit: 70a61135878e2654581537f565135ec49b0c0107
 - patch: failure
 - npm ci: skipped
 - tracked: skipped
@@ -17,15 +17,15 @@
 
 ## Patch
 ``text
-Corrected finish-patch preconditions and selected robust semantic hardening v2.
+Corrected current-state finish patch and materialized origin-safe semantic hardening.
 Pre-AI finish patch applied.
 Current-state README semantics finalized.
 Traceback (most recent call last):
-  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 119, in <module>
+  File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 162, in <module>
     replace(
   File "D:\a\NorthPalace-my-pet\NorthPalace-my-pet\scripts\finish-pre-ai-followup.py", line 20, in replace
     raise RuntimeError(f"{path}: expected {count} match(es), found {actual}: {old!r}")
-RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: 'INSERT INTO memories (kind, content, importance, source_event_id, created_at_ms, updated_at_ms)\\n\\\\n             VALUES (?1, ?2, ?3, ?4, ?5, ?5)'
+RuntimeError: src-tauri/src/memory_evaluator.rs: expected 1 match(es), found 0: '                   source_event_id INTEGER,\n                   created_at_ms INTEGER NOT NULL,'
 ``
 
 ## Svelte TS6
