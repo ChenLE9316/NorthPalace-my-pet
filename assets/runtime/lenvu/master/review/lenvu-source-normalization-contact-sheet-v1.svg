@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120">
+  <defs>
+    <style>
+      .bg { fill: #0b1220; }
+      .panel { fill: #111a2b; stroke: #2a3c55; stroke-width: 2; }
+      .title { fill: #f3f7fb; font-family: Segoe UI, Arial, sans-serif; font-size: 34px; font-weight: 700; }
+      .subtitle { fill: #8fa8c2; font-family: Segoe UI, Arial, sans-serif; font-size: 16px; }
+      .label { fill: #d8e7f5; font-family: Segoe UI, Arial, sans-serif; font-size: 17px; font-weight: 600; }
+      .meta { fill: #89a1b9; font-family: Consolas, monospace; font-size: 13px; }
+      .warning { fill: #f6c85f; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; font-weight: 600; }
+      .ground { stroke: #49d8e8; stroke-width: 2; stroke-dasharray: 8 8; opacity: .8; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1600" height="1120"/>
+  <text class="title" x="48" y="58">Lenvu — Source-derived Normalization Contact Sheet v1</text>
+  <text class="subtitle" x="48" y="88">Direct crops from assets/reference/anatomy/lenvu-anatomy-reference.webp · no redrawing · no generated anatomy</text>
+  <text class="warning" x="48" y="116">REVIEW ONLY — NOT CANONICAL MASTER ART — NOT A RUNTIME TEXTURE</text>
+
+  <!-- FRONT -->
+  <g transform="translate(48 150)">
+    <rect class="panel" width="310" height="540" rx="12"/>
+    <text class="label" x="18" y="30">FRONT NEUTRAL</text>
+    <text class="meta" x="18" y="52">source region: x35 y15 w220 h510</text>
+    <svg x="18" y="68" width="274" height="438" viewBox="35 15 220 510" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <line class="ground" x1="18" y1="506" x2="292" y2="506"/>
+    <text class="meta" x="18" y="528">measured ground contact: source y=515</text>
+  </g>
+
+  <!-- LEFT PROFILE -->
+  <g transform="translate(378 150)">
+    <rect class="panel" width="450" height="540" rx="12"/>
+    <text class="label" x="18" y="30">LEFT PROFILE NEUTRAL</text>
+    <text class="meta" x="18" y="52">source region: x285 y15 w585 h510</text>
+    <svg x="18" y="68" width="414" height="438" viewBox="285 15 585 510" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <line class="ground" x1="18" y1="506" x2="432" y2="506"/>
+    <text class="meta" x="18" y="528">nose / shoulder / hip / paws / tail-base measured from source</text>
+  </g>
+
+  <!-- BACK -->
+  <g transform="translate(848 150)">
+    <rect class="panel" width="300" height="540" rx="12"/>
+    <text class="label" x="18" y="30">BACK NEUTRAL</text>
+    <text class="meta" x="18" y="52">source region: x880 y15 w205 h510</text>
+    <svg x="18" y="68" width="264" height="438" viewBox="880 15 205 510" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <line class="ground" x1="18" y1="506" x2="282" y2="506"/>
+    <text class="meta" x="18" y="528">spine center / rear paws / tail-base measured</text>
+  </g>
+
+  <!-- THREE QUARTER EVIDENCE -->
+  <g transform="translate(1168 150)">
+    <rect class="panel" width="384" height="540" rx="12"/>
+    <text class="label" x="18" y="30">3/4 SOURCE EVIDENCE</text>
+    <text class="meta" x="18" y="52">source region: x1100 y15 w420 h510</text>
+    <svg x="18" y="68" width="348" height="438" viewBox="1100 15 420 510" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <text class="meta" x="18" y="528">use as source evidence; do not infer mirrored identity</text>
+  </g>
+
+  <!-- HEAD FRONT -->
+  <g transform="translate(48 714)">
+    <rect class="panel" width="350" height="348" rx="12"/>
+    <text class="label" x="18" y="30">HEAD / IDENTITY — FRONT</text>
+    <text class="meta" x="18" y="52">source region: x30 y525 w315 h485</text>
+    <svg x="18" y="68" width="314" height="244" viewBox="30 525 315 485" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <text class="meta" x="18" y="330">R eye cyan · L eye violet · L horn gold accent · centered glyph</text>
+  </g>
+
+  <!-- HEAD PROFILE -->
+  <g transform="translate(418 714)">
+    <rect class="panel" width="350" height="348" rx="12"/>
+    <text class="label" x="18" y="30">HEAD / IDENTITY — PROFILE</text>
+    <text class="meta" x="18" y="52">source region: x360 y525 w345 h485</text>
+    <svg x="18" y="68" width="314" height="244" viewBox="360 525 345 485" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <text class="meta" x="18" y="330">elongated canine muzzle · tall ears · segmented dark horns</text>
+  </g>
+
+  <!-- DETAIL STRIP -->
+  <g transform="translate(788 714)">
+    <rect class="panel" width="764" height="348" rx="12"/>
+    <text class="label" x="18" y="30">DETAIL STRIP — PAWS / LUMEN-CODE / TAIL</text>
+    <text class="meta" x="18" y="52">source region: x705 y550 w810 h460</text>
+    <svg x="18" y="68" width="728" height="244" viewBox="705 550 810 460" preserveAspectRatio="xMidYMid meet" overflow="hidden">
+      <image href="../../../../reference/anatomy/lenvu-anatomy-reference.webp" x="0" y="0" width="1536" height="1024"/>
+    </svg>
+    <text class="meta" x="18" y="330">cyan structural routes · physical fluffy tail base → holographic cyan terminal</text>
+  </g>
+
+  <text class="subtitle" x="48" y="1096">Authority: docs/LENVU_VISUAL_GROUND_TRUTH.md · measurements: assets/runtime/lenvu/source-notes/source-measurement.json</text>
+</svg>
