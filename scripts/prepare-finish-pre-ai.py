@@ -24,6 +24,7 @@ chained = needle + '''\nimport runpy
 runpy.run_path(str(ROOT / "scripts/finish-pre-ai-finalize.py"), run_name="__main__")
 runpy.run_path(str(ROOT / "scripts/finish-pre-ai-hardening.py"), run_name="__main__")
 runpy.run_path(str(ROOT / "scripts/finish-pre-ai-gate-fix.py"), run_name="__main__")
+runpy.run_path(str(ROOT / "scripts/finish-pre-ai-ci-fix.py"), run_name="__main__")
 '''
 if text.count(needle) != 1:
     raise RuntimeError("could not chain stable pre-AI finalizers")
@@ -36,4 +37,4 @@ base.write_text(text, encoding="utf-8", newline="\n")
     newline="\n",
 )
 
-print("Prepared simplified base + hardening + final gate-fix patch chain.")
+print("Prepared simplified base + hardening + gate + permanent CI wrapper patch chain.")
