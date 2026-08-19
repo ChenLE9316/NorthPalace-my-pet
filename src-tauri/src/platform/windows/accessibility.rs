@@ -1,14 +1,12 @@
 use std::time::{Duration, Instant};
 
-use windows::{
-    Win32::{
-        Foundation::RECT,
-        System::Com::{
-            CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
-            COINIT_MULTITHREADED,
-        },
-        UI::Accessibility::{CUIAutomation, IUIAutomation},
+use windows::Win32::{
+    Foundation::RECT,
+    System::Com::{
+        CLSCTX_INPROC_SERVER, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx,
+        CoUninitialize,
     },
+    UI::Accessibility::{CUIAutomation, IUIAutomation},
 };
 
 use crate::{
@@ -28,7 +26,9 @@ impl ComApartment {
     fn initialize() -> Result<Self, String> {
         unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) }
             .ok()
-            .map_err(|error| format!("failed to initialize COM for accessibility context: {error}"))?;
+            .map_err(|error| {
+                format!("failed to initialize COM for accessibility context: {error}")
+            })?;
         Ok(Self)
     }
 }
@@ -48,10 +48,10 @@ struct AccessibilityReader {
 impl AccessibilityReader {
     fn new() -> Result<Self, String> {
         let apartment = ComApartment::initialize()?;
-        let automation: IUIAutomation = unsafe {
-            CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER)
-        }
-        .map_err(|error| format!("failed to create Windows UI Automation client: {error}"))?;
+        let automation: IUIAutomation =
+            unsafe { CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER) }.map_err(
+                |error| format!("failed to create Windows UI Automation client: {error}"),
+            )?;
 
         Ok(Self {
             automation,
@@ -66,7 +66,9 @@ impl AccessibilityReader {
             return None;
         }
 
-        let control_type_id = unsafe { element.CurrentControlType() }.ok().map(|value| value.0);
+        let control_type_id = unsafe { element.CurrentControlType() }
+            .ok()
+            .map(|value| value.0);
         let is_enabled = unsafe { element.CurrentIsEnabled() }
             .ok()
             .map(|value| value.as_bool());
@@ -223,12 +225,14 @@ mod tests {
 
     #[test]
     fn invalid_accessibility_bounds_are_not_exposed() {
-        assert!(bounds_from_rect(RECT {
-            left: 10,
-            top: 20,
-            right: 10,
-            bottom: 40,
-        })
-        .is_none());
+        assert!(
+            bounds_from_rect(RECT {
+                left: 10,
+                top: 20,
+                right: 10,
+                bottom: 40,
+            })
+            .is_none()
+        );
     }
 }

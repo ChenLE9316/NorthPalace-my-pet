@@ -31,8 +31,7 @@ impl PersonalityProfile {
         context: AmbientContext,
         decision_index: u64,
     ) -> Option<AmbientAction> {
-        if context.elapsed_ms < self.ambient_decision_interval_ms
-            || context.user_idle_ms >= 60_000
+        if context.elapsed_ms < self.ambient_decision_interval_ms || context.user_idle_ms >= 60_000
         {
             return None;
         }
@@ -83,16 +82,11 @@ impl PersonalityProfile {
                 * daytime
                 * (0.55 + self.independence * 0.45);
 
-        let observe = 0.08
-            + self.sociability
-                * (0.25 + bond * 0.75)
-                * (0.35 + active_user * 0.65);
+        let observe = 0.08 + self.sociability * (0.25 + bond * 0.75) * (0.35 + active_user * 0.65);
 
         let sit = 0.06
             + self.calmness
-                * ((1.0 - energy) * 0.45
-                    + sleep_pressure * 0.55
-                    + (1.0 - active_user) * 0.15);
+                * ((1.0 - energy) * 0.45 + sleep_pressure * 0.55 + (1.0 - active_user) * 0.15);
 
         let stay = 0.22 + self.calmness * 0.25 + (1.0 - wakefulness) * 0.18;
 
@@ -136,8 +130,7 @@ fn context_seed(context: AmbientContext, decision_index: u64) -> u64 {
     let bond = quantize(context.bond);
     let sleep_pressure = quantize(context.sleep_pressure);
 
-    decision_index
-        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+    decision_index.wrapping_mul(0x9E37_79B9_7F4A_7C15)
         ^ ((context.hour as u64) << 56)
         ^ (energy << 40)
         ^ (curiosity << 24)

@@ -3,9 +3,7 @@ use std::{sync::Arc, time::Duration};
 use tauri::{Emitter, Manager};
 
 use crate::{
-    persistence::{
-        spawn_autosave, spawn_event_journal, PersistenceBootstrap, PersistenceService,
-    },
+    persistence::{PersistenceBootstrap, PersistenceService, spawn_autosave, spawn_event_journal},
     privacy::PrivacyPolicyService,
     runtime::{RuntimeHandle, SnapshotObserver},
     worker::{WorkerPhase, WorkerSupervisor},
@@ -35,12 +33,12 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
         }
     };
 
-    if let Some(data_dir) = &local_data_dir {
-        if let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json")) {
-            eprintln!(
-                "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
-            );
-        }
+    if let Some(data_dir) = &local_data_dir
+        && let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json"))
+    {
+        eprintln!(
+            "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
+        );
     }
 
     let persistence_bootstrap = if let Some(data_dir) = local_data_dir {
@@ -78,10 +76,10 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
         let persistence_supervisor = worker_supervisor.in_phase(WorkerPhase::Persistence);
         match bootstrap.into_worker(&persistence_supervisor) {
             Ok(persistence) => {
-                if !persistence.had_saved_state() {
-                    if let Err(error) = persistence.queue_save(initial_state) {
-                        eprintln!("Lenvu initial persistence save failed: {error}");
-                    }
+                if !persistence.had_saved_state()
+                    && let Err(error) = persistence.queue_save(initial_state)
+                {
+                    eprintln!("Lenvu initial persistence save failed: {error}");
                 }
                 if let Err(error) = persistence_service.install(persistence.clone()) {
                     eprintln!("Lenvu persistence service install failed: {error}");
@@ -102,11 +100,9 @@ pub(crate) fn initialize_runtime<R: tauri::Runtime>(
     }
 
     let journal_supervisor = worker_supervisor.in_phase(WorkerPhase::Journal);
-    if let Err(error) = spawn_event_journal(
-        runtime.clone(),
-        persistence_service,
-        &journal_supervisor,
-    ) {
+    if let Err(error) =
+        spawn_event_journal(runtime.clone(), persistence_service, &journal_supervisor)
+    {
         eprintln!("Lenvu activity journal observer unavailable: {error}");
     }
 

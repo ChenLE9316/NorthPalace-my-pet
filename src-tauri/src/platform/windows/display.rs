@@ -39,7 +39,9 @@ pub fn read_display_context(window: &tauri::WebviewWindow) -> Result<DisplayCont
         .available_monitors()
         .map_err(|error| error.to_string())?
         .len();
-    let monitor = window.current_monitor().map_err(|error| error.to_string())?;
+    let monitor = window
+        .current_monitor()
+        .map_err(|error| error.to_string())?;
     let window_position = window.outer_position().map_err(|error| error.to_string())?;
     let window_size = window.inner_size().map_err(|error| error.to_string())?;
 

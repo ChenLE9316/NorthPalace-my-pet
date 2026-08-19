@@ -1,7 +1,7 @@
 use tauri::{
+    Manager,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
 };
 
 fn show_companion<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
@@ -37,20 +37,8 @@ pub(crate) fn install_tray<R: tauri::Runtime>(app: &mut tauri::App<R>) -> tauri:
         true,
         None::<&str>,
     )?;
-    let toggle_pet = MenuItem::with_id(
-        app,
-        "toggle_pet",
-        "Show / Hide Lenvu",
-        true,
-        None::<&str>,
-    )?;
-    let quit = MenuItem::with_id(
-        app,
-        "quit",
-        "Quit NorthPalace-my-pet",
-        true,
-        None::<&str>,
-    )?;
+    let toggle_pet = MenuItem::with_id(app, "toggle_pet", "Show / Hide Lenvu", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit NorthPalace-my-pet", true, None::<&str>)?;
     let tray_menu = Menu::with_items(app, &[&open_companion, &toggle_pet, &quit])?;
 
     let mut tray = TrayIconBuilder::with_id("lenvu")

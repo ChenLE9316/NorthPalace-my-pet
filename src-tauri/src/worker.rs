@@ -1,5 +1,5 @@
 use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{Arc, Condvar, Mutex},
     thread::{self, JoinHandle},
     time::{Duration, Instant},
@@ -110,6 +110,7 @@ impl PhaseCancellation {
         self.token(phase).cancel();
     }
 
+    #[cfg(test)]
     fn cancel_all(&self) {
         self.producers.cancel();
         self.runtime.cancel();
@@ -261,11 +262,7 @@ impl WorkerSupervisor {
             .collect()
     }
 
-    pub fn shutdown_phase_and_join(
-        &self,
-        phase: WorkerPhase,
-        timeout: Duration,
-    ) -> ShutdownReport {
+    pub fn shutdown_phase_and_join(&self, phase: WorkerPhase, timeout: Duration) -> ShutdownReport {
         self.inner.cancellation.cancel(phase);
         match self.take_pending(Some(phase)) {
             Ok(pending) => join_pending(pending, timeout),
@@ -276,6 +273,7 @@ impl WorkerSupervisor {
         }
     }
 
+    #[cfg(test)]
     pub fn shutdown_and_join(&self, timeout: Duration) -> ShutdownReport {
         self.inner.cancellation.cancel_all();
         match self.take_pending(None) {
@@ -380,8 +378,8 @@ mod tests {
             .expect("spawn worker");
 
         thread::sleep(Duration::from_millis(20));
-        let report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
+        let report =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
         let (cancelled, elapsed) = rx
             .recv_timeout(Duration::from_secs(1))
             .expect("wait result");
@@ -418,8 +416,8 @@ mod tests {
             })
             .expect("spawn slow worker");
 
-        let report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_millis(10));
+        let report =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_millis(10));
         assert_eq!(report.detached, vec!["slow".to_owned()]);
 
         thread::sleep(Duration::from_millis(100));
@@ -469,8 +467,8 @@ mod tests {
         started.sort_unstable();
         assert_eq!(started, vec!["journal", "producer"]);
 
-        let producer_report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
+        let producer_report =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Producers, Duration::from_secs(1));
         assert_eq!(producer_report.joined, vec!["producer".to_owned()]);
         assert!(producer_report.detached.is_empty());
 
@@ -482,8 +480,8 @@ mod tests {
         assert_eq!(journal.phase, WorkerPhase::Journal);
         assert_eq!(journal.health, WorkerHealth::Running);
 
-        let journal_report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Journal, Duration::from_secs(1));
+        let journal_report =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Journal, Duration::from_secs(1));
         assert_eq!(journal_report.joined, vec!["journal".to_owned()]);
         assert!(journal_report.detached.is_empty());
     }

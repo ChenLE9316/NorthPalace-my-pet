@@ -303,18 +303,17 @@ pub fn spawn_pet_motion_controller(
             };
 
             let current_monitor = monitor_geometry(&monitor);
-            let bounds = calculate_bounds(
-                current_monitor.work,
-                window_size.width,
-                window_size.height,
-            );
+            let bounds =
+                calculate_bounds(current_monitor.work, window_size.width, window_size.height);
             let current_x = fractional_x.unwrap_or(window_position.x as f64);
             let speed_physical = speed_logical * scale_factor.max(0.5);
             let delta_seconds = delta_seconds.min(0.25);
             let projected = projected_x(current_x, active_direction, speed_physical, delta_seconds);
 
             if reaches_edge(projected, active_direction, bounds)
-                && allows_monitor_transition(snapshot.behavior.as_ref().map(|behavior| behavior.kind))
+                && allows_monitor_transition(
+                    snapshot.behavior.as_ref().map(|behavior| behavior.kind),
+                )
             {
                 let adjacent = window.available_monitors().ok().and_then(|monitors| {
                     find_adjacent_monitor(
@@ -341,7 +340,9 @@ pub fn spawn_pet_motion_controller(
                             target_x,
                             target_bounds.ground_y,
                         ))
-                        .map_err(|error| format!("failed to move pet to adjacent monitor: {error}"))?;
+                        .map_err(|error| {
+                            format!("failed to move pet to adjacent monitor: {error}")
+                        })?;
 
                     if token.wait_timeout(MOTION_TICK) {
                         break;
@@ -436,8 +437,14 @@ mod tests {
 
     #[test]
     fn initial_direction_respects_domain_facing() {
-        assert_eq!(HorizontalDirection::from_facing(Facing::Left), HorizontalDirection::Left);
-        assert_eq!(HorizontalDirection::from_facing(Facing::Right), HorizontalDirection::Right);
+        assert_eq!(
+            HorizontalDirection::from_facing(Facing::Left),
+            HorizontalDirection::Left
+        );
+        assert_eq!(
+            HorizontalDirection::from_facing(Facing::Right),
+            HorizontalDirection::Right
+        );
     }
 
     #[test]

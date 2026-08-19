@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 pub use crate::domain::memory::MemoryKind;
@@ -51,13 +51,11 @@ pub(crate) fn list_memories(
     limit: u32,
 ) -> Result<Vec<MemoryRecord>, String> {
     let limit = limit.clamp(1, 100);
-    let sql_all =
-        "SELECT id, kind, content, importance, created_at_ms, updated_at_ms, source_event_id\n\
+    let sql_all = "SELECT id, kind, content, importance, created_at_ms, updated_at_ms, source_event_id\n\
          FROM memories\n\
          ORDER BY updated_at_ms DESC, id DESC\n\
          LIMIT ?1";
-    let sql_kind =
-        "SELECT id, kind, content, importance, created_at_ms, updated_at_ms, source_event_id\n\
+    let sql_kind = "SELECT id, kind, content, importance, created_at_ms, updated_at_ms, source_event_id\n\
          FROM memories\n\
          WHERE kind = ?1\n\
          ORDER BY updated_at_ms DESC, id DESC\n\
@@ -72,8 +70,8 @@ pub(crate) fn list_memories(
             .query_map(params![kind.as_str(), limit], read_memory_row)
             .map_err(|error| format!("failed to list memories: {error}"))?;
         for row in rows {
-            if let Some(record) = row
-                .map_err(|error| format!("failed to read memory list row: {error}"))?
+            if let Some(record) =
+                row.map_err(|error| format!("failed to read memory list row: {error}"))?
             {
                 records.push(record);
             }
@@ -86,8 +84,8 @@ pub(crate) fn list_memories(
             .query_map(params![limit], read_memory_row)
             .map_err(|error| format!("failed to list memories: {error}"))?;
         for row in rows {
-            if let Some(record) = row
-                .map_err(|error| format!("failed to read memory list row: {error}"))?
+            if let Some(record) =
+                row.map_err(|error| format!("failed to read memory list row: {error}"))?
             {
                 records.push(record);
             }
@@ -123,8 +121,8 @@ pub(crate) fn search_memories(
         .map_err(|error| format!("failed to search memories: {error}"))?;
     let mut records = Vec::new();
     for row in rows {
-        if let Some(record) = row
-            .map_err(|error| format!("failed to read memory search row: {error}"))?
+        if let Some(record) =
+            row.map_err(|error| format!("failed to read memory search row: {error}"))?
         {
             records.push(record);
         }
@@ -290,15 +288,17 @@ mod tests {
             importance: 0.9,
         };
         update_memory(&connection, id, &updated).expect("update memory");
-        let listed = list_memories(&connection, Some(MemoryKind::Preference), 10)
-            .expect("list memories");
+        let listed =
+            list_memories(&connection, Some(MemoryKind::Preference), 10).expect("list memories");
         assert_eq!(listed[0].importance, 0.9);
         assert!(listed[0].content.contains("Very quiet"));
 
         delete_memory(&connection, id).expect("delete memory");
-        assert!(list_memories(&connection, None, 10)
-            .expect("list after delete")
-            .is_empty());
+        assert!(
+            list_memories(&connection, None, 10)
+                .expect("list after delete")
+                .is_empty()
+        );
     }
 
     #[test]

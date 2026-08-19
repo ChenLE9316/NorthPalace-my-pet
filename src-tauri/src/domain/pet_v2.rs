@@ -2,7 +2,7 @@ use crate::domain::{
     behavior::{BehaviorIntent, BehaviorKind},
     events::DomainEvent,
     personality::{AmbientAction, AmbientContext, PersonalityProfile},
-    pet_state::{Attention, Emotion, Facing, Locomotion, PetMode, PetStateV2, Posture},
+    pet_state::{Attention, Emotion, Locomotion, PetMode, PetStateV2, Posture},
 };
 
 #[derive(Debug)]
@@ -212,12 +212,10 @@ impl PetBrainV2 {
 
         if self.state.posture == Posture::Sleep {
             self.state.energy = (self.state.energy + 0.18 * hours).clamp(0.0, 1.0);
-            self.state.sleep_pressure =
-                (self.state.sleep_pressure - 0.22 * hours).clamp(0.0, 1.0);
+            self.state.sleep_pressure = (self.state.sleep_pressure - 0.22 * hours).clamp(0.0, 1.0);
         } else {
             self.state.energy = (self.state.energy - 0.025 * hours).clamp(0.0, 1.0);
-            self.state.sleep_pressure =
-                (self.state.sleep_pressure + 0.03 * hours).clamp(0.0, 1.0);
+            self.state.sleep_pressure = (self.state.sleep_pressure + 0.03 * hours).clamp(0.0, 1.0);
         }
 
         self.apply_ambient_policy();
@@ -330,10 +328,8 @@ impl PetBrainV2 {
         } else {
             0.0
         };
-        let sleep_score = idle_factor * 0.45
-            + self.state.sleep_pressure * 0.35
-            + low_energy * 0.20
-            + night_bonus;
+        let sleep_score =
+            idle_factor * 0.45 + self.state.sleep_pressure * 0.35 + low_energy * 0.20 + night_bonus;
 
         if self.state.user_idle_ms >= 120_000 && sleep_score >= 0.72 {
             self.state.locomotion = Locomotion::Stationary;
@@ -419,12 +415,15 @@ impl PetBrainV2 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domain::pet_state::Facing;
 
     #[test]
     fn constructor_accepts_persistent_initial_state() {
-        let mut state = PetStateV2::default();
-        state.bond = 0.77;
-        state.facing = Facing::Left;
+        let state = PetStateV2 {
+            bond: 0.77,
+            facing: Facing::Left,
+            ..PetStateV2::default()
+        };
         let brain = PetBrainV2::from_state(state);
         assert_eq!(brain.state().bond, 0.77);
         assert_eq!(brain.state().facing, Facing::Left);

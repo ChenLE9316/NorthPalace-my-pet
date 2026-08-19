@@ -74,7 +74,13 @@ impl BehaviorIntent {
     }
 
     pub fn focus_guard() -> Self {
-        Self::new(BehaviorKind::FocusGuard, 70, 1_400, true, "focus_guard_enter")
+        Self::new(
+            BehaviorKind::FocusGuard,
+            70,
+            1_400,
+            true,
+            "focus_guard_enter",
+        )
     }
 
     pub fn tick(&mut self, delta_ms: u64) {

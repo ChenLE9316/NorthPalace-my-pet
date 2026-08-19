@@ -226,12 +226,14 @@ mod tests {
 
     #[test]
     fn invalid_rect_is_not_exposed_as_context() {
-        assert!(bounds_from_rect(Rect {
-            left: 10,
-            top: 10,
-            right: 10,
-            bottom: 20,
-        })
-        .is_none());
+        assert!(
+            bounds_from_rect(Rect {
+                left: 10,
+                top: 10,
+                right: 10,
+                bottom: 20,
+            })
+            .is_none()
+        );
     }
 }

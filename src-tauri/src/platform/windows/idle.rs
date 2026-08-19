@@ -1,9 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    domain::events::DomainEvent,
-    runtime::RuntimeHandle,
-    screen_context::ScreenContextBroker,
+    domain::events::DomainEvent, runtime::RuntimeHandle, screen_context::ScreenContextBroker,
     worker::WorkerSupervisor,
 };
 

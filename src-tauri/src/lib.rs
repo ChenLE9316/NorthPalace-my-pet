@@ -177,46 +177,39 @@ pub fn run() {
             return;
         };
 
-        let producers = supervisor.shutdown_phase_and_join(
-            WorkerPhase::Producers,
-            WORKER_PHASE_SHUTDOWN_TIMEOUT,
-        );
+        let producers = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Producers, WORKER_PHASE_SHUTDOWN_TIMEOUT);
         report_detached_workers("producers", &producers);
 
-        if let Some(runtime) = app_handle.try_state::<RuntimeHandle>() {
-            if let Err(error) = runtime.close_event_input() {
-                eprintln!("Lenvu runtime input gate could not close cleanly: {error}");
-            }
+        if let Some(runtime) = app_handle.try_state::<RuntimeHandle>()
+            && let Err(error) = runtime.close_event_input()
+        {
+            eprintln!("Lenvu runtime input gate could not close cleanly: {error}");
         }
 
-        let runtime = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Runtime, WORKER_PHASE_SHUTDOWN_TIMEOUT);
+        let runtime =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Runtime, WORKER_PHASE_SHUTDOWN_TIMEOUT);
         report_detached_workers("runtime", &runtime);
 
         let frozen_snapshot = app_handle
             .try_state::<RuntimeHandle>()
             .and_then(|runtime| runtime.snapshot().ok());
 
-        let journal = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Journal, WORKER_PHASE_SHUTDOWN_TIMEOUT);
+        let journal =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Journal, WORKER_PHASE_SHUTDOWN_TIMEOUT);
         report_detached_workers("journal", &journal);
 
         if let (Some(snapshot), Some(persistence)) = (
             frozen_snapshot,
             app_handle.try_state::<PersistenceService>(),
-        ) {
-            if let Err(error) = persistence.save_and_flush(
-                snapshot.state,
-                bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
-            ) {
-                eprintln!("Lenvu final persistence save failed: {error}");
-            }
+        ) && let Err(error) =
+            persistence.save_and_flush(snapshot.state, bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT)
+        {
+            eprintln!("Lenvu final persistence save failed: {error}");
         }
 
-        let persistence = supervisor.shutdown_phase_and_join(
-            WorkerPhase::Persistence,
-            WORKER_PHASE_SHUTDOWN_TIMEOUT,
-        );
+        let persistence = supervisor
+            .shutdown_phase_and_join(WorkerPhase::Persistence, WORKER_PHASE_SHUTDOWN_TIMEOUT);
         report_detached_workers("persistence", &persistence);
     });
 }

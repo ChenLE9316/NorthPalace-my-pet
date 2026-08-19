@@ -140,9 +140,7 @@ pub(crate) async fn activity_get(
 }
 
 #[tauri::command]
-pub(crate) fn privacy_get(
-    privacy: tauri::State<'_, PrivacyPolicyService>,
-) -> PrivacyRulesSnapshot {
+pub(crate) fn privacy_get(privacy: tauri::State<'_, PrivacyPolicyService>) -> PrivacyRulesSnapshot {
     privacy.snapshot()
 }
 
@@ -187,10 +185,10 @@ pub(crate) fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String
             .autolaunch()
             .is_enabled()
             .map_err(|error| format!("failed to read Windows startup registration: {error}"))?;
-        return Ok(StartupStatus {
+        Ok(StartupStatus {
             supported: true,
             enabled,
-        });
+        })
     }
 
     #[cfg(not(target_os = "windows"))]
@@ -204,10 +202,7 @@ pub(crate) fn startup_get(app: tauri::AppHandle) -> Result<StartupStatus, String
 }
 
 #[tauri::command]
-pub(crate) fn startup_set(
-    enabled: bool,
-    app: tauri::AppHandle,
-) -> Result<StartupStatus, String> {
+pub(crate) fn startup_set(enabled: bool, app: tauri::AppHandle) -> Result<StartupStatus, String> {
     #[cfg(target_os = "windows")]
     {
         use tauri_plugin_autostart::ManagerExt;
@@ -226,10 +221,10 @@ pub(crate) fn startup_set(
         let actual = manager
             .is_enabled()
             .map_err(|error| format!("failed to verify Windows startup registration: {error}"))?;
-        return Ok(StartupStatus {
+        Ok(StartupStatus {
             supported: true,
             enabled: actual,
-        });
+        })
     }
 
     #[cfg(not(target_os = "windows"))]

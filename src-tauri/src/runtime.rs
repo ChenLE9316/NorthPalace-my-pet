@@ -1,21 +1,20 @@
 use std::{
-    panic::{catch_unwind, AssertUnwindSafe},
+    panic::{AssertUnwindSafe, catch_unwind},
     sync::{
-        mpsc::{self, Receiver, RecvTimeoutError, Sender},
         Arc, Mutex, RwLock,
+        mpsc::{self, Receiver, RecvTimeoutError, Sender},
     },
-    thread,
     time::{Duration, Instant},
 };
+
+#[cfg(test)]
+use std::thread;
 
 use serde::Serialize;
 
 use crate::{
     domain::{
-        behavior::BehaviorIntent,
-        events::DomainEvent,
-        pet_state::PetStateV2,
-        pet_v2::PetBrainV2,
+        behavior::BehaviorIntent, events::DomainEvent, pet_state::PetStateV2, pet_v2::PetBrainV2,
     },
     worker::{CancellationToken, WorkerSupervisor},
 };
@@ -59,14 +58,17 @@ pub struct RuntimeHandle {
 }
 
 impl RuntimeHandle {
+    #[cfg(test)]
     pub fn spawn(tick_interval: Duration) -> Self {
         Self::spawn_with_state(tick_interval, PetStateV2::default())
     }
 
+    #[cfg(test)]
     pub fn spawn_with_state(tick_interval: Duration, initial_state: PetStateV2) -> Self {
         Self::spawn_with_state_and_observer(tick_interval, initial_state, None)
     }
 
+    #[cfg(test)]
     pub fn spawn_with_state_and_observer(
         tick_interval: Duration,
         initial_state: PetStateV2,
@@ -201,8 +203,7 @@ fn run_runtime_loop(
                     brain.handle_event(event);
                     sequence = sequence.saturating_add(1);
                 }
-                let frozen =
-                    PetRuntimeSnapshot::from_brain(RuntimeHealth::Ready, sequence, &brain);
+                let frozen = PetRuntimeSnapshot::from_brain(RuntimeHealth::Ready, sequence, &brain);
                 publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), frozen);
                 return;
             }
@@ -224,11 +225,8 @@ fn run_runtime_loop(
                 }
                 Err(RecvTimeoutError::Timeout) => {}
                 Err(RecvTimeoutError::Disconnected) => {
-                    let degraded = PetRuntimeSnapshot::from_brain(
-                        RuntimeHealth::Degraded,
-                        sequence,
-                        &brain,
-                    );
+                    let degraded =
+                        PetRuntimeSnapshot::from_brain(RuntimeHealth::Degraded, sequence, &brain);
                     publish_snapshot(&snapshot_writer, snapshot_observer.as_ref(), degraded);
                     return;
                 }
@@ -286,9 +284,11 @@ mod tests {
 
     #[test]
     fn runtime_starts_from_supplied_state() {
-        let mut state = PetStateV2::default();
-        state.bond = 0.66;
-        state.facing = Facing::Left;
+        let state = PetStateV2 {
+            bond: 0.66,
+            facing: Facing::Left,
+            ..PetStateV2::default()
+        };
         let runtime = RuntimeHandle::spawn_with_state(Duration::from_secs(60), state);
         let snapshot = runtime.snapshot().expect("runtime snapshot");
         assert_eq!(snapshot.health, RuntimeHealth::Ready);
@@ -359,8 +359,8 @@ mod tests {
         runtime.close_event_input().expect("close runtime input");
         assert!(runtime.dispatch(DomainEvent::PetPetted).is_err());
 
-        let report = supervisor
-            .shutdown_phase_and_join(WorkerPhase::Runtime, Duration::from_secs(1));
+        let report =
+            supervisor.shutdown_phase_and_join(WorkerPhase::Runtime, Duration::from_secs(1));
         assert_eq!(report.joined, vec!["pet-runtime".to_owned()]);
         assert!(report.detached.is_empty());
         assert_eq!(supervisor.snapshot()[0].health, WorkerHealth::Stopped);

@@ -10,8 +10,18 @@ use crate::worker::WorkerSupervisor;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "shape", rename_all = "snake_case")]
 pub enum CursorHitRegion {
-    Ellipse { cx: f64, cy: f64, rx: f64, ry: f64 },
-    Rect { x: f64, y: f64, width: f64, height: f64 },
+    Ellipse {
+        cx: f64,
+        cy: f64,
+        rx: f64,
+        ry: f64,
+    },
+    Rect {
+        x: f64,
+        y: f64,
+        width: f64,
+        height: f64,
+    },
 }
 
 impl CursorHitRegion {
@@ -22,9 +32,12 @@ impl CursorHitRegion {
                 let dy = (y - cy) / ry;
                 dx * dx + dy * dy <= 1.0
             }
-            Self::Rect { x: left, y: top, width, height } => {
-                x >= left && x <= left + width && y >= top && y <= top + height
-            }
+            Self::Rect {
+                x: left,
+                y: top,
+                width,
+                height,
+            } => x >= left && x <= left + width && y >= top && y <= top + height,
         }
     }
 
@@ -40,7 +53,12 @@ impl CursorHitRegion {
                     && rx <= 1.0
                     && ry <= 1.0
             }
-            Self::Rect { x, y, width, height } => {
+            Self::Rect {
+                x,
+                y,
+                width,
+                height,
+            } => {
                 [x, y, width, height].into_iter().all(finite)
                     && (0.0..=1.0).contains(&x)
                     && (0.0..=1.0).contains(&y)

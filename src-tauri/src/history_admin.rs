@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -12,8 +12,7 @@ pub struct ActivityHistoryRecord {
     pub bond_delta: Option<f32>,
 }
 
-const SELECT_ACTIVITY: &str =
-    "SELECT a.id, a.event_type, a.category, a.created_at_ms, r.kind, r.bond_delta\n\
+const SELECT_ACTIVITY: &str = "SELECT a.id, a.event_type, a.category, a.created_at_ms, r.kind, r.bond_delta\n\
      FROM activity_journal a\n\
      LEFT JOIN relationship_events r ON r.journal_id = a.id";
 
@@ -21,9 +20,7 @@ pub(crate) fn list_activity(
     connection: &Connection,
     limit: u32,
 ) -> Result<Vec<ActivityHistoryRecord>, String> {
-    let sql = format!(
-        "{SELECT_ACTIVITY}\nORDER BY a.created_at_ms DESC, a.id DESC\nLIMIT ?1"
-    );
+    let sql = format!("{SELECT_ACTIVITY}\nORDER BY a.created_at_ms DESC, a.id DESC\nLIMIT ?1");
     let mut statement = connection
         .prepare(&sql)
         .map_err(|error| format!("failed to prepare activity history list: {error}"))?;
@@ -85,7 +82,7 @@ mod tests {
                    bond_delta REAL NOT NULL DEFAULT 0.0,\n\
                    created_at_ms INTEGER NOT NULL,\n\
                    FOREIGN KEY(journal_id) REFERENCES activity_journal(id) ON DELETE SET NULL\n\
-                 );"
+                 );",
             )
             .expect("activity schema");
         connection

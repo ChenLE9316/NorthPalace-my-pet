@@ -5,7 +5,10 @@ use serde::{Deserialize, Serialize};
 pub enum Locomotion {
     Stationary,
     Walk,
+    // Reserved for production locomotion/animation families not yet emitted by PetBrainV2.
+    #[allow(dead_code)]
     Run,
+    #[allow(dead_code)]
     Jump,
 }
 
@@ -33,6 +36,8 @@ pub enum Attention {
     User,
     Cursor,
     Window,
+    // Reserved for future object-level structured attention; current producers stop at window/cursor.
+    #[allow(dead_code)]
     Object,
 }
 
@@ -42,7 +47,10 @@ pub enum Emotion {
     Calm,
     Curious,
     Happy,
+    // Reserved for deeper personality/relationship reactions.
+    #[allow(dead_code)]
     Shy,
+    #[allow(dead_code)]
     Concerned,
     Sleepy,
     Focused,
@@ -61,9 +69,14 @@ pub enum PetMode {
 #[serde(rename_all = "snake_case")]
 pub enum CognitionState {
     Idle,
+    // Reserved for the future unloadable cognition layer; AI is intentionally not implemented yet.
+    #[allow(dead_code)]
     Listening,
+    #[allow(dead_code)]
     Thinking,
+    #[allow(dead_code)]
     Speaking,
+    #[allow(dead_code)]
     Remembering,
 }
 

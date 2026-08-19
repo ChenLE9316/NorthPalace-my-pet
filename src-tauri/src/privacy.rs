@@ -101,6 +101,7 @@ impl PrivacyPolicyService {
         state.fail_closed || state.excluded_apps.contains(&normalized)
     }
 
+    #[cfg(test)]
     pub fn is_accessibility_context_allowed(&self, app_id: &str) -> bool {
         let Ok(normalized) = normalize_app_id(app_id) else {
             return false;
@@ -146,7 +147,9 @@ impl PrivacyPolicyService {
             .write()
             .map_err(|_| "privacy-policy lock is poisoned".to_owned())?;
         if state.fail_closed {
-            return Err("privacy rules are unavailable; sensitive context remains blocked".to_owned());
+            return Err(
+                "privacy rules are unavailable; sensitive context remains blocked".to_owned(),
+            );
         }
         let path = state
             .path
@@ -248,7 +251,11 @@ fn replace_file(source: &Path, destination: &Path) -> Result<(), String> {
 
     #[link(name = "kernel32")]
     unsafe extern "system" {
-        fn MoveFileExW(existing_file_name: *const u16, new_file_name: *const u16, flags: u32) -> i32;
+        fn MoveFileExW(
+            existing_file_name: *const u16,
+            new_file_name: *const u16,
+            flags: u32,
+        ) -> i32;
     }
 
     let source_wide = source
@@ -300,7 +307,10 @@ mod tests {
             .unwrap_or_default()
             .as_nanos();
         std::env::temp_dir()
-            .join(format!("northpalace-privacy-{}-{nonce}", std::process::id()))
+            .join(format!(
+                "northpalace-privacy-{}-{nonce}",
+                std::process::id()
+            ))
             .join("privacy-rules.json")
     }
 
@@ -324,7 +334,9 @@ mod tests {
     fn missing_rules_file_installs_with_accessibility_disabled() {
         let path = unique_test_path();
         let privacy = PrivacyPolicyService::default();
-        privacy.install(path.clone()).expect("install privacy rules");
+        privacy
+            .install(path.clone())
+            .expect("install privacy rules");
         let snapshot = privacy.snapshot();
         assert!(!snapshot.fail_closed);
         assert!(!snapshot.accessibility_context_enabled);
@@ -341,8 +353,7 @@ mod tests {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).expect("create temp privacy directory");
         }
-        fs::write(&path, r#"{"excludedApps":["discord"]}"#)
-            .expect("write legacy privacy rules");
+        fs::write(&path, r#"{"excludedApps":["discord"]}"#).expect("write legacy privacy rules");
 
         let privacy = PrivacyPolicyService::default();
         privacy.install(path.clone()).expect("load legacy rules");
@@ -360,7 +371,9 @@ mod tests {
     fn exclusions_and_accessibility_capability_persist_and_reload() {
         let path = unique_test_path();
         let privacy = PrivacyPolicyService::default();
-        privacy.install(path.clone()).expect("install privacy rules");
+        privacy
+            .install(path.clone())
+            .expect("install privacy rules");
         privacy
             .add_excluded_app("KeePassXC.EXE")
             .expect("add exclusion");
@@ -373,7 +386,9 @@ mod tests {
         assert!(!privacy.is_accessibility_context_allowed("KEEPASSXC"));
 
         let reloaded = PrivacyPolicyService::default();
-        reloaded.install(path.clone()).expect("reload privacy rules");
+        reloaded
+            .install(path.clone())
+            .expect("reload privacy rules");
         let reloaded_snapshot = reloaded.snapshot();
         assert!(reloaded_snapshot.accessibility_context_enabled);
         assert!(!reloaded.is_accessibility_context_allowed("keepassxc.exe"));
@@ -393,9 +408,13 @@ mod tests {
     fn replacement_leaves_no_temp_file_after_success() {
         let path = unique_test_path();
         let privacy = PrivacyPolicyService::default();
-        privacy.install(path.clone()).expect("install privacy rules");
+        privacy
+            .install(path.clone())
+            .expect("install privacy rules");
         privacy.add_excluded_app("code").expect("first write");
-        privacy.add_excluded_app("discord").expect("replacement write");
+        privacy
+            .add_excluded_app("discord")
+            .expect("replacement write");
 
         assert!(path.exists());
         assert!(!path.with_extension("json.tmp").exists());

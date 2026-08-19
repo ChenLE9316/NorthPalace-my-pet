@@ -2,13 +2,13 @@ use std::{
     fs,
     path::Path,
     sync::{
-        mpsc::{self, RecvTimeoutError, Sender},
         Arc, RwLock,
+        mpsc::{self, RecvTimeoutError, Sender},
     },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use crate::{
     domain::{
@@ -91,7 +91,9 @@ enum PersistenceCommand {
         hour: u8,
         interaction_delta: u32,
     },
+    #[allow(dead_code)]
     StoreMemory(MemoryDraft),
+    #[allow(dead_code)]
     SearchMemories {
         query: String,
         limit: u32,
@@ -151,13 +153,14 @@ impl PersistentPetState {
     }
 
     fn into_runtime_state(self) -> PetStateV2 {
-        let mut state = PetStateV2::default();
-        state.facing = self.facing;
-        state.energy = self.energy.clamp(0.0, 1.0);
-        state.curiosity = self.curiosity.clamp(0.0, 1.0);
-        state.bond = self.bond.clamp(0.0, 1.0);
-        state.sleep_pressure = self.sleep_pressure.clamp(0.0, 1.0);
-        state
+        PetStateV2 {
+            facing: self.facing,
+            energy: self.energy.clamp(0.0, 1.0),
+            curiosity: self.curiosity.clamp(0.0, 1.0),
+            bond: self.bond.clamp(0.0, 1.0),
+            sleep_pressure: self.sleep_pressure.clamp(0.0, 1.0),
+            ..PetStateV2::default()
+        }
     }
 }
 
@@ -178,8 +181,9 @@ impl PersistenceBootstrap {
             })?;
         }
 
-        let connection = Connection::open(path)
-            .map_err(|error| format!("failed to open SQLite database {}: {error}", path.display()))?;
+        let connection = Connection::open(path).map_err(|error| {
+            format!("failed to open SQLite database {}: {error}", path.display())
+        })?;
         Self::from_connection(connection)
     }
 
@@ -327,12 +331,14 @@ impl PersistenceHandle {
             .map_err(|_| "persistence worker channel is unavailable".to_owned())
     }
 
+    #[allow(dead_code)]
     pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
         self.tx
             .send(PersistenceCommand::StoreMemory(memory))
             .map_err(|_| "persistence worker channel is unavailable".to_owned())
     }
 
+    #[allow(dead_code)]
     pub fn search_memories(
         &self,
         query: impl Into<String>,
@@ -491,6 +497,7 @@ impl PersistenceService {
         handle.save_and_flush(state, timeout)
     }
 
+    #[allow(dead_code)]
     pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
         let Some(handle) = self.handle() else {
             return Ok(());
@@ -498,6 +505,7 @@ impl PersistenceService {
         handle.queue_memory(memory)
     }
 
+    #[allow(dead_code)]
     pub fn search_memories(
         &self,
         query: impl Into<String>,
@@ -654,10 +662,8 @@ pub fn spawn_event_journal(
             let counts_as_interaction = activity.counts_as_interaction;
             persistence.queue_activity(activity)?;
 
-            if counts_as_interaction {
-                if let Some(hour) = current_hour {
-                    persistence.observe_hour(hour, 1)?;
-                }
+            if counts_as_interaction && let Some(hour) = current_hour {
+                persistence.observe_hour(hour, 1)?;
             }
         }
 
@@ -845,10 +851,7 @@ fn load_pet_state(connection: &Connection) -> Result<Option<PersistentPetState>,
         .map_err(|error| format!("failed to load pet state: {error}"))
 }
 
-fn save_pet_state(
-    connection: &mut Connection,
-    state: &PersistentPetState,
-) -> Result<(), String> {
+fn save_pet_state(connection: &mut Connection, state: &PersistentPetState) -> Result<(), String> {
     let facing = match state.facing {
         Facing::Left => "left",
         Facing::Right => "right",
@@ -1044,7 +1047,9 @@ mod tests {
             sleep_pressure: 0.22,
         };
         save_pet_state(&mut connection, &expected).expect("save");
-        let loaded = load_pet_state(&connection).expect("load").expect("saved row");
+        let loaded = load_pet_state(&connection)
+            .expect("load")
+            .expect("saved row");
         assert_eq!(loaded, expected);
 
         let version: i64 = connection
@@ -1083,8 +1088,10 @@ mod tests {
             .into_worker(&supervisor)
             .expect("persistence worker");
 
-        let mut state = PetStateV2::default();
-        state.bond = 0.91;
+        let state = PetStateV2 {
+            bond: 0.91,
+            ..PetStateV2::default()
+        };
         persistence
             .save_and_flush(state, Duration::from_secs(1))
             .expect("final save acknowledgement");
@@ -1103,7 +1110,9 @@ mod tests {
             .into_worker(&supervisor)
             .expect("persistence worker");
         let service = PersistenceService::default();
-        service.install(handle.clone()).expect("install persistence");
+        service
+            .install(handle.clone())
+            .expect("install persistence");
 
         let id = service
             .create_memory_record(
@@ -1139,10 +1148,12 @@ mod tests {
         service
             .delete_memory_record(id, Duration::from_secs(1))
             .expect("delete through worker");
-        assert!(service
-            .list_memory_records(None, 10, Duration::from_secs(1))
-            .expect("list after delete")
-            .is_empty());
+        assert!(
+            service
+                .list_memory_records(None, 10, Duration::from_secs(1))
+                .expect("list after delete")
+                .is_empty()
+        );
 
         let report = supervisor.shutdown_and_join(Duration::from_secs(1));
         assert_eq!(report.joined, vec!["persistence-db".to_owned()]);
@@ -1152,10 +1163,12 @@ mod tests {
     #[test]
     fn journal_ignores_high_frequency_events() {
         assert!(ActivityRecord::from_domain_event(&DomainEvent::CursorEnteredPet).is_none());
-        assert!(ActivityRecord::from_domain_event(&DomainEvent::PetFacingChanged {
-            facing: Facing::Left,
-        })
-        .is_none());
+        assert!(
+            ActivityRecord::from_domain_event(&DomainEvent::PetFacingChanged {
+                facing: Facing::Left,
+            })
+            .is_none()
+        );
         assert!(ActivityRecord::from_domain_event(&DomainEvent::PetPetted).is_some());
     }
 
@@ -1170,7 +1183,9 @@ mod tests {
         record_activity(&mut connection, &activity).expect("record activity");
 
         let relationship_count: i64 = connection
-            .query_row("SELECT COUNT(*) FROM relationship_events", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM relationship_events", [], |row| {
+                row.get(0)
+            })
             .expect("relationship count");
         assert_eq!(relationship_count, 1);
 
