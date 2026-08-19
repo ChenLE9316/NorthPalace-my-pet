@@ -88,8 +88,8 @@ A checked item means the capability exists in the repository; it does not automa
 - [x] Common worker lifecycle/supervision with named health, ordered producer/runtime cancellation, accepted-event drain, frozen final snapshot, journal barrier and bounded join.
 - [x] Replace growth of independent frontend polling loops with bounded shared subscription/event strategy.
 - [x] Commit verified dependency lockfiles and change normal CI to `npm ci` / Cargo `--locked`.
-- [ ] Record a clean Windows validation evidence run for frontend build + Rust fmt/Clippy/tests under committed locks.
-- [ ] Svelte-specific diagnostic gate after TypeScript 7 toolchain compatibility is fixed and locked.
+- [x] Record clean Windows validation evidence for frontend build + Rust fmt/Clippy/tests under committed locks (`docs/VALIDATION_BASELINE.md`).
+- [x] Lock a Svelte-specific TS6 + TypeScript 7 `--tsgo` diagnostic gate with zero warnings (`docs/SVELTE_DIAGNOSTIC_BASELINE.md`).
 
 Generic automatic restart is intentionally not a shared lifecycle primitive. Restart must be worker-specific and prove resource-safe/idempotent before a worker gains a `recovering` state.
 
