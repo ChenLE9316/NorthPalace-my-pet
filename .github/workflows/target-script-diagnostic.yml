@@ -1,0 +1,76 @@
+name: Diagnose Target Baseline Script
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/target-script-diagnostic.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: target-script-diagnostic
+  cancel-in-progress: true
+
+jobs:
+  diagnose:
+    runs-on: windows-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply finish patch in worktree
+        shell: pwsh
+        run: |
+          python scripts/prepare-finish-pre-ai.py
+          python scripts/finish-pre-ai.py
+          python scripts/finish-pre-ai-followup.py
+
+      - name: Parse with Windows PowerShell 5.1
+        id: parse
+        continue-on-error: true
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'scripts/measure-target-baseline.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          $lines = @()
+          foreach ($error in @($errors)) {
+            $lines += ("{0}:{1}:{2}: {3}" -f $error.Extent.StartLineNumber, $error.Extent.StartColumnNumber, $error.ErrorId, $error.Message)
+          }
+          $lines | Set-Content target-parser.log -Encoding utf8
+          if ($errors.Count -gt 0) { exit 1 }
+
+      - name: Record parser diagnostics
+        if: always()
+        shell: pwsh
+        run: |
+          $outcome = "${{ steps.parse.outcome }}"
+          $detail = if (Test-Path target-parser.log) { @(Get-Content target-parser.log) } else { @("parser log unavailable") }
+          git reset --hard HEAD
+          git clean -fd
+          $report = @(
+            "# Target Baseline PowerShell Diagnostics",
+            "",
+            "- Source commit: $env:GITHUB_SHA",
+            "- Windows PowerShell 5.1 parser: $outcome",
+            "",
+            "````text"
+          ) + $detail + @("````")
+          $report | Set-Content docs/TARGET_SCRIPT_DIAGNOSTICS.md -Encoding utf8
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/TARGET_SCRIPT_DIAGNOSTICS.md
+          git commit -m "ci: record target script parser diagnostics"
+          git push origin HEAD:main
