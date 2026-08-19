@@ -12,7 +12,6 @@ export interface BubbleCue {
 
 const healthText: Record<Exclude<RuntimeHealth, 'ready'>, string> = {
   degraded: '我還在，只是有些功能暫時休息。',
-  recovering: '等我一下，我正在恢復。',
   error: '我遇到一點問題，但 Pet Runtime 不會假裝沒事。',
 };
 

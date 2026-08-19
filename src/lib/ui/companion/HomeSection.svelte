@@ -10,7 +10,7 @@
   export let onToggleFocus: () => void;
 </script>
 
-<section class="companion-section home-section" role="tabpanel" aria-label="Home">
+<div id="panel-home" class="companion-section home-section" role="tabpanel" aria-labelledby="tab-home">
   <div class="section-heading section-heading--compact">
     <div>
       <strong>Companion</strong>
@@ -47,4 +47,4 @@
       <p>Pet Runtime、互動、記憶與 Activity 都能在 MiniCPM5-1B 未載入時獨立運作。</p>
     </div>
   </section>
-</section>
+</div>

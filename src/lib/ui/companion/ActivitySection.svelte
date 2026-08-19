@@ -68,7 +68,7 @@
   });
 </script>
 
-<section class="companion-section" role="tabpanel" aria-label="Activity">
+<div id="panel-activity" class="companion-section" role="tabpanel" aria-labelledby="tab-activity">
   <section class="activity-panel">
     <div class="section-heading">
       <div>
@@ -105,4 +105,4 @@
       {/each}
     </div>
   </section>
-</section>
+</div>

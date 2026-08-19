@@ -56,7 +56,7 @@
   });
 </script>
 
-<section class="companion-section" role="tabpanel" aria-label="Settings">
+<div id="panel-settings" class="companion-section" role="tabpanel" aria-labelledby="tab-settings">
   <section class="settings-panel">
     <div class="section-heading">
       <div>
@@ -101,4 +101,4 @@
 
     <PrivacySettings />
   </section>
-</section>
+</div>

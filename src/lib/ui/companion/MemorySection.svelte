@@ -153,7 +153,7 @@
   });
 </script>
 
-<section class="companion-section" role="tabpanel" aria-label="Memory">
+<div id="panel-memory" class="companion-section" role="tabpanel" aria-labelledby="tab-memory">
   <section class="memory-panel">
     <div class="section-heading">
       <div>
@@ -233,4 +233,4 @@
       {/each}
     </div>
   </section>
-</section>
+</div>

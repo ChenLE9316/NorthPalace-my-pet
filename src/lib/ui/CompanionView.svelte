@@ -117,32 +117,40 @@
       <article><span>Sleep</span><b>{percent(snapshot.state.sleepPressure)}</b></article>
     </section>
 
-    <nav class="companion-tabs" role="tablist" aria-label="Companion 功能">
+    <div class="companion-tabs" role="tablist" aria-label="Companion 功能">
       <button
+        id="tab-home"
         role="tab"
+        aria-controls="panel-home"
         aria-selected={activeSection === 'home'}
         class:active={activeSection === 'home'}
         onclick={() => openSection('home')}
       >Home</button>
       <button
+        id="tab-memory"
         role="tab"
+        aria-controls="panel-memory"
         aria-selected={activeSection === 'memory'}
         class:active={activeSection === 'memory'}
         onclick={() => openSection('memory')}
       >Memory</button>
       <button
+        id="tab-activity"
         role="tab"
+        aria-controls="panel-activity"
         aria-selected={activeSection === 'activity'}
         class:active={activeSection === 'activity'}
         onclick={() => openSection('activity')}
       >Activity</button>
       <button
+        id="tab-settings"
         role="tab"
+        aria-controls="panel-settings"
         aria-selected={activeSection === 'settings'}
         class:active={activeSection === 'settings'}
         onclick={() => openSection('settings')}
       >Settings</button>
-    </nav>
+    </div>
 
     {#if activeSection === 'home'}
       <HomeSection
