@@ -1,0 +1,440 @@
+name: Fix Rust Quality Gate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/fix-rust-quality.yml
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fix-rust-quality-gate
+  cancel-in-progress: true
+
+jobs:
+  fix-and-validate:
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Install stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+          rustup default stable
+
+      - name: Apply reviewed Clippy rewrites
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          def read(path):
+              return Path(path).read_text(encoding="utf-8")
+
+          def write(path, text):
+              with Path(path).open("w", encoding="utf-8", newline="\n") as handle:
+                  handle.write(text)
+
+          def replace_once(path, old, new):
+              text = read(path)
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one exact match, found {count}\n--- old ---\n{old}")
+              write(path, text.replace(old, new, 1))
+
+          def replace_count(path, old, new, expected):
+              text = read(path)
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(f"{path}: expected {expected} matches, found {count}\n--- old ---\n{old}")
+              write(path, text.replace(old, new))
+
+          replace_once(
+              "src-tauri/src/bootstrap.rs",
+              '''    if let Some(data_dir) = &local_data_dir {
+                  if let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json")) {
+                      eprintln!(
+                          "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
+                      );
+                  }
+              }
+          ''',
+              '''    if let Some(data_dir) = &local_data_dir
+                  && let Err(error) = privacy_policy_service.install(data_dir.join("privacy-rules.json"))
+              {
+                  eprintln!(
+                      "Lenvu privacy rules unavailable; active-window identity remains blocked: {error}"
+                  );
+              }
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/bootstrap.rs",
+              '''                if !persistence.had_saved_state() {
+                              if let Err(error) = persistence.queue_save(initial_state) {
+                                  eprintln!("Lenvu initial persistence save failed: {error}");
+                              }
+                          }
+          ''',
+              '''                if !persistence.had_saved_state()
+                              && let Err(error) = persistence.queue_save(initial_state)
+                          {
+                              eprintln!("Lenvu initial persistence save failed: {error}");
+                          }
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/commands.rs",
+              '''        return Ok(StartupStatus {
+                      supported: true,
+                      enabled,
+                  });
+          ''',
+              '''        Ok(StartupStatus {
+                      supported: true,
+                      enabled,
+                  })
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/commands.rs",
+              '''        return Ok(StartupStatus {
+                      supported: true,
+                      enabled: actual,
+                  });
+          ''',
+              '''        Ok(StartupStatus {
+                      supported: true,
+                      enabled: actual,
+                  })
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/domain/pet_state.rs",
+              '''    Window,
+              Object,
+          ''',
+              '''    Window,
+              // Reserved for future object-level structured attention; current producers stop at window/cursor.
+              #[allow(dead_code)]
+              Object,
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/persistence.rs",
+              '''    StoreMemory(MemoryDraft),
+              SearchMemories {
+          ''',
+              '''    #[allow(dead_code)]
+              StoreMemory(MemoryDraft),
+              #[allow(dead_code)]
+              SearchMemories {
+          ''',
+          )
+
+          replace_count(
+              "src-tauri/src/persistence.rs",
+              '''    pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
+          ''',
+              '''    #[allow(dead_code)]
+              pub fn queue_memory(&self, memory: MemoryDraft) -> Result<(), String> {
+          ''',
+              2,
+          )
+
+          replace_count(
+              "src-tauri/src/persistence.rs",
+              '''    pub fn search_memories(
+          ''',
+              '''    #[allow(dead_code)]
+              pub fn search_memories(
+          ''',
+              2,
+          )
+
+          replace_once(
+              "src-tauri/src/privacy.rs",
+              '''    pub fn is_accessibility_context_allowed(&self, app_id: &str) -> bool {
+          ''',
+              '''    #[cfg(test)]
+              pub fn is_accessibility_context_allowed(&self, app_id: &str) -> bool {
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/runtime.rs",
+              '''    },
+              thread,
+              time::{Duration, Instant},
+          };
+          ''',
+              '''    },
+              time::{Duration, Instant},
+          };
+
+          #[cfg(test)]
+          use std::thread;
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/runtime.rs",
+              '''    pub fn spawn(tick_interval: Duration) -> Self {
+          ''',
+              '''    #[cfg(test)]
+              pub fn spawn(tick_interval: Duration) -> Self {
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/runtime.rs",
+              '''    pub fn spawn_with_state(tick_interval: Duration, initial_state: PetStateV2) -> Self {
+          ''',
+              '''    #[cfg(test)]
+              pub fn spawn_with_state(tick_interval: Duration, initial_state: PetStateV2) -> Self {
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/runtime.rs",
+              '''    pub fn spawn_with_state_and_observer(
+          ''',
+              '''    #[cfg(test)]
+              pub fn spawn_with_state_and_observer(
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/worker.rs",
+              '''    fn cancel_all(&self) {
+          ''',
+              '''    #[cfg(test)]
+              fn cancel_all(&self) {
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/worker.rs",
+              '''    pub fn shutdown_and_join(&self, timeout: Duration) -> ShutdownReport {
+          ''',
+              '''    #[cfg(test)]
+              pub fn shutdown_and_join(&self, timeout: Duration) -> ShutdownReport {
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/persistence.rs",
+              '''    fn into_runtime_state(self) -> PetStateV2 {
+                  let mut state = PetStateV2::default();
+                  state.facing = self.facing;
+                  state.energy = self.energy.clamp(0.0, 1.0);
+                  state.curiosity = self.curiosity.clamp(0.0, 1.0);
+                  state.bond = self.bond.clamp(0.0, 1.0);
+                  state.sleep_pressure = self.sleep_pressure.clamp(0.0, 1.0);
+                  state
+              }
+          ''',
+              '''    fn into_runtime_state(self) -> PetStateV2 {
+                  PetStateV2 {
+                      facing: self.facing,
+                      energy: self.energy.clamp(0.0, 1.0),
+                      curiosity: self.curiosity.clamp(0.0, 1.0),
+                      bond: self.bond.clamp(0.0, 1.0),
+                      sleep_pressure: self.sleep_pressure.clamp(0.0, 1.0),
+                      ..PetStateV2::default()
+                  }
+              }
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/persistence.rs",
+              '''            if counts_as_interaction {
+                          if let Some(hour) = current_hour {
+                              persistence.observe_hour(hour, 1)?;
+                          }
+                      }
+          ''',
+              '''            if counts_as_interaction
+                          && let Some(hour) = current_hour
+                      {
+                          persistence.observe_hour(hour, 1)?;
+                      }
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/persistence.rs",
+              '''        let mut state = PetStateV2::default();
+                  state.bond = 0.91;
+          ''',
+              '''        let state = PetStateV2 {
+                      bond: 0.91,
+                      ..PetStateV2::default()
+                  };
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/domain/pet_v2.rs",
+              '''        let mut state = PetStateV2::default();
+                  state.bond = 0.77;
+                  state.facing = Facing::Left;
+          ''',
+              '''        let state = PetStateV2 {
+                      bond: 0.77,
+                      facing: Facing::Left,
+                      ..PetStateV2::default()
+                  };
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/runtime.rs",
+              '''        let mut state = PetStateV2::default();
+                  state.bond = 0.66;
+                  state.facing = Facing::Left;
+          ''',
+              '''        let state = PetStateV2 {
+                      bond: 0.66,
+                      facing: Facing::Left,
+                      ..PetStateV2::default()
+                  };
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/lib.rs",
+              '''        if let Some(runtime) = app_handle.try_state::<RuntimeHandle>() {
+                      if let Err(error) = runtime.close_event_input() {
+                          eprintln!("Lenvu runtime input gate could not close cleanly: {error}");
+                      }
+                  }
+          ''',
+              '''        if let Some(runtime) = app_handle.try_state::<RuntimeHandle>()
+                      && let Err(error) = runtime.close_event_input()
+                  {
+                      eprintln!("Lenvu runtime input gate could not close cleanly: {error}");
+                  }
+          ''',
+          )
+
+          replace_once(
+              "src-tauri/src/lib.rs",
+              '''        if let (Some(snapshot), Some(persistence)) = (
+                      frozen_snapshot,
+                      app_handle.try_state::<PersistenceService>(),
+                  ) {
+                      if let Err(error) = persistence.save_and_flush(
+                          snapshot.state,
+                          bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+                      ) {
+                          eprintln!("Lenvu final persistence save failed: {error}");
+                      }
+                  }
+          ''',
+              '''        if let (Some(snapshot), Some(persistence)) = (
+                      frozen_snapshot,
+                      app_handle.try_state::<PersistenceService>(),
+                  ) && let Err(error) = persistence.save_and_flush(
+                      snapshot.state,
+                      bootstrap::PERSISTENCE_FINAL_SAVE_TIMEOUT,
+                  ) {
+                      eprintln!("Lenvu final persistence save failed: {error}");
+                  }
+          ''',
+          )
+          '@ | Set-Content -Path fix_rust_quality.py -Encoding utf8
+          python fix_rust_quality.py
+          Remove-Item fix_rust_quality.py
+
+      - name: Format Rust
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all
+
+      - name: Reject tracked local/private runtime data
+        run: npm run validate:repo
+
+      - name: Install locked frontend dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Svelte and PixiJS frontend
+        run: npm run build
+
+      - name: Verify Cargo lockfile
+        run: cargo metadata --locked --manifest-path src-tauri/Cargo.toml --format-version 1 > NUL
+
+      - name: Verify Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check
+
+      - name: Verify Clippy
+        run: cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+
+      - name: Test Rust
+        run: cargo test --locked --manifest-path src-tauri/Cargo.toml
+
+      - name: Record clean validation evidence
+        shell: pwsh
+        run: |
+          $timestamp = (Get-Date).ToUniversalTime().ToString("o")
+          $node = (node --version | Out-String).Trim()
+          $npm = (npm --version | Out-String).Trim()
+          $rustc = (rustc --version | Out-String).Trim()
+          $cargo = (cargo --version | Out-String).Trim()
+          $report = @"
+          # Windows Validation Baseline
+
+          Machine-generated on a clean GitHub-hosted windows-latest runner after the Rust quality-gate repair.
+
+          - Source commit: $env:GITHUB_SHA
+          - Recorded at (UTC): $timestamp
+          - Node.js: $node
+          - npm: $npm
+          - rustc: $rustc
+          - cargo: $cargo
+
+          | Check | Outcome |
+          |---|---|
+          | tracked local/private data guard | success |
+          | npm ci from committed package-lock.json | success |
+          | Svelte / PixiJS production build | success |
+          | cargo metadata --locked | success |
+          | cargo fmt --check | success |
+          | cargo clippy --locked --all-targets -- -D warnings | success |
+          | cargo test --locked | success |
+
+          This is source-validation evidence only. NSIS execution/bundle verification and Ryzen 3 2200G target-machine performance remain separate acceptance gates.
+          "@
+          Set-Content -Path docs/VALIDATION_BASELINE.md -Value $report -Encoding utf8
+          if (Test-Path docs/CI_DIAGNOSTICS.md) {
+            git rm docs/CI_DIAGNOSTICS.md
+          }
+
+      - name: Commit validated Rust quality repair
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src-tauri docs/VALIDATION_BASELINE.md
+          git commit -m "fix: close Rust Windows quality gate"
+          git push origin HEAD:main
