@@ -1,8 +1,8 @@
 # Target Baseline PowerShell Diagnostics
 
-- Source commit: 74dcc6394c5bb3909e1f5ea9e2247762efc47622
-- Windows PowerShell 5.1 parser: failure
+- Source commit: 3c11aecaf030cd5dc332ba73a423b62e73c42352
+- Windows PowerShell 5.1 parser: success
 
 ``text
-parser log unavailable
+no parser errors
 ``
