@@ -10,6 +10,9 @@ on:
       - scripts/finish-pre-ai.py
       - scripts/finish-pre-ai-followup.py
       - scripts/finish-pre-ai-finalize.py
+      - scripts/finish-pre-ai-hardening.py
+      - scripts/finish-pre-ai-gate-fix.py
+      - scripts/finish-pre-ai-ci-fix.py
 
 permissions:
   contents: write
@@ -78,15 +81,15 @@ jobs:
         continue-on-error: true
         shell: powershell
         run: |
-          $tokens = $null
-          $errors = $null
+          $parseTokens = $null
+          $parseErrors = $null
           [System.Management.Automation.Language.Parser]::ParseFile(
             (Resolve-Path 'scripts/measure-target-baseline.ps1'),
-            [ref]$tokens,
-            [ref]$errors
+            [ref]$parseTokens,
+            [ref]$parseErrors
           ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_.Message }
+          if (@($parseErrors).Count -gt 0) {
+            $parseErrors | ForEach-Object { Write-Error $_.Message }
             exit 1
           }
 
