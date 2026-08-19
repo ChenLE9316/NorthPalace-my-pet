@@ -36,6 +36,7 @@ Implemented today:
 - ordered producer → runtime → journal → persistence shutdown, including accepted-event drain, frozen final Pet State and acknowledged final flush;
 - committed clean-runner npm/Cargo lockfiles with locked normal CI and bundle dependency resolution;
 - clean Windows source validation for zero-warning Svelte TS6 + TS7 `--tsgo`, frontend build, Rust fmt/Clippy/tests and tracked-data guard;
+- clean GitHub-hosted Windows Tauri release + NSIS build with an 8-second executable smoke launch and recorded artifact hashes;
 - Memory Browser/editor, Activity and Privacy/Settings surfaces;
 - source-measured Lenvu visual ground-truth / canonical landmark pipeline.
 
@@ -169,7 +170,7 @@ If persistence cannot initialize, Lenvu continues session-only instead of failin
 2. **Direct interaction** — hover, touch, pet, play and drag are reflex-layer actions with no AI call.
 3. **Context bubble** — short, low-noise state/reaction cues.
 4. **Companion** — Home, Memory, Activity and Settings.
-5. **Deep management / debug** — model, privacy, performance and developer diagnostics should remain outside the ambient experience.
+5. **Deep management / debug** — model, privacy, performance and developer diagnostics should remain outside the ambient pet experience.
 
 Opening the Companion is intentionally separated from petting: the small `☾` handle and system tray open the panel; double-clicking Lenvu is not used as a second hidden command path.
 
@@ -179,15 +180,13 @@ Worker health is exposed through the backend `worker_status_get` command for fut
 
 `package-lock.json` and `src-tauri/Cargo.lock` are committed from clean Windows runners. Normal Windows CI uses `npm ci`, runs zero-warning Svelte diagnostics against TypeScript 6 and the TypeScript 7 `--tsgo` alias, builds the Svelte/PixiJS frontend, verifies Cargo metadata under `--locked`, checks Rust formatting, runs Clippy with `-D warnings`, and runs Rust tests with locked dependencies.
 
-`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate and `docs/VALIDATION_BASELINE.md` records the clean frontend/Rust gate. The manual Windows Bundle workflow consumes the same committed dependency graphs rather than generating independent candidates.
+`docs/SVELTE_DIAGNOSTIC_BASELINE.md` records the clean dual-Svelte gate, `docs/VALIDATION_BASELINE.md` records the clean frontend/Rust gate, and `docs/WINDOWS_BUNDLE_BASELINE.md` records a clean GitHub-hosted Windows Tauri release + NSIS build, artifact discovery and an 8-second release-executable smoke launch. The manual Windows Bundle workflow consumes the same committed dependency graphs rather than generating independent candidates.
 
-Source-level validation and dependency-resolution reproducibility are therefore closed. They do not replace the still-required successful clean executable/NSIS bundle run, production CSP verification, or RAM/CPU/GPU measurement on the actual Ryzen 3 2200G target machine.
+Dependency resolution, source-level validation and clean hosted-Windows release/NSIS buildability are therefore closed. Remaining Windows acceptance is product-level: production CSP/UI behavior verification, an observed run of the permanent manual bundle workflow, and RAM/CPU/GPU plus long-run behavior on the actual Ryzen 3 2200G + Vega 8 target machine.
 
 ## Next engineering sequence
 
 ```text
-clean Windows NSIS bundle
-  ↓
 canonical Lenvu production master
   ↓
 Idle / Walk / Sit / Sleep production assets
